@@ -338,29 +338,56 @@ class jugador:
 
 
 class enemigo:
-    def __init__(self, x, y, velocidad):
-        self.rect = pygame.Rect(x, y, 35, 35)
+    def __init__(self, x, y, velocidad, tipo=None):
+        # tipos con vida distinta (no se muestra en pantalla)
+        tipos_def = {
+            "veloz": {
+                "vida": 2,
+                "color": (255, 255, 0),    # amarillo brillante
+                "tam": 25                  # pequeño y rápido
+            },
+            "acechador": {
+                "vida": 3,
+                "color": (0, 255, 255),    # celeste
+                "tam": 35                  # mediano
+            },
+            "bruto": {
+                "vida": 5,
+                "color": (255, 80, 80),    # rojo oscuro
+                "tam": 50                  # grande y lento
+            },
+        }
+        if tipo is None:
+            tipo = random.choice(list(tipos_def.keys()))
+        self.tipo = tipo
+        self.vida_max = tipos_def[tipo]["vida"]
+        self.vida = self.vida_max
+        self.color_base = tipos_def[tipo]["color"]
+        tam = tipos_def[tipo]["tam"]
+
+        # rect y movimiento
+        self.rect = pygame.Rect(x, y, tam, tam)
         self.velocidad = velocidad
-        self.direccion = random.choice(["horizontal", "vertical"])
-        self.sentido = 1
-        self.tiempo_cambio = 0  # reservado para cambios futuros
-        
-        # Sistema de detección y persecución
+        if tipo == "veloz":
+            self.velocidad += 2
+        elif tipo == "bruto":
+            self.velocidad = max(1, velocidad - 1)
+
+        # percepción
         self.rango_deteccion = 250
         self.estado = "patrullando"   # "patrullando" | "persiguiendo"
         self.velocidad_persecucion = velocidad + 1
         self.tiempo_perdida = 0
 
     def distancia_a(self, rect_jugador):
-        """Calcula la distancia al jugador"""
         dx = rect_jugador.centerx - self.rect.centerx
         dy = rect_jugador.centery - self.rect.centery
         return math.sqrt(dx * dx + dy * dy)
 
     def mover(self, muros, ancho_mapa, alto_mapa, rect_jugador=None):
         x_anterior, y_anterior = self.rect.x, self.rect.y
-        
-        # Verificar si detecta al jugador
+
+        # detección
         if rect_jugador:
             distancia = self.distancia_a(rect_jugador)
             if distancia <= self.rango_deteccion:
@@ -368,10 +395,10 @@ class enemigo:
                 self.tiempo_perdida = 0
             elif self.estado == "persiguiendo":
                 self.tiempo_perdida += 1
-                if self.tiempo_perdida > 120:  # ~2 s a 60 FPS
+                if self.tiempo_perdida > 120:
                     self.estado = "patrullando"
-        
-        # Comportamiento
+
+        # comportamiento
         if self.estado == "persiguiendo" and rect_jugador:
             dx = rect_jugador.centerx - self.rect.centerx
             dy = rect_jugador.centery - self.rect.centery
@@ -389,8 +416,8 @@ class enemigo:
                 self.rect.y += self.velocidad * self.sentido
                 if self.rect.top <= 20 or self.rect.bottom >= alto_mapa - 20:
                     self.sentido *= -1
-        
-        # Colisión con muros
+
+        # colisión con muros
         for muro in muros:
             if self.rect.colliderect(muro.rect):
                 self.rect.x, self.rect.y = x_anterior, y_anterior
@@ -407,24 +434,25 @@ class enemigo:
 
     def dibujar(self, ventana, camara):
         rect_pantalla = camara.aplicar(self.rect)
+
+        # color según estado (sin barra de vida)
         if self.estado == "persiguiendo":
-            color_cuerpo = (255, 50, 50)
+            color_cuerpo = (min(self.color_base[0]+30,255), self.color_base[1], self.color_base[2])
             color_ojos = (255, 255, 0)
         else:
-            color_cuerpo = rojo
+            color_cuerpo = self.color_base
             color_ojos = (200, 200, 100)
-        
+
         pygame.draw.rect(ventana, color_cuerpo, rect_pantalla)
         pos_ojo1 = camara.aplicar_pos(self.rect.x + 10, self.rect.y + 10)
         pos_ojo2 = camara.aplicar_pos(self.rect.x + 25, self.rect.y + 10)
         pygame.draw.circle(ventana, color_ojos, pos_ojo1, 4)
         pygame.draw.circle(ventana, color_ojos, pos_ojo2, 4)
-        
+
         if self.estado == "persiguiendo":
             pos_alerta = camara.aplicar_pos(self.rect.centerx, self.rect.y - 15)
-            pygame.draw.circle(ventana, amarillo, pos_alerta, 8)
-            pygame.draw.circle(ventana, rojo, pos_alerta, 6)
-
+            pygame.draw.circle(ventana, (255,255,0), pos_alerta, 8)
+            pygame.draw.circle(ventana, (255,0,0), pos_alerta, 6)
 
 class juego:
     def __init__(self):
@@ -470,9 +498,23 @@ class juego:
         
         # Crear enemigos
         self.enemigos = []
-        for spawn_x, spawn_y in self.nivel_actual.spawn_enemigos:
+        spawns = list(self.nivel_actual.spawn_enemigos)
+
+        # forzar al menos 1 de cada tipo (si hay >=3 spawns)
+        tipos_base = ["veloz", "acechador", "bruto"]
+        random.shuffle(spawns)
+        for t in tipos_base:
+            if spawns:
+                sx, sy = spawns.pop()
+                vel = random.randint(2, 4)
+                self.enemigos.append(enemigo(sx, sy, vel, tipo=t))
+
+        # el resto, aleatorios con pesos
+        for sx, sy in spawns:
             vel = random.randint(2, 4)
-            self.enemigos.append(enemigo(spawn_x, spawn_y, vel))
+            tipo = random.choices(["veloz","acechador","bruto"], weights=[0.45,0.35,0.20], k=1)[0]
+            self.enemigos.append(enemigo(sx, sy, vel, tipo=tipo))
+
         
         # Resetear posición del jugador
         self.jugador.resetear_posicion()
