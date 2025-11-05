@@ -373,11 +373,17 @@ class enemigo:
         elif tipo == "bruto":
             self.velocidad = max(1, velocidad - 1)
 
+        # dirección inicial y sentido para patrulla (FALTABAN)
+        self.direccion = random.choice(["horizontal", "vertical"])
+        self.sentido = 1
+
         # percepción
         self.rango_deteccion = 250
         self.estado = "patrullando"   # "patrullando" | "persiguiendo"
-        self.velocidad_persecucion = velocidad + 1
+        # usar la velocidad final ya ajustada por tipo
+        self.velocidad_persecucion = self.velocidad + 1
         self.tiempo_perdida = 0
+
 
     def distancia_a(self, rect_jugador):
         dx = rect_jugador.centerx - self.rect.centerx
@@ -463,9 +469,10 @@ class juego:
         self.enemigos = []
         self.resultado = ""
         self.camara = None
+        self.opcion_pausa = 0
+        self.rects_pausa = []  
 
     # Pantallas
-
     def menu(self):
         ventana.fill(negro)
         self.dibujar_texto("Fear of Ways", 60, blanco, ancho//2, 120)
@@ -586,6 +593,7 @@ class juego:
         else:
             rect.topleft = (x, y)
         ventana.blit(superficie, rect)
+        return rect  # Devolver el rectángulo del texto para detección de clics
 
     def dibujar_linterna(self):
         sombra = pygame.Surface((ancho, alto), pygame.SRCALPHA)
@@ -625,8 +633,22 @@ class juego:
         sombra.blit(luz, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
         ventana.blit(sombra, (0, 0))
 
-    # LOOP PRINCIPAL
+    def pantalla_pausa(self):
+        ventana.fill((10, 10, 20))
 
+        self.dibujar_texto("pausa", 64, (0, 200, 255), ancho//2, alto//2 - 140)
+        opciones = ["reanudar", "salir al menú"]
+        self.opciones_rects = []  # Guardar rectángulos de las opciones para detección de clics
+
+        for i, texto in enumerate(opciones):
+            y = alto//2 - 20 + i*60
+            color = blanco  # Eliminar el efecto amarillo
+            rect = self.dibujar_texto(texto, 40, color, ancho//2 - 100, y, centrado=False)
+            self.opciones_rects.append(rect)  # Guardar el rectángulo de la opción
+
+
+
+    # LOOP PRINCIPAL
     def ejecutar(self):
         while True:
             for e in pygame.event.get():
@@ -634,6 +656,7 @@ class juego:
                     pygame.quit()
                     sys.exit()
 
+                # menú principal
                 if self.estado == "menu":
                     if e.type == pygame.KEYDOWN:
                         if e.key == pygame.K_ESCAPE:
@@ -646,22 +669,52 @@ class juego:
                         if e.key == pygame.K_3:
                             self.iniciar_juego(3)
 
+                # pausa
+                elif self.estado == "pausa":
+                    if e.type == pygame.KEYDOWN:
+                        if e.key == pygame.K_ESCAPE:
+                            self.estado = "jugando"  # volver al juego
+                        elif e.key in (pygame.K_UP, pygame.K_w):
+                            self.opcion_pausa = (self.opcion_pausa - 1) % 2
+                        elif e.key in (pygame.K_DOWN, pygame.K_s):
+                            self.opcion_pausa = (self.opcion_pausa + 1) % 2
+                        elif e.key in (pygame.K_RETURN, pygame.K_SPACE):
+                            if self.opcion_pausa == 0:
+                                self.estado = "jugando"  # reanudar
+                            else:
+                                self.estado = "menu"  # salir al menú
+                    elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:  # Clic izquierdo
+                        for i, rect in enumerate(self.opciones_rects):
+                            if rect.collidepoint(e.pos):
+                                if i == 0:
+                                    self.estado = "jugando"  # reanudar
+                                elif i == 1:
+                                    self.estado = "menu"  # salir al menú
+
+                # jugando
+                elif self.estado == "jugando":
+                    if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                        self.estado = "pausa"
+                        self.opcion_pausa = 0
+
+                # pantalla final
                 elif self.estado == "fin":
                     if e.type == pygame.KEYDOWN and e.key == pygame.K_RETURN:
                         self.estado = "menu"
 
+            # render según el estado
             if self.estado == "menu":
                 self.menu()
             elif self.estado == "jugando":
                 self.jugar()
+            elif self.estado == "pausa":
+                self.pantalla_pausa()
             elif self.estado == "fin":
                 self.pantalla_final()
 
             pygame.display.flip()
             reloj.tick(60)
-
-# Ejecución
+            
 if __name__ == "__main__":
     juego = juego()
     juego.ejecutar()
-
