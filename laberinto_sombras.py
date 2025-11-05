@@ -3,8 +3,9 @@ import sys
 
 # Inicialización
 pygame.init()
-ANCHO, ALTO = 800, 600
-ventana = pygame.display.set_mode((ANCHO, ALTO))
+info = pygame.display.Info()
+ANCHO, ALTO = info.current_w, info.current_h  # capta direcamente la resolucion del monitor para pantalla completa
+ventana = pygame.display.set_mode((ANCHO, ALTO), pygame.FULLSCREEN)
 pygame.display.set_caption("El Laberinto de las Sombras")
 
 # Colores
