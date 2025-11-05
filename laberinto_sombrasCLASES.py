@@ -2,12 +2,22 @@ import pygame
 import sys
 import random
 import math
+import os
+from datetime import datetime
 
 # Inicialización
 pygame.init()
 info = pygame.display.Info()
 ANCHO, ALTO = info.current_w, info.current_h # capta direcamente la resolucion del monitor para pantalla completa
 ventana = pygame.display.set_mode((ANCHO, ALTO), pygame.FULLSCREEN)
+# Inicializar mixer de sonido si es posible
+try:
+    pygame.mixer.init()
+except Exception:
+    # si falla el mezclador, seguimos sin sonido
+    pass
+ANCHO, ALTO = 800, 600
+ventana = pygame.display.set_mode((ANCHO, ALTO))
 pygame.display.set_caption("El Laberinto de las Sombras")
 
 # Colores
@@ -32,18 +42,60 @@ class Player:
         self.vida = vida
         self.max_vida = vida
         self.vision = vision
+        self.energia = energia
+        self.max_energia = energia
+        self.vision = vision  # radio de linterna
         self.rect = pygame.Rect(380, 280, 40, 40)
+        self._last_pos = self.rect.topleft
 
     def mover(self, teclas):
+        moved = False
         if teclas[pygame.K_a] or teclas[pygame.K_LEFT]:
             self.rect.x -= self.velocidad
+            moved = True
         if teclas[pygame.K_d] or teclas[pygame.K_RIGHT]:
             self.rect.x += self.velocidad
+            moved = True
         if teclas[pygame.K_w] or teclas[pygame.K_UP]:
             self.rect.y -= self.velocidad
+            moved = True
         if teclas[pygame.K_s] or teclas[pygame.K_DOWN]:
             self.rect.y += self.velocidad
+            moved = True
+
+        # Mantener dentro de pantalla
         self.rect.clamp_ip(pygame.Rect(0, 0, ANCHO, ALTO))
+
+        # actualizar última posición para detectar si está quieto
+        now_pos = self.rect.topleft
+        still = (now_pos == self._last_pos)
+        self._last_pos = now_pos
+        return moved, still
+
+    def actualizar_energia(self, dt, linterna_encendida, moving, still):
+        """dt: segundos desde último frame. linterna_encendida: bool."""
+        # Consumo por segundo cuando la linterna está encendida
+        drain_rate = 18.0  # energía por segundo
+
+        # Regeneración cuando está quieto (parcial)
+        regen_rate_still = 12.0  # energía por segundo cuando quieto
+
+        if linterna_encendida and self.energia > 0:
+            self.energia -= drain_rate * dt
+        else:
+            # pequeña regeneración si la linterna está apagada
+            if not linterna_encendida and not moving:
+                self.energia += 6.0 * dt
+
+        # regeneración adicional si está quieto
+        if still:
+            self.energia += regen_rate_still * dt
+
+        # clamp
+        if self.energia > self.max_energia:
+            self.energia = self.max_energia
+        if self.energia < 0:
+            self.energia = 0
 
     def dibujar(self, ventana):
         pygame.draw.rect(ventana, self.color, self.rect)
@@ -57,18 +109,50 @@ class Enemy:
         self.direccion = random.choice(["horizontal", "vertical"])
         self.sentido = 1
 
+        # comportamiento de detección y persecución
+        self.detection_range = 180
+        self.chasing = False
+        self.chase_speed_multiplier = 1.8
+
     def mover(self):
-        if self.direccion == "horizontal":
-            self.rect.x += self.velocidad * self.sentido
-            if self.rect.left <= 0 or self.rect.right >= ANCHO:
-                self.sentido *= -1
+        # movimiento patrullando
+        if not self.chasing:
+            if self.direccion == "horizontal":
+                self.rect.x += self.velocidad * self.sentido
+                if self.rect.left <= 0 or self.rect.right >= ANCHO:
+                    self.sentido *= -1
+            else:
+                self.rect.y += self.velocidad * self.sentido
+                if self.rect.top <= 0 or self.rect.bottom >= ALTO:
+                    self.sentido *= -1
+
+    def detectar_y_perseguir(self, jugador, dt):
+        # detectar jugador por proximidad
+        ex, ey = self.rect.center
+        px, py = jugador.rect.center
+        dx = px - ex
+        dy = py - ey
+        distancia = math.hypot(dx, dy)
+
+        if distancia <= self.detection_range:
+            self.chasing = True
         else:
-            self.rect.y += self.velocidad * self.sentido
-            if self.rect.top <= 0 or self.rect.bottom >= ALTO:
-                self.sentido *= -1
+            # si el jugador se aleja mucho, dejar de perseguir
+            if distancia > self.detection_range * 1.25:
+                self.chasing = False
+
+        if self.chasing and distancia > 1:
+            # mover hacia el jugador (velocidad dependiente de dt)
+            nx = dx / distancia
+            ny = dy / distancia
+            speed = self.velocidad * self.chase_speed_multiplier
+            # multiplicador 60 para hacer el movimiento similar a frames por segundo
+            self.rect.x += int(nx * speed * dt * 60)
+            self.rect.y += int(ny * speed * dt * 60)
 
     def dibujar(self, ventana):
-        pygame.draw.rect(ventana, ROJO, self.rect)
+        color = (255, 120, 120) if self.chasing else ROJO
+        pygame.draw.rect(ventana, color, self.rect)
 
 
 class Game:
@@ -78,6 +162,27 @@ class Game:
         self.enemigos = []
         self.resultado = ""
         self.fuente = pygame.font.Font(None, 36)
+        # pantalla completa por defecto apagada
+        self.fullscreen = False
+
+        # cargar sonidos (opcional). Coloca archivos en carpeta 'sounds' o en el mismo directorio.
+        self.sounds = {}
+        base = os.path.dirname(__file__)
+        sound_files = {
+            'ambient': os.path.join(base, 'sounds', 'ambient.wav'),
+            'start': os.path.join(base, 'sounds', 'start.wav'),
+            'victory': os.path.join(base, 'sounds', 'victory.wav'),
+            'lose': os.path.join(base, 'sounds', 'lose.wav'),
+        }
+        for key, path in sound_files.items():
+            try:
+                if os.path.exists(path):
+                    self.sounds[key] = pygame.mixer.Sound(path)
+            except Exception:
+                self.sounds[key] = None
+
+        # archivo donde guardar partidas
+        self.save_file = os.path.join(base, 'partidas.txt')
 
     # ----------- PANTALLAS -----------
 
@@ -87,6 +192,11 @@ class Game:
         self.dibujar_texto("Selecciona tu personaje:", 40, BLANCO, ANCHO//2, 250)
         self.dibujar_texto("[1] Explorador  [2] Cazador  [3] Ingeniero", 30, BLANCO, ANCHO//2, 320)
         self.dibujar_texto("ESC para salir", 30, BLANCO, ANCHO//2, 370)
+        # Opción de pantalla completa
+        fs_text = "ON" if self.fullscreen else "OFF"
+        self.dibujar_texto(f"[F] Pantalla completa: {fs_text}", 24, BLANCO, ANCHO//2, 420)
+        self.dibujar_texto("Mantén SPACE para encender la linterna", 20, BLANCO, ANCHO//2, 460)
+
     def iniciar_juego(self, tipo):
         if tipo == 1:
             self.jugador = Player("Explorador", AMARILLO, velocidad=5, vida=100, vision=150)
@@ -100,13 +210,42 @@ class Game:
         self.resultado = ""
         self.estado = "jugando"
 
-    def jugar(self):
+        # Ajustar modo pantalla según opción
+        global ventana
+        if self.fullscreen:
+            ventana = pygame.display.set_mode((ANCHO, ALTO), pygame.FULLSCREEN)
+        else:
+            ventana = pygame.display.set_mode((ANCHO, ALTO))
+
+        # reproducir sonido de inicio si existe
+        if 'start' in self.sounds and self.sounds.get('start'):
+            try:
+                self.sounds['start'].play()
+            except Exception:
+                pass
+
+        # reproducir ambiente en loop si existe
+        if 'ambient' in self.sounds and self.sounds.get('ambient'):
+            try:
+                self.sounds['ambient'].play(loops=-1)
+            except Exception:
+                pass
+
+    def jugar(self, dt):
         ventana.fill(GRIS)
         teclas = pygame.key.get_pressed()
-        self.jugador.mover(teclas)
+        moved, still = self.jugador.mover(teclas)
 
-        # Mover y dibujar enemigos
+        # Gestionar linterna: mantener pulsada la tecla SPACE para encender
+        keys = pygame.key.get_pressed()
+        linterna_encendida = keys[pygame.K_SPACE] and self.jugador.energia > 0
+
+        # Actualizar energía (consumo / regeneración)
+        self.jugador.actualizar_energia(dt, linterna_encendida, moved, still)
+
+        # Mover y dibujar enemigos (detección y persecución)
         for enemigo in self.enemigos:
+            enemigo.detectar_y_perseguir(self.jugador, dt)
             enemigo.mover()
             enemigo.dibujar(ventana)
 
@@ -143,19 +282,39 @@ class Game:
         # Borde blanco
         pygame.draw.rect(ventana, BLANCO, (bar_x - 2, bar_y - 2, bar_width + 4, bar_height + 4), 2)
         
+        # Dibujar linterna sólo si está encendida y hay energía
+        if linterna_encendida and self.jugador.energia > 0:
+            self.dibujar_linterna()
+
         # Condición de victoria: esquina inferior derecha
         if self.jugador.rect.x > 750 and self.jugador.rect.y > 550:
             self.resultado = "ganaste"
             self.estado = "fin"
+
+        # UI simple (mostrar energía con 0..max)
+        energia_mostrar = int(self.jugador.energia)
+        self.dibujar_texto(f"Energía: {energia_mostrar}", 30, BLANCO, 10, 10, centrado=False)
 
     def pantalla_final(self):
         ventana.fill(NEGRO)
         if self.resultado == "ganaste":
             color = VERDE
             mensaje = "¡Escapaste del laberinto!"
+            # efecto de victoria
+            if 'victory' in self.sounds and self.sounds.get('victory'):
+                try:
+                    self.sounds['victory'].play()
+                except Exception:
+                    pass
         else:
             color = ROJO
             mensaje = "Fuiste atrapado en la oscuridad..."
+            # efecto de derrota
+            if 'lose' in self.sounds and self.sounds.get('lose'):
+                try:
+                    self.sounds['lose'].play()
+                except Exception:
+                    pass
         self.dibujar_texto(mensaje, 50, color, ANCHO // 2, 250)
         self.dibujar_texto("ENTER para volver al menú", 30, BLANCO, ANCHO // 2, 350)
 
@@ -191,7 +350,9 @@ class Game:
             angle = math.atan2(dy, dx)
 
         # Parámetros del cono
-        radius = max(1, int(self.jugador.vision))
+        # Hacer que el radio dependa de la energía restante (más realista):
+        energia_frac = max(0.0, min(1.0, self.jugador.energia / max(1, self.jugador.max_energia)))
+        radius = max(1, int(self.jugador.vision * (0.5 + 0.5 * energia_frac)))
         half_angle = math.radians(35)  # semiancho del haz (ajusta aquí el "amplitud")
         steps = 48  # cuantos anillos/pasos para el degradado (más = más suave)
 
@@ -229,6 +390,9 @@ class Game:
 
     def ejecutar(self):
         while True:
+            # dt en segundos
+            dt = clock.tick(60) / 1000.0
+
             for e in pygame.event.get():
                 if e.type == pygame.QUIT:
                     pygame.quit()
@@ -245,6 +409,15 @@ class Game:
                             self.iniciar_juego(2)
                         if e.key == pygame.K_3:
                             self.iniciar_juego(3)
+                        if e.key == pygame.K_f:
+                            # alternar modo pantalla completa en el menú
+                            self.fullscreen = not self.fullscreen
+                            # aplica inmediatamente la ventana (no cambia estado de juego)
+                            global ventana
+                            if self.fullscreen:
+                                ventana = pygame.display.set_mode((ANCHO, ALTO), pygame.FULLSCREEN)
+                            else:
+                                ventana = pygame.display.set_mode((ANCHO, ALTO))
 
                 elif self.estado == "fin":
                     if e.type == pygame.KEYDOWN and e.key == pygame.K_RETURN:
@@ -253,12 +426,11 @@ class Game:
             if self.estado == "menu":
                 self.menu()
             elif self.estado == "jugando":
-                self.jugar()
+                self.jugar(dt)
             elif self.estado == "fin":
                 self.pantalla_final()
 
             pygame.display.flip()
-            clock.tick(60)
 
 
 # ------------------------
