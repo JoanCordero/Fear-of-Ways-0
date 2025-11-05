@@ -7,7 +7,7 @@ import math
 pygame.init()
 ANCHO, ALTO = 800, 600
 ventana = pygame.display.set_mode((ANCHO, ALTO))
-pygame.display.set_caption("El Laberinto de las Sombras - 3 Niveles")
+pygame.display.set_caption("El Laberinto de las Sombras Niveles")
 
 # Colores
 NEGRO = (0, 0, 0)
