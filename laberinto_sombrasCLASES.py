@@ -1,6 +1,7 @@
 import pygame
 import sys
 import random
+import math
 
 # Inicialización
 pygame.init()
@@ -153,13 +154,58 @@ class Game:
         ventana.blit(superficie, rect)
 
     def dibujar_linterna(self):
-        # Enmascara todo menos un círculo alrededor del jugador
-        mask = pygame.Surface((ANCHO, ALTO))
-        mask.fill(NEGRO)
-        pygame.draw.circle(mask, (0, 0, 0, 0), self.jugador.rect.center, self.jugador.vision)
-        mask.set_colorkey((0, 0, 0))
-        mask.set_alpha(220)
-        ventana.blit(mask, (0, 0))
+        # Crear superficie de sombra (negra semitransparente)
+        sombra = pygame.Surface((ANCHO, ALTO), pygame.SRCALPHA)
+        sombra.fill((0, 0, 0, 240))
+
+        # Superficie para dibujar el haz de luz (gradiente)
+        luz = pygame.Surface((ANCHO, ALTO), pygame.SRCALPHA)
+
+        # Centro de la linterna (player) y objetivo (mouse)
+        cx, cy = self.jugador.rect.center
+        mx, my = pygame.mouse.get_pos()
+
+        # Si el mouse coincide con el centro, usar dirección por defecto
+        dx, dy = mx - cx, my - cy
+        if dx == 0 and dy == 0:
+            angle = 0.0
+        else:
+            angle = math.atan2(dy, dx)
+
+        # Parámetros del cono
+        radius = max(1, int(self.jugador.vision))
+        half_angle = math.radians(35)  # semiancho del haz (ajusta aquí el "amplitud")
+        steps = 48  # cuantos anillos/pasos para el degradado (más = más suave)
+
+        # Dibujar el haz como un conjunto de triángulos (fan) con alpha decreciente
+        # Dibujamos de fuera hacia dentro para que las capas internas atenúen correctamente
+        for i in range(steps, 0, -1):
+            r = radius * (i / steps)
+            a = half_angle * (i / steps)
+
+            left = (cx + r * math.cos(angle - a), cy + r * math.sin(angle - a))
+            right = (cx + r * math.cos(angle + a), cy + r * math.sin(angle + a))
+
+            # Alpha: más oscuro hacia el borde del cono, más claro hacia el centro
+            # Normalizamos al rango 0..240 (coincide con la opacidad de la sombra)
+            alpha = int(240 * (i / steps))
+            alpha = max(0, min(240, alpha))
+
+            # Dibujar triángulo en la superficie de luz usando blanco semi-transparente
+            # (al blitearlo sobre la sombra con BLEND_RGBA_SUB reduciremos la opacidad
+            #  de la sombra en las zonas donde la luz está presente)
+            pygame.draw.polygon(
+                luz,
+                (255, 255, 255, alpha),
+                [(cx, cy), left, right]
+            )
+
+        # Restar la superficie de luz de la sombra para crear el efecto de "agujero" iluminado
+        sombra.blit(luz, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+
+        # Colocar la máscara encima de todo lo dibujado
+        ventana.blit(sombra, (0, 0))
+
 
     # ----------- LOOP PRINCIPAL -----------
 
