@@ -29,7 +29,8 @@ class Player:
         self.nombre = nombre
         self.color = color
         self.velocidad = velocidad
-        self.vida = vida          # ← ahora sí existe
+        self.vida = vida
+        self.max_vida = vida
         self.vision = vision
         self.rect = pygame.Rect(380, 280, 40, 40)
 
@@ -42,12 +43,11 @@ class Player:
             self.rect.y -= self.velocidad
         if teclas[pygame.K_s] or teclas[pygame.K_DOWN]:
             self.rect.y += self.velocidad
-
         self.rect.clamp_ip(pygame.Rect(0, 0, ANCHO, ALTO))
-
 
     def dibujar(self, ventana):
         pygame.draw.rect(ventana, self.color, self.rect)
+
 
 
 class Enemy:
@@ -121,14 +121,32 @@ class Game:
         # Dibujar linterna (visión circular)
         self.dibujar_linterna()
 
+        # Vida
+        font = pygame.font.Font(None, 36)
+        texto_vida = font.render("Vida:", True, BLANCO)
+        ventana.blit(texto_vida, (20, 18))  # posición exacta y centrada verticalmente
+
+        # Coordenadas calculadas para que la barra quede alineada con el texto
+        text_width = texto_vida.get_width()
+        bar_x = 30 + text_width + 10   # deja 10 píxeles de separación después del texto
+        bar_y = 20                     # alineado con el texto
+        bar_width = 220
+        bar_height = 18
+
+        # Relación vida / vida máxima
+        ratio = self.jugador.vida / self.jugador.max_vida if self.jugador.max_vida > 0 else 0
+
+        # Fondo rojo
+        pygame.draw.rect(ventana, ROJO, (bar_x, bar_y, bar_width, bar_height))
+        # Parte verde proporcional
+        pygame.draw.rect(ventana, VERDE, (bar_x, bar_y, bar_width * ratio, bar_height))
+        # Borde blanco
+        pygame.draw.rect(ventana, BLANCO, (bar_x - 2, bar_y - 2, bar_width + 4, bar_height + 4), 2)
+        
         # Condición de victoria: esquina inferior derecha
         if self.jugador.rect.x > 750 and self.jugador.rect.y > 550:
             self.resultado = "ganaste"
             self.estado = "fin"
-
-        # UI simple
-        # Mostrar en pantalla
-        self.dibujar_texto(f"Vida: {self.jugador.vida}", 30, BLANCO, 10, 10, centrado=False)
 
     def pantalla_final(self):
         ventana.fill(NEGRO)
