@@ -5,8 +5,9 @@ import math
 
 # Inicialización
 pygame.init()
-ANCHO, ALTO = 800, 600
-ventana = pygame.display.set_mode((ANCHO, ALTO))
+info = pygame.display.Info()
+ventana = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+ANCHO, ALTO = ventana.get_size()
 pygame.display.set_caption("El Laberinto de las Sombras Niveles")
 
 # Colores
