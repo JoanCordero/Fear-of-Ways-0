@@ -5,8 +5,9 @@ import math
 
 # Inicialización
 pygame.init()
-ANCHO, ALTO = 800, 600
-ventana = pygame.display.set_mode((ANCHO, ALTO))
+info = pygame.display.Info()
+ANCHO, ALTO = info.current_w, info.current_h # capta direcamente la resolucion del monitor para pantalla completa
+ventana = pygame.display.set_mode((ANCHO, ALTO), pygame.FULLSCREEN)
 pygame.display.set_caption("El Laberinto de las Sombras")
 
 # Colores
@@ -24,12 +25,12 @@ clock = pygame.time.Clock()
 # ------------------------
 
 class Player:
-    def __init__(self, nombre, color, velocidad, energia, vision):
+    def __init__(self, nombre, color, velocidad, vida, vision):
         self.nombre = nombre
         self.color = color
         self.velocidad = velocidad
-        self.energia = energia
-        self.vision = vision  # radio de linterna
+        self.vida = vida          # ← ahora sí existe
+        self.vision = vision
         self.rect = pygame.Rect(380, 280, 40, 40)
 
     def mover(self, teclas):
@@ -42,8 +43,8 @@ class Player:
         if teclas[pygame.K_s] or teclas[pygame.K_DOWN]:
             self.rect.y += self.velocidad
 
-        # Mantener dentro de pantalla
         self.rect.clamp_ip(pygame.Rect(0, 0, ANCHO, ALTO))
+
 
     def dibujar(self, ventana):
         pygame.draw.rect(ventana, self.color, self.rect)
@@ -86,15 +87,13 @@ class Game:
         self.dibujar_texto("Selecciona tu personaje:", 40, BLANCO, ANCHO//2, 250)
         self.dibujar_texto("[1] Explorador  [2] Cazador  [3] Ingeniero", 30, BLANCO, ANCHO//2, 320)
         self.dibujar_texto("ESC para salir", 30, BLANCO, ANCHO//2, 370)
-
     def iniciar_juego(self, tipo):
-        # Personajes predeterminados
         if tipo == 1:
-            self.jugador = Player("Explorador", AMARILLO, velocidad=5, energia=100, vision=150)
+            self.jugador = Player("Explorador", AMARILLO, velocidad=5, vida=100, vision=150)
         elif tipo == 2:
-            self.jugador = Player("Cazador", VERDE, velocidad=7, energia=70, vision=120)
+            self.jugador = Player("Cazador", VERDE, velocidad=7, vida=70, vision=120)
         elif tipo == 3:
-            self.jugador = Player("Ingeniero", (0, 150, 255), velocidad=4, energia=120, vision=180)
+            self.jugador = Player("Ingeniero", (0, 150, 255), velocidad=4, vida=120, vision=180)
 
         # Crear enemigos
         self.enemigos = [Enemy(random.randint(100, 700), random.randint(100, 500), random.randint(2, 4)) for _ in range(4)]
@@ -128,7 +127,8 @@ class Game:
             self.estado = "fin"
 
         # UI simple
-        self.dibujar_texto(f"Energía: {self.jugador.energia}", 30, BLANCO, 10, 10, centrado=False)
+        # Mostrar en pantalla
+        self.dibujar_texto(f"Vida: {self.jugador.vida}", 30, BLANCO, 10, 10, centrado=False)
 
     def pantalla_final(self):
         ventana.fill(NEGRO)
