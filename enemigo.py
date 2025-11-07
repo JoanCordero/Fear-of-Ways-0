@@ -41,6 +41,10 @@ class enemigo:
 
         # proyectiles del acechador
         self.proyectiles = []  # cada uno: {"rect": Rect, "vx": float, "vy": float, "dano": int, "activo": bool}
+        
+        # Comportamientos variables
+        self.rutina = random.choice(["ronda", "zigzag", "pausa"])
+
 
     # FUNCIONES INTERNAS Y GENERALES
     def reducir_recargas(self):
@@ -151,6 +155,9 @@ class enemigo:
             self.tiempo_perdida += 1
             if self.tiempo_perdida > 45:
                 self.estado = "patrullando"
+        if jugador and self.tiene_linea_de_vision(jugador, muros):
+            self.estado = "persiguiendo"
+
 
         # movimiento general
         if self.estado == "persiguiendo" and jugador and not jugador_oculto:
@@ -197,6 +204,13 @@ class enemigo:
                 self.mover_proyectiles(muros, ancho_mapa, alto_mapa, jugador)
             elif self.tipo == "bruto":
                 self.aplicar_aura_bruto(jugador)
+        if self.rutina == "zigzag":
+            self.rect.x += self.velocidad * self.sentido
+            if random.random() < 0.05:
+                self.rect.y += random.choice([-self.velocidad, self.velocidad])
+        elif self.rutina == "pausa" and random.random() < 0.01:
+            self.sentido *= -1
+
 
     # DIBUJO
     def dibujar(self, ventana, camara):
@@ -209,3 +223,14 @@ class enemigo:
         if self.tipo == "acechador":
             for p in self.proyectiles:
                 pygame.draw.rect(ventana, (255, 255, 120), camara.aplicar(p["rect"]))
+   
+    def tiene_linea_de_vision(self, jugador, muros):
+        distancia, dx, dy = self.distancia_a(jugador)
+        pasos = int(distancia / 20)
+        for i in range(1, pasos):
+            x = self.rect.centerx + (dx / pasos) * i
+            y = self.rect.centery + (dy / pasos) * i
+            punto = pygame.Rect(x, y, 4, 4)
+            if any(punto.colliderect(m.rect) for m in muros):
+                return False
+        return True

@@ -6,383 +6,312 @@ from camara import camara
 from jugador import jugador
 from enemigo import enemigo
 from proyectil import proyectil
+from datetime import datetime
 
-# Colores para UI y dibujo
-negro = (0, 0, 0)
-blanco = (255, 255, 255)
-gris = (40, 40, 40)
-rojo = (255, 0, 0)
-amarillo = (255, 255, 0)
-verde = (0, 255, 0)
+# Colores
+NEGRO = (0, 0, 0)
+BLANCO = (255, 255, 255)
+GRIS = (40, 40, 40)
+ROJO = (255, 80, 80)
+AMARILLO = (255, 255, 0)
+VERDE = (0, 255, 0)
+AZUL = (100, 180, 255)
 
 class juego:
     def __init__(self):
-        # Estado general del juego
         self.estado = "menu"
-        # Entidades y mundo
         self.jugador = None
         self.nivel_actual = None
         self.numero_nivel = 1
         self.enemigos = []
         self.proyectiles = []
         self.camara = None
-        # UI y resultados
         self.resultado = ""
-        self.opcion_pausa = 0
-        self.opciones_rects = []
+        self._guardado = False
 
+        # Configuración visual
+        self.altura_header = 0.10
+        pygame.display.set_caption("Fear of Ways")
+        self.fuente_base = pygame.font.Font(None, 30)
+
+        # Sonidos
+        try:
+            self.sonido_disparo = pygame.mixer.Sound("disparo.mp3")
+        except Exception:
+            self.sonido_disparo = None
+
+    # -------------------------------------------------------
+    # MENÚ PRINCIPAL
+    # -------------------------------------------------------
     def menu(self):
-        # Dibuja pantalla inicial con instrucciones
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
-        pantalla.fill(negro)
-        self.dibujar_texto("Fear of Ways", 60, blanco, ancho // 2, 120)
-        self.dibujar_texto("3 Niveles de Mazmorras Expandidas", 35, amarillo, ancho // 2, 200)
-        self.dibujar_texto("Selecciona tu personaje:", 35, blanco, ancho // 2, 270)
-        self.dibujar_texto("1 Explorador  2 Cazador  3 Ingeniero", 28, blanco, ancho // 2, 320)
-        self.dibujar_texto("Encuentra la salida verde en cada nivel", 25, verde, ancho // 2, 380)
-        self.dibujar_texto("Evita a los enemigos rojos", 25, rojo, ancho // 2, 410)
-        self.dibujar_texto("La cámara te seguirá por el mapa", 25, (100, 200, 255), ancho // 2, 440)
-        self.dibujar_texto("ESC para salir", 25, blanco, ancho // 2, 480)
+        pantalla.fill(NEGRO)
+        self.dibujar_texto("Fear of Ways", int(alto * 0.1), BLANCO, ancho // 2, alto * 0.2)
+        self.dibujar_texto("3 Mazmorras Extensas", int(alto * 0.05), AMARILLO, ancho // 2, alto * 0.35)
+        self.dibujar_texto("Selecciona tu personaje:", int(alto * 0.045), BLANCO, ancho // 2, alto * 0.45)
+        self.dibujar_texto("1. Explorador   2. Cazador   3. Ingeniero", int(alto * 0.04), BLANCO, ancho // 2, alto * 0.52)
+        self.dibujar_texto("ESC para salir", int(alto * 0.03), GRIS, ancho // 2, alto * 0.9)
 
+    # -------------------------------------------------------
+    # INICIO Y CARGA DE JUEGO
+    # -------------------------------------------------------
     def iniciar_juego(self, tipo_personaje):
-        # Crea el jugador según la clase elegida
+        self._guardado = False
         if tipo_personaje == 1:
-            self.jugador = jugador("Explorador", amarillo, velocidad=4, energia=100, vision=150)
+            self.jugador = jugador("Explorador", AMARILLO, velocidad=4, energia=100, vision=150)
         elif tipo_personaje == 2:
-            self.jugador = jugador("Cazador", verde, velocidad=6, energia=70, vision=120)
-        elif tipo_personaje == 3:
-            self.jugador = jugador("Ingeniero", (0, 150, 255), velocidad=3, energia=120, vision=180)
+            self.jugador = jugador("Cazador", VERDE, velocidad=6, energia=70, vision=120)
+        else:
+            self.jugador = jugador("Ingeniero", AZUL, velocidad=3, energia=120, vision=180)
 
-        # Inicia en el nivel 1 y pasa a jugar
         self.numero_nivel = 1
         self.cargar_nivel(self.numero_nivel)
         self.resultado = ""
         self.estado = "jugando"
 
     def cargar_nivel(self, numero):
-        # Instancia el nivel y la cámara para el tamaño del mapa
         self.numero_nivel = numero
         self.nivel_actual = nivel(numero)
         self.camara = camara(self.nivel_actual.ancho, self.nivel_actual.alto)
+        self.enemigos.clear()
+        self.proyectiles.clear()
 
-        # Genera enemigos (asegura 1 de cada tipo si hay espacio)
-        self.enemigos = []
+        # Generar enemigos
         apariciones = list(self.nivel_actual.spawn_enemigos)
         tipos_forzados = ["veloz", "acechador", "bruto"]
         random.shuffle(apariciones)
         for tipo in tipos_forzados:
             if apariciones:
                 x, y = apariciones.pop()
-                vel = random.randint(2, 4)
-                self.enemigos.append(enemigo(x, y, vel, tipo=tipo))
-        # Rellena con tipos aleatorios ponderados
+                self.enemigos.append(enemigo(x, y, random.randint(2, 4), tipo=tipo))
         for x, y in apariciones:
-            vel = random.randint(2, 4)
-            tipo_aleatorio = random.choices(
-                ["veloz", "acechador", "bruto"], weights=[0.45, 0.35, 0.20], k=1
-            )[0]
-            self.enemigos.append(enemigo(x, y, vel, tipo=tipo_aleatorio))
+            tipo = random.choices(["veloz", "acechador", "bruto"], [0.5, 0.3, 0.2])[0]
+            self.enemigos.append(enemigo(x, y, random.randint(2, 4), tipo=tipo))
 
-        # Resetea posición del jugador y su estado de oculto
         self.jugador.resetear_posicion()
-        if not hasattr(self.jugador, "oculto"):
-            self.jugador.oculto = False
+        self.jugador.oculto = False
 
+        # Incremento progresivo de dificultad
+        dificultad = 1 + (numero - 1) * 0.25
+        for e in self.enemigos:
+            e.velocidad = int(e.velocidad * dificultad)
+            e.rango_deteccion = int(e.rango_deteccion * dificultad)
+
+    # -------------------------------------------------------
+    # BUCLE PRINCIPAL DE JUEGO
+    # -------------------------------------------------------
     def jugar(self):
-        # Lógica y render del frame de juego
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
-        pantalla.fill(gris)
+        offset_header = int(alto * self.altura_header)
 
-        # Actualiza cámara centrada en el jugador
+        # Área de juego bajo el header
+        area_juego = pygame.Surface((ancho, alto - offset_header))
+        area_juego.fill(GRIS)
+
+        # Actualizar cámara y jugador
         self.camara.actualizar(self.jugador.rect)
-
-        # Dibuja mapa (muros, salida, escondites)
-        self.nivel_actual.dibujar(pantalla, self.camara)
-
-        # Mueve jugador con colisiones y energía
         teclas = pygame.key.get_pressed()
-        # Filtra muros que realmente bloquean (ignora puertas abiertas)
         muros_bloq = [m for m in self.nivel_actual.muros if getattr(m, "bloquea", True)]
         self.jugador.mover(teclas, muros_bloq, self.nivel_actual.ancho, self.nivel_actual.alto)
 
-        # Actualiza proyectiles del jugador (mover, colisión, dibujar)
-        for bala in list(self.proyectiles):
-            sigue_activo = bala.mover(muros_bloq)
-            if not sigue_activo:
-                self.proyectiles.remove(bala)
-                continue
-            bala.dibujar(pantalla, self.camara)
-
-        # Marca si el jugador está dentro de una zona segura
-        self.jugador.oculto = any(zona.colliderect(self.jugador.rect) for zona in self.nivel_actual.escondites)
-
-        # Indicador visual de oculto
-        if self.jugador.oculto:
-            rect_pantalla = self.camara.aplicar(self.jugador.rect)
-            pygame.draw.rect(pantalla, (80, 200, 255), rect_pantalla, 3)
-
-        # Mueve y dibuja enemigos (considera zonas seguras y ataques)
+        # Dibujar mapa, enemigos, proyectiles y jugador
+        self.nivel_actual.dibujar(area_juego, self.camara)
         for enemigo_actual in list(self.enemigos):
-            enemigo_actual.mover(
-                muros_bloq,
-                self.nivel_actual.ancho,
-                self.nivel_actual.alto,
-                self.jugador,
-                self.nivel_actual.escondites
-            )
-            enemigo_actual.dibujar(pantalla, self.camara)
+            enemigo_actual.mover(muros_bloq, self.nivel_actual.ancho, self.nivel_actual.alto, self.jugador, self.nivel_actual.escondites)
+            enemigo_actual.dibujar(area_juego, self.camara)
 
-            # Daño por contacto al jugador y retroceso del enemigo
             if self.jugador.rect.colliderect(enemigo_actual.rect):
-                # resta vida y activa invulnerabilidad interna
                 self.jugador.recibir_daño(1)
-                # aplica un pequeño retroceso al enemigo alejándolo del jugador
-                dx = enemigo_actual.rect.centerx - self.jugador.rect.centerx
-                dy = enemigo_actual.rect.centery - self.jugador.rect.centery
-                distancia = math.hypot(dx, dy)
-                if distancia == 0:
-                    distancia = 1
-                # cantidad de retroceso en píxeles
-                retroceso = 20
-                paso_x = int(retroceso * dx / distancia)
-                paso_y = int(retroceso * dy / distancia)
-                old_pos = enemigo_actual.rect.topleft
-                enemigo_actual.rect.move_ip(paso_x, paso_y)
-                # si choca contra un muro bloqueante, regresa a su posición
-                if any(enemigo_actual.rect.colliderect(m.rect) for m in muros_bloq):
-                    enemigo_actual.rect.topleft = old_pos
-                # invierte el sentido de patrulla para dar sensación de choque
-                try:
-                    enemigo_actual.sentido *= -1
-                    # ocasionalmente cambia de eje para variar movimiento
-                    if random.random() < 0.4:
-                        enemigo_actual.direccion = "vertical" if enemigo_actual.direccion == "horizontal" else "horizontal"
-                except Exception:
-                    pass
-                enemigo_actual.color = (255, 50, 50)
                 if self.jugador.vida <= 0:
                     self.resultado = "perdiste"
                     self.estado = "fin"
 
-        # Colisión de proyectiles del jugador con enemigos
         for bala in list(self.proyectiles):
-            impacto = False
+            if not bala.mover(muros_bloq):
+                self.proyectiles.remove(bala)
+                continue
+            bala.dibujar(area_juego, self.camara)
             for enemigo_actual in list(self.enemigos):
                 if bala.rect.colliderect(enemigo_actual.rect):
                     enemigo_actual.vida -= 1
-                    impacto = True
                     if enemigo_actual.vida <= 0:
                         self.enemigos.remove(enemigo_actual)
+                    if bala in self.proyectiles:
+                        self.proyectiles.remove(bala)
                     break
-            if impacto:
-                self.proyectiles.remove(bala)
 
-        # Dibuja jugador y cono de luz
-        self.jugador.dibujar(pantalla, self.camara)
-        self.dibujar_linterna()
+        self.jugador.dibujar(area_juego, self.camara)
+        self.dibujar_linterna_en_superficie(area_juego)
+        pantalla.blit(area_juego, (0, offset_header))
 
-        # Recoger llaves: elimina la llave si colisiona con el jugador
-        if hasattr(self.nivel_actual, "llaves"):
-            for r in list(self.nivel_actual.llaves):
-                if self.jugador.rect.colliderect(r):
-                    self.nivel_actual.llaves.remove(r)
+        # --- Header superior ---
+        self.dibujar_header(pantalla, ancho, alto, offset_header)
 
-        # Activar palancas: abre las puertas asociadas a la palanca
-        if hasattr(self.nivel_actual, "palancas"):
-            for r in self.nivel_actual.palancas:
-                if self.jugador.rect.colliderect(r):
-                    for p in getattr(self.nivel_actual, "_puertas_por_id", {}).get("A1", []):
-                        # abrir permanentemente; cambiar a not p.abierta para toggle
-                        p.abierta = True
-
-        # Verifica si llegó a la salida y tiene todas las llaves requeridas
+        # Salida de nivel
         llaves_restantes = len(getattr(self.nivel_actual, "llaves", []))
-        llaves_ok = (llaves_restantes == 0) if hasattr(self.nivel_actual, "llaves_requeridas") else True
-        if self.jugador.rect.colliderect(self.nivel_actual.salida.rect) and llaves_ok:
+        if self.jugador.rect.colliderect(self.nivel_actual.salida.rect) and llaves_restantes == 0:
             if self.numero_nivel < 3:
+                self.transicion_texto(f"Mazmorra {self.numero_nivel+1}")
                 self.cargar_nivel(self.numero_nivel + 1)
             else:
                 self.resultado = "ganaste"
                 self.estado = "fin"
 
-        # UI básica
-        self.dibujar_texto(f"Nivel: {self.numero_nivel}/3", 30, blanco, 10, 10, centrado=False)
-        self.dibujar_texto(f"Energía: {int(self.jugador.energia)}", 30, blanco, 10, 40, centrado=False)
+    # -------------------------------------------------------
+    # DIBUJAR HEADER (HUD)
+    # -------------------------------------------------------
+    def dibujar_header(self, pantalla, ancho, alto, offset):
+        alto_header = offset
+        pygame.draw.rect(pantalla, (20, 20, 30, 230), (0, 0, ancho, alto_header))
+        pygame.draw.line(pantalla, (120, 120, 150), (0, alto_header - 2), (ancho, alto_header - 2), 2)
 
-        # Barras de vida y energía (HUD)
-        self.dibujar_barra(1075, 10, 200, 12, self.jugador.vida, self.jugador.vida_max, (255, 80, 80))
-        self.dibujar_barra(1075, 28, 200, 10, self.jugador.energia, self.jugador.energia_max, (80, 200, 255))
+        margen_x = int(ancho * 0.03)
+        margen_y = int(alto_header * 0.25)
+        barra_ancho = int(ancho * 0.25)
+        barra_alto = int(alto_header * 0.25)
 
-        # HUD de llaves: muestra cuántas llaves se han recogido / faltan
-        if hasattr(self.nivel_actual, "llaves_requeridas"):
-            total = self.nivel_actual.llaves_requeridas
-            obt = total - len(self.nivel_actual.llaves)
-            self.dibujar_texto(f"Llaves: {obt}/{total}", 30, amarillo, 10, 70, centrado=False)
-            # mensaje de salida bloqueada
-            if obt < total:
-                self.dibujar_texto("La salida está bloqueada", 24, (255, 180, 120), 10, 96, centrado=False)
+        # Vida izquierda
+        self.dibujar_texto("❤️ VIDA", int(alto * 0.035), (255, 100, 100),
+                           margen_x, margen_y - 5, centrado=False)
+        self.dibujar_barra(pantalla, margen_x, margen_y + int(alto_header * 0.35),
+                           barra_ancho, barra_alto,
+                           self.jugador.vida, self.jugador.vida_max, (255, 80, 80))
 
-    def pantalla_final(self):
-        # Pantalla de victoria o derrota
-        pantalla = pygame.display.get_surface()
-        ancho, alto = pantalla.get_size()
-        pantalla.fill(negro)
+        # Energía derecha
+        self.dibujar_texto("⚡ ENERGÍA", int(alto * 0.035), (120, 200, 255),
+                           ancho - barra_ancho - margen_x, margen_y - 5, centrado=False)
+        self.dibujar_barra(pantalla, ancho - barra_ancho - margen_x, margen_y + int(alto_header * 0.35),
+                           barra_ancho, barra_alto,
+                           self.jugador.energia, self.jugador.energia_max, (80, 200, 255))
 
-        if self.resultado == "ganaste":
-            color_titulo = verde
-            titulo = "¡Escapaste de las 3 mazmorras!"
-            detalle = f"Completaste todos los niveles con {self.jugador.nombre}"
-        else:
-            color_titulo = rojo
-            titulo = "Fuiste atrapado en la oscuridad..."
-            detalle = f"Llegaste hasta el nivel {self.numero_nivel}"
+        # Nivel al centro
+        self.dibujar_texto(f"Nivel {self.numero_nivel}/3",
+                           int(alto * 0.045), BLANCO, ancho // 2, alto_header // 2, centrado=True)
 
-        self.dibujar_texto(titulo, 50, color_titulo, ancho // 2, 220)
-        self.dibujar_texto(detalle, 30, blanco, ancho // 2, 290)
-        self.dibujar_texto("ENTER para volver al menú", 30, blanco, ancho // 2, 380)
-
+    # -------------------------------------------------------
+    # DIBUJADO DE ELEMENTOS
+    # -------------------------------------------------------
     def dibujar_texto(self, texto, tam, color, x, y, centrado=True):
-        # Dibuja texto y devuelve su rect para detectar clics
         pantalla = pygame.display.get_surface()
         fuente = pygame.font.Font(None, tam)
         imagen = fuente.render(texto, True, color)
         rect = imagen.get_rect()
-        if centrado:
-            rect.center = (x, y)
-        else:
-            rect.topleft = (x, y)
+        rect.center = (x, y) if centrado else (x, y)
         pantalla.blit(imagen, rect)
         return rect
 
-    def dibujar_linterna(self):
-        # Cono de luz direccional desde el jugador hacia el mouse
-        pantalla = pygame.display.get_surface()
-        ancho, alto = pantalla.get_size()
-        capa_sombra = pygame.Surface((ancho, alto), pygame.SRCALPHA)
-        capa_sombra.fill((0, 0, 0, 240))
-        capa_luz = pygame.Surface((ancho, alto), pygame.SRCALPHA)
+    def dibujar_barra(self, pantalla, x, y, ancho, alto, valor, valor_max, color_barra):
+        proporcion = max(0.0, min(1.0, valor / valor_max))
+        rect_fondo = pygame.Rect(x, y, ancho, alto)
+        rect_barra = pygame.Rect(x, y, int(ancho * proporcion), alto)
+        pygame.draw.rect(pantalla, (40, 40, 40), rect_fondo, border_radius=4)
+        pygame.draw.rect(pantalla, color_barra, rect_barra, border_radius=4)
+        pygame.draw.rect(pantalla, BLANCO, rect_fondo, 1, border_radius=4)
+
+    def dibujar_linterna_en_superficie(self, superficie):
+        ancho, alto = superficie.get_size()
+        sombra = pygame.Surface((ancho, alto), pygame.SRCALPHA)
+        sombra.fill((0, 0, 0, 240))
+        luz = pygame.Surface((ancho, alto), pygame.SRCALPHA)
 
         cx, cy = self.camara.aplicar_pos(self.jugador.rect.centerx, self.jugador.rect.centery)
         mx, my = pygame.mouse.get_pos()
-        dx, dy = mx - cx, my - cy
-        angulo = 0.0 if (dx == 0 and dy == 0) else math.atan2(dy, dx)
+        dy_ajustado = my - cy - int(pygame.display.get_surface().get_height() * self.altura_header)
+        dx, dy = mx - cx, dy_ajustado
+        angulo = math.atan2(dy, dx) if (dx or dy) else 0.0
 
-        radio = max(1, int(self.jugador.vision))
+        base_radio = self.jugador.vision
+        if self.jugador.energia < 20:
+            base_radio *= 0.8 + 0.2 * random.random()
+        radio = int(base_radio)
         semiancho = math.radians(35)
         pasos = 48
 
-        # Gradiente de luz con triángulos solapados
         for i in range(pasos, 0, -1):
             r = radio * (i / pasos)
             a = semiancho * (i / pasos)
             p_izq = (cx + r * math.cos(angulo - a), cy + r * math.sin(angulo - a))
             p_der = (cx + r * math.cos(angulo + a), cy + r * math.sin(angulo + a))
-            alpha = max(0, min(240, int(240 * (i / pasos))))
-            pygame.draw.polygon(capa_luz, (255, 255, 255, alpha), [(cx, cy), p_izq, p_der])
+            alpha = int(240 * (i / pasos))
+            pygame.draw.polygon(luz, (255, 255, 255, alpha), [(cx, cy), p_izq, p_der])
 
-        capa_sombra.blit(capa_luz, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
-        pantalla.blit(capa_sombra, (0, 0))
+        sombra.blit(luz, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+        superficie.blit(sombra, (0, 0))
 
-    def dibujar_barra(self, x, y, ancho, alto, valor, valor_max, color_barra):
-        # Barra horizontal con borde blanco
-        pantalla = pygame.display.get_surface()
-        proporcion = max(0.0, min(1.0, valor / valor_max))
-        rect_fondo = pygame.Rect(x, y, ancho, alto)
-        rect_barra = pygame.Rect(x, y, int(ancho * proporcion), alto)
-        pygame.draw.rect(pantalla, (50, 50, 50), rect_fondo)
-        pygame.draw.rect(pantalla, color_barra, rect_barra)
-        pygame.draw.rect(pantalla, blanco, rect_fondo, 1)
-
-    def pantalla_pausa(self):
-        # Muestra el menú de pausa con dos opciones
+    # -------------------------------------------------------
+    # TRANSICIÓN ENTRE NIVELES
+    # -------------------------------------------------------
+    def transicion_texto(self, texto):
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
-        pantalla.fill((10, 10, 20))
-        self.dibujar_texto("pausa", 64, (0, 200, 255), ancho // 2, alto // 2 - 140)
+        for i in range(60):
+            overlay = pygame.Surface((ancho, alto))
+            overlay.fill((0, 0, 0))
+            alpha = int(255 * (i / 60))
+            overlay.set_alpha(alpha)
+            pantalla.blit(overlay, (0, 0))
+            self.dibujar_texto(texto, 50, BLANCO, ancho // 2, alto // 2)
+            pygame.display.flip()
+            pygame.time.delay(16)
 
-        opciones = ["reanudar", "salir al menú"]
-        self.opciones_rects = []
-        for i, texto in enumerate(opciones):
-            y = alto // 2 - 20 + i * 60
-            rect = self.dibujar_texto(texto, 40, blanco, ancho // 2 - 100, y, centrado=False)
-            self.opciones_rects.append(rect)
+    # -------------------------------------------------------
+    # PANTALLA FINAL
+    # -------------------------------------------------------
+    def pantalla_final(self):
+        pantalla = pygame.display.get_surface()
+        ancho, alto = pantalla.get_size()
+        pantalla.fill(NEGRO)
+        titulo = "¡Escapaste de las 3 mazmorras!" if self.resultado == "ganaste" else "Fuiste atrapado..."
+        color = VERDE if self.resultado == "ganaste" else ROJO
+        self.dibujar_texto(titulo, int(alto * 0.08), color, ancho // 2, alto * 0.4)
+        self.dibujar_texto("ENTER para volver al menú", int(alto * 0.04), BLANCO, ancho // 2, alto * 0.55)
+        if not self._guardado:
+            self.guardar_resultado()
+            self._guardado = True
 
+    # -------------------------------------------------------
+    # BUCLE DE EVENTOS PRINCIPAL
+    # -------------------------------------------------------
     def ejecutar(self):
-        # Bucle principal de eventos + render
         reloj = pygame.time.Clock()
         while True:
-            for evento in pygame.event.get():
-                if evento.type == pygame.QUIT:
+            for e in pygame.event.get():
+                if e.type == pygame.QUIT:
                     pygame.quit()
                     return
-
-                if self.estado == "menu":
-                    if evento.type == pygame.KEYDOWN:
-                        if evento.key == pygame.K_ESCAPE:
-                            pygame.quit()
-                            return
-                        if evento.key == pygame.K_1:
-                            self.iniciar_juego(1)
-                        if evento.key == pygame.K_2:
-                            self.iniciar_juego(2)
-                        if evento.key == pygame.K_3:
-                            self.iniciar_juego(3)
-
-                elif self.estado == "pausa":
-                    if evento.type == pygame.KEYDOWN:
-                        if evento.key == pygame.K_ESCAPE:
-                            self.estado = "jugando"
-                        elif evento.key in (pygame.K_UP, pygame.K_w):
-                            self.opcion_pausa = (self.opcion_pausa - 1) % 2
-                        elif evento.key in (pygame.K_DOWN, pygame.K_s):
-                            self.opcion_pausa = (self.opcion_pausa + 1) % 2
-                        elif evento.key in (pygame.K_RETURN, pygame.K_SPACE):
-                            if self.opcion_pausa == 0:
-                                self.estado = "jugando"
-                            else:
-                                self.estado = "menu"
-                    elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                        for i, rect in enumerate(self.opciones_rects):
-                            if rect.collidepoint(evento.pos):
-                                if i == 0:
-                                    self.estado = "jugando"
-                                elif i == 1:
-                                    self.estado = "menu"
-
+                if self.estado == "menu" and e.type == pygame.KEYDOWN:
+                    if e.key == pygame.K_ESCAPE:
+                        pygame.quit(); return
+                    if e.key in (pygame.K_1, pygame.K_2, pygame.K_3):
+                        self.iniciar_juego(int(e.key - pygame.K_0))
                 elif self.estado == "jugando":
-                    if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
-                        self.estado = "pausa"
-                        self.opcion_pausa = 0
-
-                    # Disparo del jugador con clic derecho (button 3)
-                    if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 3:
-                        mx, my = pygame.mouse.get_pos()
-                        # Convierte la posición del jugador a coords de pantalla para apuntar bien
-                        jx, jy = self.camara.aplicar_pos(self.jugador.rect.centerx, self.jugador.rect.centery)
-                        # Crea proyectil hacia el punto del mouse compensando el offset de la cámara
-                        nuevo_proyectil = proyectil(
-                            jx, jy,
-                            self.camara.offset_x + mx,
-                            self.camara.offset_y + my,
-                            self.jugador.color
-                        )
-                        self.proyectiles.append(nuevo_proyectil)
-
-                elif self.estado == "fin":
-                    if evento.type == pygame.KEYDOWN and evento.key == pygame.K_RETURN:
+                    if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
                         self.estado = "menu"
+                    if e.type == pygame.MOUSEBUTTONDOWN and e.button == 3 and self.jugador.cooldown_disparo == 0:
+                        mx, my = pygame.mouse.get_pos()
+                        jx, jy = self.camara.aplicar_pos(self.jugador.rect.centerx, self.jugador.rect.centery)
+                        self.proyectiles.append(proyectil(jx, jy, self.camara.offset_x + mx, self.camara.offset_y + my, self.jugador.color))
+                        self.jugador.cooldown_disparo = 15
+                        if self.sonido_disparo:
+                            self.sonido_disparo.play()
+                elif self.estado == "fin" and e.type == pygame.KEYDOWN and e.key == pygame.K_RETURN:
+                    self.estado = "menu"
 
-            # Render según estado
             if self.estado == "menu":
                 self.menu()
             elif self.estado == "jugando":
                 self.jugar()
-            elif self.estado == "pausa":
-                self.pantalla_pausa()
             elif self.estado == "fin":
                 self.pantalla_final()
 
             pygame.display.flip()
             reloj.tick(60)
+
+    # -------------------------------------------------------
+    # GUARDADO DE RESULTADOS
+    # -------------------------------------------------------
+    def guardar_resultado(self):
+        with open("resultados.txt", "a", encoding="utf-8") as f:
+            f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} | {self.jugador.nombre} | Nivel {self.numero_nivel} | {self.resultado}\n")

@@ -4,8 +4,16 @@ import os
 from juego import juego
 
 pygame.init()
-ventana = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-pygame.display.set_caption("Fear of Ways")
+info = pygame.display.Info()
+ventana = pygame.display.set_mode((info.current_w, info.current_h), pygame.FULLSCREEN)
+
+
+pygame.mixer.init()
+pygame.mixer.music.load("musica_fondo.mp3")
+pygame.mixer.music.play(-1)
+pygame.mixer.music.set_volume(0.3)
+
+
 
 # cargar texturas después de iniciar pygame
 def cargar_texturas():
