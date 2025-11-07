@@ -24,11 +24,35 @@ class pared:
         rect_pantalla = camara.aplicar(self.rect)
         # Si es puerta, dibujamos un rectángulo con color diferente
         if self.puerta:
-            # Selecciona colores dependiendo de si está abierta
-            color_fondo = (90, 60, 20) if self.abierta else (120, 80, 40)
-            color_borde = (180, 140, 90) if self.abierta else (220, 190, 140)
-            pygame.draw.rect(ventana, color_fondo, rect_pantalla)
-            pygame.draw.rect(ventana, color_borde, rect_pantalla, 2)
+            if self.abierta:
+                # Puerta abierta: verde oscuro translúcido
+                color_fondo = (40, 100, 40)
+                color_borde = (80, 200, 80)
+                # Dibujar con efecto de apertura
+                pygame.draw.rect(ventana, color_fondo, rect_pantalla)
+                pygame.draw.rect(ventana, color_borde, rect_pantalla, 3)
+                # Líneas diagonales para indicar apertura
+                pygame.draw.line(ventana, (120, 255, 120), 
+                               rect_pantalla.topleft, rect_pantalla.bottomright, 2)
+                pygame.draw.line(ventana, (120, 255, 120),
+                               rect_pantalla.topright, rect_pantalla.bottomleft, 2)
+            else:
+                # Puerta cerrada: marrón oscuro sólido
+                color_fondo = (120, 80, 40)
+                color_borde = (220, 190, 140)
+                pygame.draw.rect(ventana, color_fondo, rect_pantalla)
+                # Detalles de madera
+                num_tablas = max(3, rect_pantalla.h // 30) if rect_pantalla.h > rect_pantalla.w else max(3, rect_pantalla.w // 30)
+                for i in range(1, num_tablas):
+                    if rect_pantalla.h > rect_pantalla.w:  # Puerta vertical
+                        y_pos = rect_pantalla.y + (rect_pantalla.h * i // num_tablas)
+                        pygame.draw.line(ventana, (90, 60, 30),
+                                       (rect_pantalla.x, y_pos), (rect_pantalla.right, y_pos), 1)
+                    else:  # Puerta horizontal
+                        x_pos = rect_pantalla.x + (rect_pantalla.w * i // num_tablas)
+                        pygame.draw.line(ventana, (90, 60, 30),
+                                       (x_pos, rect_pantalla.y), (x_pos, rect_pantalla.bottom), 1)
+                pygame.draw.rect(ventana, color_borde, rect_pantalla, 3)
         else:
             # Muro normal: intentar usar textura
             if TEXTURA_MURO:

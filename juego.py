@@ -8,7 +8,9 @@ from enemigo import enemigo
 from proyectil import proyectil
 from datetime import datetime
 
-# Colores
+# -------------------------------------------------------
+# COLORES
+# -------------------------------------------------------
 NEGRO = (0, 0, 0)
 BLANCO = (255, 255, 255)
 GRIS = (40, 40, 40)
@@ -16,6 +18,7 @@ ROJO = (255, 80, 80)
 AMARILLO = (255, 255, 0)
 VERDE = (0, 255, 0)
 AZUL = (100, 180, 255)
+
 
 class juego:
     def __init__(self):
@@ -28,17 +31,51 @@ class juego:
         self.camara = None
         self.resultado = ""
         self._guardado = False
+        self.opcion_pausa = 0  # 0: Reanudar, 1: Reiniciar, 2: Menú Principal
 
         # Configuración visual
         self.altura_header = 0.10
         pygame.display.set_caption("Fear of Ways")
         self.fuente_base = pygame.font.Font(None, 30)
+        
+        # Ocultar cursor del mouse durante el juego
+        pygame.mouse.set_visible(True)  # Visible en menú
+        
+        # Mensajes temporales
+        self.mensaje_temporal = ""
+        self.mensaje_timer = 0
+
+        # Sistema de temporizador para escape
+        self.temporizador_activo = False
+        self.tiempo_restante = 0  # En frames (60 fps)
+        self.tiempo_agotado = False
+        self.spawn_enemigos_extra = 0  # Contador para spawnar enemigos cuando se acaba el tiempo
+
+        # Sistema de spawn progresivo de enemigos
+        self.spawn_progresivo_activo = True
+        self.contador_spawn_progresivo = 0
+        self.intervalo_spawn = 0  # Se configurará según el nivel
+        self.cantidad_spawn = 0   # Se configurará según el nivel
 
         # Sonidos
         try:
             self.sonido_disparo = pygame.mixer.Sound("disparo.mp3")
-        except Exception:
+            self.sonido_disparo.set_volume(0.7)
+            print("✓ Sonido de disparo cargado correctamente")
+        except Exception as e:
             self.sonido_disparo = None
+            print(f"✗ Error al cargar disparo.mp3: {e}")
+        
+        try:
+            self.sonido_golpe = pygame.mixer.Sound("daño.mp3")
+            self.sonido_golpe.set_volume(0.5)
+            print("✓ Sonido de golpe cargado correctamente")
+        except Exception as e:
+            self.sonido_golpe = None
+            print(f"✗ Error al cargar daño.mp3: {e}")
+        
+        # No hay archivo bonus.mp3, usar el sonido de golpe como alternativa
+        self.sonido_bonus = self.sonido_golpe
 
     # -------------------------------------------------------
     # MENÚ PRINCIPAL
@@ -69,6 +106,23 @@ class juego:
         self.cargar_nivel(self.numero_nivel)
         self.resultado = ""
         self.estado = "jugando"
+        pygame.mouse.set_visible(False)  # Ocultar cursor durante el juego
+
+    def activar_temporizador(self):
+        """Activa el temporizador según el nivel actual"""
+        self.temporizador_activo = True
+        self.tiempo_agotado = False
+        self.spawn_enemigos_extra = 0
+        
+        # Tiempos según el nivel (en frames a 60 FPS)
+        if self.numero_nivel == 1:
+            self.tiempo_restante = 120 * 60  # 2 minutos
+        elif self.numero_nivel == 2:
+            self.tiempo_restante = 90 * 60   # 1.5 minutos
+        elif self.numero_nivel == 3:
+            self.tiempo_restante = 60 * 60   # 1 minuto
+        else:
+            self.tiempo_restante = 60 * 60   # Por defecto 1 minuto
 
     def cargar_nivel(self, numero):
         self.numero_nivel = numero
@@ -77,81 +131,254 @@ class juego:
         self.enemigos.clear()
         self.proyectiles.clear()
 
-        # Generar enemigos
+        # Generar enemigos con diversidad - REDUCIDOS Y BALANCEADOS
         apariciones = list(self.nivel_actual.spawn_enemigos)
-        tipos_forzados = ["veloz", "acechador", "bruto"]
         random.shuffle(apariciones)
+        
+        # Limitar cantidad de enemigos según el nivel
+        max_enemigos = min(4 + numero * 2, len(apariciones))  # 6, 8, 10 enemigos máximo
+        apariciones = apariciones[:max_enemigos]
+        
+        # Asegurar variedad de tipos
+        tipos_forzados = ["veloz", "acechador", "bruto"]
         for tipo in tipos_forzados:
             if apariciones:
                 x, y = apariciones.pop()
-                self.enemigos.append(enemigo(x, y, random.randint(2, 4), tipo=tipo))
+                self.enemigos.append(enemigo(x, y, random.randint(2, 3), tipo=tipo))
+        
+        # Resto de enemigos con distribución equilibrada
         for x, y in apariciones:
-            tipo = random.choices(["veloz", "acechador", "bruto"], [0.5, 0.3, 0.2])[0]
-            self.enemigos.append(enemigo(x, y, random.randint(2, 4), tipo=tipo))
+            tipo = random.choices(["veloz", "acechador", "bruto"], [0.4, 0.35, 0.25])[0]
+            self.enemigos.append(enemigo(x, y, random.randint(2, 3), tipo=tipo))
 
-        self.jugador.resetear_posicion()
-        self.jugador.oculto = False
+        # Generar más bonus para compensar la dificultad
+        self.nivel_actual.bonus = []
+        for _ in range(random.randint(3, 6)):  # Aumentado de (2,4) a (3,6)
+            bx, by = random.randint(100, self.nivel_actual.ancho - 100), random.randint(100, self.nivel_actual.alto - 100)
+            tipo = random.choice(["vida", "vida", "arma", "energia"])  # Más probabilidad de vida
+            self.nivel_actual.bonus.append({"rect": pygame.Rect(bx, by, 25, 25), "tipo": tipo})
 
-        # Incremento progresivo de dificultad
-        dificultad = 1 + (numero - 1) * 0.25
+        # Ajuste de dificultad progresiva MÁS SUAVE
+        dificultad = 1 + (numero - 1) * 0.15  # Reducido de 0.25 a 0.15
         for e in self.enemigos:
             e.velocidad = int(e.velocidad * dificultad)
-            e.rango_deteccion = int(e.rango_deteccion * dificultad)
+            # NO aumentar rango de detección con dificultad
+
+        # Resetear jugador con posición de spawn aleatoria segura
+        spawn_x, spawn_y = self.nivel_actual.obtener_spawn_jugador_seguro(tamaño_jugador=30)
+        self.jugador.establecer_posicion_spawn(spawn_x, spawn_y)
+        self.jugador.oculto = False
+        # Restaurar vida y energía al máximo
+        self.jugador.vida = self.jugador.vida_max
+        self.jugador.energia = self.jugador.energia_max
+
+        # Resetear temporizador
+        self.temporizador_activo = False
+        self.tiempo_restante = 0
+        self.tiempo_agotado = False
+        self.spawn_enemigos_extra = 0
+
+        # Configurar spawn progresivo según el nivel
+        self.spawn_progresivo_activo = True
+        self.contador_spawn_progresivo = 0
+        
+        if numero == 1:
+            self.intervalo_spawn = 20 * 60  # 20 segundos (1200 frames)
+            self.cantidad_spawn = 3
+        elif numero == 2:
+            self.intervalo_spawn = 10 * 60  # 10 segundos (600 frames)
+            self.cantidad_spawn = 4
+        elif numero == 3:
+            self.intervalo_spawn = 5 * 60   # 5 segundos (300 frames)
+            self.cantidad_spawn = 5
+        else:
+            self.intervalo_spawn = 20 * 60
+            self.cantidad_spawn = 3
 
     # -------------------------------------------------------
     # BUCLE PRINCIPAL DE JUEGO
     # -------------------------------------------------------
-    def jugar(self):
+    def jugar(self, pausado=False):
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
         offset_header = int(alto * self.altura_header)
-
-        # Área de juego bajo el header
         area_juego = pygame.Surface((ancho, alto - offset_header))
         area_juego.fill(GRIS)
 
-        # Actualizar cámara y jugador
-        self.camara.actualizar(self.jugador.rect)
-        teclas = pygame.key.get_pressed()
-        muros_bloq = [m for m in self.nivel_actual.muros if getattr(m, "bloquea", True)]
-        self.jugador.mover(teclas, muros_bloq, self.nivel_actual.ancho, self.nivel_actual.alto)
+        # Actualizar cámara y movimiento del jugador (solo si no está pausado)
+        if not pausado:
+            self.camara.actualizar(self.jugador.rect)
+            teclas = pygame.key.get_pressed()
+            muros_bloq = [m for m in self.nivel_actual.muros if getattr(m, "bloquea", True)]
+            self.jugador.mover(teclas, muros_bloq, self.nivel_actual.ancho, self.nivel_actual.alto)
+            
+            # Actualizar temporizador si está activo
+            if self.temporizador_activo and self.tiempo_restante > 0:
+                self.tiempo_restante -= 1
+                
+                # Advertencia cuando quedan 30 segundos
+                if self.tiempo_restante == 30 * 60:
+                    self.mensaje_temporal = "⚠️ ¡QUEDAN 30 SEGUNDOS! ⚠️"
+                    self.mensaje_timer = 120
+                # Advertencia cuando quedan 10 segundos
+                elif self.tiempo_restante == 10 * 60:
+                    self.mensaje_temporal = "⚠️ ¡SOLO 10 SEGUNDOS! ⚠️"
+                    self.mensaje_timer = 120
+                    
+            # Si el tiempo se acaba, spawear enemigos continuamente
+            elif self.temporizador_activo and self.tiempo_restante <= 0 and not self.tiempo_agotado:
+                self.tiempo_agotado = True
+                self.mensaje_temporal = "💀 ¡TIEMPO AGOTADO! ¡ENEMIGOS INVADEN! 💀"
+                self.mensaje_timer = 180
+            
+            # Spawear enemigos extra cuando el tiempo se agota
+            if self.tiempo_agotado:
+                self.spawn_enemigos_extra += 1
+                # Spawear un enemigo cada 2 segundos (120 frames)
+                if self.spawn_enemigos_extra >= 120:
+                    self.spawn_enemigos_extra = 0
+                    self.spawear_enemigo_aleatorio()
+            
+            # Sistema de spawn progresivo de enemigos
+            if self.spawn_progresivo_activo:
+                self.contador_spawn_progresivo += 1
+                
+                # Cuando se cumple el intervalo, spawear enemigos
+                if self.contador_spawn_progresivo >= self.intervalo_spawn:
+                    self.contador_spawn_progresivo = 0
+                    self.spawear_enemigos_progresivos()
+        else:
+            muros_bloq = [m for m in self.nivel_actual.muros if getattr(m, "bloquea", True)]
 
-        # Dibujar mapa, enemigos, proyectiles y jugador
+        # Dibujar mapa y enemigos
         self.nivel_actual.dibujar(area_juego, self.camara)
         for enemigo_actual in list(self.enemigos):
-            enemigo_actual.mover(muros_bloq, self.nivel_actual.ancho, self.nivel_actual.alto, self.jugador, self.nivel_actual.escondites)
+            if not pausado:
+                enemigo_actual.mover(muros_bloq, self.nivel_actual.ancho, self.nivel_actual.alto, self.jugador, self.nivel_actual.escondites)
             enemigo_actual.dibujar(area_juego, self.camara)
 
-            if self.jugador.rect.colliderect(enemigo_actual.rect):
-                self.jugador.recibir_daño(1)
-                if self.jugador.vida <= 0:
-                    self.resultado = "perdiste"
-                    self.estado = "fin"
+            # Los enemigos ya NO dañan por contacto directo
+            # Cada tipo tiene su propio sistema de ataque con cooldowns
+            # Verificar si el jugador murió después de los ataques específicos
+            if not pausado and self.jugador.vida <= 0:
+                self.resultado = "perdiste"
+                self.estado = "fin"
 
+        # Dibujar y recoger bonus (solo recoger si no está pausado)
+        for bonus in list(getattr(self.nivel_actual, "bonus", [])):
+            rect = bonus["rect"]
+            tipo = bonus["tipo"]
+            color = (255, 215, 0) if tipo == "arma" else (0, 255, 120) if tipo == "vida" else (80, 200, 255)
+            pygame.draw.rect(area_juego, color, rect)
+            if not pausado and self.jugador.rect.colliderect(rect):
+                if tipo == "vida":
+                    self.jugador.vida = min(self.jugador.vida_max, self.jugador.vida + 1)
+                elif tipo == "arma":
+                    self.jugador.vision += 30
+                elif tipo == "energia":
+                    self.jugador.energia = min(self.jugador.energia_max, self.jugador.energia + 20)
+                if self.sonido_bonus:
+                    self.sonido_bonus.play()
+                self.nivel_actual.bonus.remove(bonus)
+        
+        # Recoger llaves (solo si no está pausado)
+        if not pausado:
+            for llave in list(getattr(self.nivel_actual, "llaves", [])):
+                if self.jugador.rect.colliderect(llave):
+                    self.nivel_actual.llaves.remove(llave)
+                    if self.sonido_bonus:
+                        self.sonido_bonus.play()
+                    # Mensaje visual de llave recogida
+                    llaves_restantes = len(self.nivel_actual.llaves)
+                    if llaves_restantes == 0:
+                        # ¡TODAS LAS LLAVES RECOGIDAS! - ACTIVAR TEMPORIZADOR
+                        self.activar_temporizador()
+                        tiempo_seg = int(self.tiempo_restante / 60)
+                        minutos = tiempo_seg // 60
+                        segundos = tiempo_seg % 60
+                        self.mensaje_temporal = f"¡SALIDA ABIERTA! TIENES {minutos}:{segundos:02d} PARA ESCAPAR"
+                        self.mensaje_timer = 180  # 3 segundos a 60 FPS
+                    else:
+                        self.mensaje_temporal = f"¡Llave recogida! Faltan {llaves_restantes}"
+                        self.mensaje_timer = 90  # 1.5 segundos
+        
+        # Interactuar con palancas (presionar E cerca de una palanca)
+        if not pausado:
+            teclas = pygame.key.get_pressed()
+            if teclas[pygame.K_e]:
+                for i, palanca_rect in enumerate(getattr(self.nivel_actual, "palancas", [])):
+                    # Verificar si el jugador está cerca de la palanca
+                    if self.jugador.rect.inflate(40, 40).colliderect(palanca_rect):
+                        # Activar/desactivar la puerta correspondiente
+                        id_puerta = self.obtener_id_puerta_por_indice(i)
+                        if id_puerta and id_puerta in self.nivel_actual._puertas_por_id:
+                            puertas = self.nivel_actual._puertas_por_id[id_puerta]
+                            for puerta in puertas:
+                                puerta.abierta = not puerta.abierta
+                                # No necesitamos establecer bloquea, es una propiedad calculada automáticamente
+                            
+                            estado = "abierta" if puertas[0].abierta else "cerrada"
+                            self.mensaje_temporal = f"¡Puerta {estado}!"
+                            self.mensaje_timer = 60
+                            if self.sonido_bonus:
+                                self.sonido_bonus.play()
+                            break
+
+        # Proyectiles y colisiones (solo mover si no está pausado)
         for bala in list(self.proyectiles):
-            if not bala.mover(muros_bloq):
-                self.proyectiles.remove(bala)
-                continue
+            if not pausado:
+                if not bala.mover(muros_bloq):
+                    self.proyectiles.remove(bala)
+                    continue
             bala.dibujar(area_juego, self.camara)
-            for enemigo_actual in list(self.enemigos):
-                if bala.rect.colliderect(enemigo_actual.rect):
-                    enemigo_actual.vida -= 1
-                    if enemigo_actual.vida <= 0:
-                        self.enemigos.remove(enemigo_actual)
-                    if bala in self.proyectiles:
-                        self.proyectiles.remove(bala)
-                    break
+            if not pausado:
+                for enemigo_actual in list(self.enemigos):
+                    if bala.rect.colliderect(enemigo_actual.rect):
+                        enemigo_actual.vida -= 1
+                        if enemigo_actual.vida <= 0:
+                            self.enemigos.remove(enemigo_actual)
+                        if bala in self.proyectiles:
+                            self.proyectiles.remove(bala)
+                        break
 
+        # Dibujar jugador y linterna
         self.jugador.dibujar(area_juego, self.camara)
         self.dibujar_linterna_en_superficie(area_juego)
         pantalla.blit(area_juego, (0, offset_header))
-
-        # --- Header superior ---
         self.dibujar_header(pantalla, ancho, alto, offset_header)
+        
+        # Actualizar y mostrar mensaje temporal
+        if not pausado and self.mensaje_timer > 0:
+            self.mensaje_timer -= 1
+            # Dibujar mensaje en el centro de la pantalla
+            alpha = min(255, self.mensaje_timer * 3) if self.mensaje_timer < 60 else 255
+            color_msg = (0, 255, 0) if "ABIERTA" in self.mensaje_temporal else (255, 255, 100)
+            
+            # Fondo semi-transparente para el mensaje
+            msg_y = int(alto * 0.7)
+            overlay = pygame.Surface((ancho, int(alto * 0.1)), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, min(180, alpha)))
+            pantalla.blit(overlay, (0, msg_y))
+            
+            # Texto del mensaje
+            self.dibujar_texto(self.mensaje_temporal, int(alto * 0.05), color_msg, ancho // 2, msg_y + int(alto * 0.05))
+        
+        # Indicador de interacción con palancas (solo si no está pausado)
+        if not pausado:
+            for palanca_rect in getattr(self.nivel_actual, "palancas", []):
+                if self.jugador.rect.inflate(40, 40).colliderect(palanca_rect):
+                    # Mostrar indicador de "Presiona E"
+                    indicador_y = int(alto * 0.15)
+                    self.dibujar_texto("[E] para activar palanca", int(alto * 0.04), 
+                                      (255, 255, 100), ancho // 2, indicador_y)
+                    break
+        
+        # Dibujar mira personalizada (solo si no está pausado)
+        if not pausado:
+            self.dibujar_mira(pantalla)
 
-        # Salida de nivel
-        llaves_restantes = len(getattr(self.nivel_actual, "llaves", []))
-        if self.jugador.rect.colliderect(self.nivel_actual.salida.rect) and llaves_restantes == 0:
+        # Salida del nivel (solo si no está pausado)
+        if not pausado and self.jugador.rect.colliderect(self.nivel_actual.salida.rect) and len(getattr(self.nivel_actual, "llaves", [])) == 0:
             if self.numero_nivel < 3:
                 self.transicion_texto(f"Mazmorra {self.numero_nivel+1}")
                 self.cargar_nivel(self.numero_nivel + 1)
@@ -160,88 +387,353 @@ class juego:
                 self.estado = "fin"
 
     # -------------------------------------------------------
-    # DIBUJAR HEADER (HUD)
+    # HEADER (HUD) - Formato Simple Horizontal
     # -------------------------------------------------------
     def dibujar_header(self, pantalla, ancho, alto, offset):
         alto_header = offset
-        pygame.draw.rect(pantalla, (20, 20, 30, 230), (0, 0, ancho, alto_header))
-        pygame.draw.line(pantalla, (120, 120, 150), (0, alto_header - 2), (ancho, alto_header - 2), 2)
+        # Fondo del HUD con gradiente
+        for i in range(int(alto_header)):
+            alpha = int(200 + (30 * i / alto_header))
+            color = (15 + i//3, 15 + i//3, 25 + i//2)
+            pygame.draw.line(pantalla, color, (0, i), (ancho, i))
+        
+        # Línea decorativa inferior
+        pygame.draw.line(pantalla, (180, 160, 255), (0, alto_header - 3), (ancho, alto_header - 3), 3)
+        pygame.draw.line(pantalla, (120, 100, 200), (0, alto_header - 1), (ancho, alto_header - 1), 1)
 
-        margen_x = int(ancho * 0.03)
-        margen_y = int(alto_header * 0.25)
-        barra_ancho = int(ancho * 0.25)
-        barra_alto = int(alto_header * 0.25)
-
-        # Vida izquierda
-        self.dibujar_texto("❤️ VIDA", int(alto * 0.035), (255, 100, 100),
-                           margen_x, margen_y - 5, centrado=False)
-        self.dibujar_barra(pantalla, margen_x, margen_y + int(alto_header * 0.35),
-                           barra_ancho, barra_alto,
-                           self.jugador.vida, self.jugador.vida_max, (255, 80, 80))
-
-        # Energía derecha
-        self.dibujar_texto("⚡ ENERGÍA", int(alto * 0.035), (120, 200, 255),
-                           ancho - barra_ancho - margen_x, margen_y - 5, centrado=False)
-        self.dibujar_barra(pantalla, ancho - barra_ancho - margen_x, margen_y + int(alto_header * 0.35),
-                           barra_ancho, barra_alto,
-                           self.jugador.energia, self.jugador.energia_max, (80, 200, 255))
-
-        # Nivel al centro
-        self.dibujar_texto(f"Nivel {self.numero_nivel}/3",
-                           int(alto * 0.045), BLANCO, ancho // 2, alto_header // 2, centrado=True)
+        # === FORMATO SIMPLE EN UNA LÍNEA - MEJOR DISTRIBUIDO ===
+        centro_y = int(alto_header * 0.5)
+        tam_fuente = int(alto * 0.04)
+        
+        # Calcular llaves
+        llaves_recogidas = self.nivel_actual.llaves_requeridas - len(getattr(self.nivel_actual, "llaves", []))
+        llaves_totales = self.nivel_actual.llaves_requeridas
+        
+        # Dividir el ancho en 4 secciones iguales
+        seccion_ancho = ancho / 4
+        
+        # === SECCIÓN 1: VIDA ===
+        vida_x_base = int(seccion_ancho * 0.1)
+        fuente_label = pygame.font.Font(None, tam_fuente)
+        label_vida = fuente_label.render("Vida:", True, (255, 150, 150))
+        pantalla.blit(label_vida, (vida_x_base, centro_y - tam_fuente // 2))
+        
+        # Barra de vida visual con rectángulos
+        barra_x = vida_x_base + label_vida.get_width() + 15
+        barra_w = int(seccion_ancho * 0.6)
+        barra_h = int(alto_header * 0.3)
+        barra_y = centro_y - barra_h // 2
+        
+        # Fondo de la barra
+        pygame.draw.rect(pantalla, (60, 20, 20), (barra_x, barra_y, barra_w, barra_h), border_radius=5)
+        
+        # Relleno de vida
+        proporcion_vida = max(0, min(1, self.jugador.vida / self.jugador.vida_max))
+        ancho_relleno = int(barra_w * proporcion_vida)
+        if ancho_relleno > 0:
+            pygame.draw.rect(pantalla, (255, 60, 60), (barra_x, barra_y, ancho_relleno, barra_h), border_radius=5)
+        
+        # Borde
+        pygame.draw.rect(pantalla, (255, 100, 100), (barra_x, barra_y, barra_w, barra_h), 2, border_radius=5)
+        
+        # Texto del valor
+        texto_valor_vida = fuente_label.render(f"{self.jugador.vida}/{self.jugador.vida_max}", True, BLANCO)
+        pantalla.blit(texto_valor_vida, (barra_x + barra_w // 2 - texto_valor_vida.get_width() // 2, 
+                                         barra_y + barra_h // 2 - texto_valor_vida.get_height() // 2))
+        
+        # === SECCIÓN 2: ENERGÍA ===
+        energia_x_base = int(seccion_ancho * 1.1)
+        label_energia = fuente_label.render("Energía:", True, (150, 220, 255))
+        pantalla.blit(label_energia, (energia_x_base, centro_y - tam_fuente // 2))
+        
+        # Barra de energía visual con rectángulos
+        barra_energia_x = energia_x_base + label_energia.get_width() + 15
+        
+        # Fondo de la barra
+        pygame.draw.rect(pantalla, (20, 40, 60), (barra_energia_x, barra_y, barra_w, barra_h), border_radius=5)
+        
+        # Relleno de energía
+        proporcion_energia = max(0, min(1, self.jugador.energia / self.jugador.energia_max))
+        ancho_relleno_e = int(barra_w * proporcion_energia)
+        if ancho_relleno_e > 0:
+            pygame.draw.rect(pantalla, (80, 200, 255), (barra_energia_x, barra_y, ancho_relleno_e, barra_h), border_radius=5)
+        
+        # Borde
+        pygame.draw.rect(pantalla, (100, 180, 255), (barra_energia_x, barra_y, barra_w, barra_h), 2, border_radius=5)
+        
+        # Texto del valor
+        texto_valor_energia = fuente_label.render(f"{int(self.jugador.energia)}/{int(self.jugador.energia_max)}", True, BLANCO)
+        pantalla.blit(texto_valor_energia, (barra_energia_x + barra_w // 2 - texto_valor_energia.get_width() // 2,
+                                            barra_y + barra_h // 2 - texto_valor_energia.get_height() // 2))
+        
+        # === SECCIÓN 3: NIVEL ===
+        nivel_x_base = int(seccion_ancho * 2.3)
+        label_nivel = fuente_label.render("Nivel:", True, AMARILLO)
+        pantalla.blit(label_nivel, (nivel_x_base, centro_y - tam_fuente // 2))
+        
+        fuente_valor = pygame.font.Font(None, int(tam_fuente * 1.3))
+        texto_nivel = fuente_valor.render(f"{self.numero_nivel}/3", True, AMARILLO)
+        pantalla.blit(texto_nivel, (nivel_x_base + label_nivel.get_width() + 20, 
+                                    centro_y - texto_nivel.get_height() // 2))
+        
+        # === SECCIÓN 4: LLAVES / TEMPORIZADOR ===
+        llaves_x_base = int(seccion_ancho * 3.2)
+        
+        # Si el temporizador está activo, mostrar el tiempo
+        if self.temporizador_activo:
+            tiempo_seg = max(0, int(self.tiempo_restante / 60))
+            minutos = tiempo_seg // 60
+            segundos = tiempo_seg % 60
+            
+            # Color según el tiempo restante
+            if self.tiempo_agotado or tiempo_seg == 0:
+                color_tiempo = (255, 50, 50)  # Rojo intenso
+                texto_display = "¡ESCAPAR!"
+            elif tiempo_seg <= 10:
+                color_tiempo = (255, 100, 100)  # Rojo
+                texto_display = f"{minutos}:{segundos:02d}"
+            elif tiempo_seg <= 30:
+                color_tiempo = (255, 200, 0)  # Naranja
+                texto_display = f"{minutos}:{segundos:02d}"
+            else:
+                color_tiempo = (100, 255, 100)  # Verde
+                texto_display = f"{minutos}:{segundos:02d}"
+            
+            label_tiempo = fuente_label.render("Tiempo:", True, color_tiempo)
+            pantalla.blit(label_tiempo, (llaves_x_base, centro_y - tam_fuente // 2))
+            
+            fuente_tiempo = pygame.font.Font(None, int(tam_fuente * 1.5))
+            texto_tiempo = fuente_tiempo.render(texto_display, True, color_tiempo)
+            pantalla.blit(texto_tiempo, (llaves_x_base + label_tiempo.get_width() + 15,
+                                        centro_y - texto_tiempo.get_height() // 2))
+            
+            # Efecto de parpadeo cuando queda poco tiempo
+            if tiempo_seg <= 10 and tiempo_seg > 0 and (pygame.time.get_ticks() // 250) % 2 == 0:
+                # Dibujar rectángulo parpadeante
+                rect_alerta = pygame.Rect(llaves_x_base - 5, barra_y - 5, 
+                                         label_tiempo.get_width() + texto_tiempo.get_width() + 30, 
+                                         barra_h + 10)
+                pygame.draw.rect(pantalla, (255, 0, 0), rect_alerta, 3, border_radius=5)
+        else:
+            # Mostrar llaves si el temporizador no está activo
+            color_llaves = (0, 255, 0) if llaves_recogidas == llaves_totales else (240, 220, 40)
+            label_llaves = fuente_label.render("Llaves:", True, color_llaves)
+            pantalla.blit(label_llaves, (llaves_x_base, centro_y - tam_fuente // 2))
+            
+            texto_llaves = fuente_valor.render(f"{llaves_recogidas}/{llaves_totales}", True, color_llaves)
+            pantalla.blit(texto_llaves, (llaves_x_base + label_llaves.get_width() + 20,
+                                         centro_y - texto_llaves.get_height() // 2))
+    
+    def dibujar_corazon(self, pantalla, x, y, tamaño):
+        """Dibuja un corazón bonito"""
+        escala = tamaño / 20
+        # Sombra
+        puntos_sombra = [
+            (x, y - 3 * escala + 2),
+            (x - 8 * escala + 2, y - 8 * escala + 2),
+            (x - 10 * escala + 2, y - 3 * escala + 2),
+            (x, y + 10 * escala + 2),
+            (x + 10 * escala + 2, y - 3 * escala + 2),
+            (x + 8 * escala + 2, y - 8 * escala + 2)
+        ]
+        pygame.draw.polygon(pantalla, (100, 20, 20), puntos_sombra)
+        
+        # Corazón principal
+        puntos = [
+            (x, y - 3 * escala),
+            (x - 8 * escala, y - 8 * escala),
+            (x - 10 * escala, y - 3 * escala),
+            (x, y + 10 * escala),
+            (x + 10 * escala, y - 3 * escala),
+            (x + 8 * escala, y - 8 * escala)
+        ]
+        pygame.draw.polygon(pantalla, (255, 70, 70), puntos)
+        
+        # Brillo
+        puntos_brillo = [
+            (x - 4 * escala, y - 5 * escala),
+            (x - 6 * escala, y - 4 * escala),
+            (x - 5 * escala, y - 2 * escala)
+        ]
+        pygame.draw.polygon(pantalla, (255, 150, 150), puntos_brillo)
+    
+    def dibujar_rayo(self, pantalla, x, y, tamaño):
+        """Dibuja un rayo de energía"""
+        escala = tamaño / 20
+        # Sombra
+        puntos_sombra = [
+            (x - 4 * escala + 2, y - 10 * escala + 2),
+            (x + 2 * escala + 2, y - 10 * escala + 2),
+            (x - 3 * escala + 2, y - 2 * escala + 2),
+            (x + 4 * escala + 2, y - 2 * escala + 2),
+            (x - 2 * escala + 2, y + 10 * escala + 2),
+            (x - 1 * escala + 2, y + 2 * escala + 2),
+            (x - 6 * escala + 2, y + 2 * escala + 2)
+        ]
+        pygame.draw.polygon(pantalla, (30, 70, 100), puntos_sombra)
+        
+        # Rayo principal
+        puntos = [
+            (x - 4 * escala, y - 10 * escala),
+            (x + 2 * escala, y - 10 * escala),
+            (x - 3 * escala, y - 2 * escala),
+            (x + 4 * escala, y - 2 * escala),
+            (x - 2 * escala, y + 10 * escala),
+            (x - 1 * escala, y + 2 * escala),
+            (x - 6 * escala, y + 2 * escala)
+        ]
+        pygame.draw.polygon(pantalla, (100, 200, 255), puntos)
+        
+        # Brillos
+        pygame.draw.polygon(pantalla, (200, 240, 255), [
+            (x - 2 * escala, y - 8 * escala),
+            (x, y - 8 * escala),
+            (x - 1 * escala, y - 4 * escala)
+        ])
 
     # -------------------------------------------------------
-    # DIBUJADO DE ELEMENTOS
+    # UTILIDADES DE DIBUJO
     # -------------------------------------------------------
     def dibujar_texto(self, texto, tam, color, x, y, centrado=True):
         pantalla = pygame.display.get_surface()
         fuente = pygame.font.Font(None, tam)
-        imagen = fuente.render(texto, True, color)
-        rect = imagen.get_rect()
+        img = fuente.render(texto, True, color)
+        rect = img.get_rect()
         rect.center = (x, y) if centrado else (x, y)
-        pantalla.blit(imagen, rect)
+        pantalla.blit(img, rect)
         return rect
 
     def dibujar_barra(self, pantalla, x, y, ancho, alto, valor, valor_max, color_barra):
-        proporcion = max(0.0, min(1.0, valor / valor_max))
-        rect_fondo = pygame.Rect(x, y, ancho, alto)
-        rect_barra = pygame.Rect(x, y, int(ancho * proporcion), alto)
-        pygame.draw.rect(pantalla, (40, 40, 40), rect_fondo, border_radius=4)
-        pygame.draw.rect(pantalla, color_barra, rect_barra, border_radius=4)
-        pygame.draw.rect(pantalla, BLANCO, rect_fondo, 1, border_radius=4)
+        propor = max(0.0, min(1.0, valor / valor_max))
+        fondo = pygame.Rect(x, y, ancho, alto)
+        barra = pygame.Rect(x, y, int(ancho * propor), alto)
+        pygame.draw.rect(pantalla, (40, 40, 40), fondo, border_radius=4)
+        pygame.draw.rect(pantalla, color_barra, barra, border_radius=4)
+        pygame.draw.rect(pantalla, BLANCO, fondo, 1, border_radius=4)
+    
+    def dibujar_barra_mejorada(self, pantalla, x, y, ancho, alto, valor, valor_max, color_principal, color_oscuro):
+        """Dibuja una barra mejorada con gradiente y efectos"""
+        propor = max(0.0, min(1.0, valor / valor_max))
+        
+        # Fondo oscuro con borde
+        fondo = pygame.Rect(x, y, ancho, alto)
+        pygame.draw.rect(pantalla, (25, 25, 35), fondo, border_radius=6)
+        pygame.draw.rect(pantalla, (60, 60, 80), fondo, 2, border_radius=6)
+        
+        if propor > 0:
+            # Barra de relleno
+            ancho_barra = int(ancho * propor)
+            barra = pygame.Rect(x, y, ancho_barra, alto)
+            
+            # Degradado vertical en la barra
+            for i in range(alto):
+                factor = i / alto
+                r = int(color_principal[0] * (1 - factor * 0.3) + color_oscuro[0] * factor * 0.3)
+                g = int(color_principal[1] * (1 - factor * 0.3) + color_oscuro[1] * factor * 0.3)
+                b = int(color_principal[2] * (1 - factor * 0.3) + color_oscuro[2] * factor * 0.3)
+                pygame.draw.line(pantalla, (r, g, b), (x, y + i), (x + ancho_barra, y + i))
+            
+            # Brillo superior
+            brillo_alto = alto // 3
+            brillo = pygame.Surface((ancho_barra, brillo_alto), pygame.SRCALPHA)
+            brillo.fill((255, 255, 255, 40))
+            pantalla.blit(brillo, (x, y))
+            
+            # Borde de la barra
+            pygame.draw.rect(pantalla, color_oscuro, barra, 1, border_radius=6)
+        
+        # Borde exterior brillante
+        pygame.draw.rect(pantalla, (150, 150, 180), fondo, 2, border_radius=6)
+    
+    def dibujar_mira(self, pantalla):
+        """Dibuja una mira personalizada en lugar del cursor del mouse"""
+        mx, my = pygame.mouse.get_pos()
+        
+        # Color de la mira (puede cambiar según el cooldown)
+        if self.jugador.cooldown_disparo > 0:
+            color_mira = (150, 150, 150)  # Gris cuando está en cooldown
+        else:
+            color_mira = (0, 255, 0)  # Verde cuando puede disparar
+        
+        # Tamaño de la mira
+        tamaño = 15
+        grosor = 2
+        espacio = 5  # Espacio central
+        
+        # Líneas de la mira (cruz)
+        # Línea horizontal izquierda
+        pygame.draw.line(pantalla, color_mira, (mx - tamaño, my), (mx - espacio, my), grosor)
+        # Línea horizontal derecha
+        pygame.draw.line(pantalla, color_mira, (mx + espacio, my), (mx + tamaño, my), grosor)
+        # Línea vertical arriba
+        pygame.draw.line(pantalla, color_mira, (mx, my - tamaño), (mx, my - espacio), grosor)
+        # Línea vertical abajo
+        pygame.draw.line(pantalla, color_mira, (mx, my + espacio), (mx, my + tamaño), grosor)
+        
+        # Círculo central
+        pygame.draw.circle(pantalla, color_mira, (mx, my), 2)
+        
+        # Círculo exterior (opcional, para mejor visibilidad)
+        pygame.draw.circle(pantalla, color_mira, (mx, my), 8, 1)
 
     def dibujar_linterna_en_superficie(self, superficie):
         ancho, alto = superficie.get_size()
         sombra = pygame.Surface((ancho, alto), pygame.SRCALPHA)
         sombra.fill((0, 0, 0, 240))
         luz = pygame.Surface((ancho, alto), pygame.SRCALPHA)
-
         cx, cy = self.camara.aplicar_pos(self.jugador.rect.centerx, self.jugador.rect.centery)
         mx, my = pygame.mouse.get_pos()
-        dy_ajustado = my - cy - int(pygame.display.get_surface().get_height() * self.altura_header)
-        dx, dy = mx - cx, dy_ajustado
-        angulo = math.atan2(dy, dx) if (dx or dy) else 0.0
-
-        base_radio = self.jugador.vision
-        if self.jugador.energia < 20:
-            base_radio *= 0.8 + 0.2 * random.random()
+        dy_ajust = my - cy - int(pygame.display.get_surface().get_height() * self.altura_header)
+        dx, dy = mx - cx, dy_ajust
+        ang = math.atan2(dy, dx) if (dx or dy) else 0.0
+        # Ajustar el radio de la linterna con el zoom
+        base_radio = self.jugador.vision * (0.8 + 0.2 * random.random()) * self.camara.zoom
         radio = int(base_radio)
         semiancho = math.radians(35)
         pasos = 48
-
         for i in range(pasos, 0, -1):
             r = radio * (i / pasos)
             a = semiancho * (i / pasos)
-            p_izq = (cx + r * math.cos(angulo - a), cy + r * math.sin(angulo - a))
-            p_der = (cx + r * math.cos(angulo + a), cy + r * math.sin(angulo + a))
+            p_izq = (cx + r * math.cos(ang - a), cy + r * math.sin(ang - a))
+            p_der = (cx + r * math.cos(ang + a), cy + r * math.sin(ang + a))
             alpha = int(240 * (i / pasos))
             pygame.draw.polygon(luz, (255, 255, 255, alpha), [(cx, cy), p_izq, p_der])
-
         sombra.blit(luz, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
         superficie.blit(sombra, (0, 0))
 
     # -------------------------------------------------------
-    # TRANSICIÓN ENTRE NIVELES
+    # MENÚ DE PAUSA
+    # -------------------------------------------------------
+    def menu_pausa(self):
+        pantalla = pygame.display.get_surface()
+        ancho, alto = pantalla.get_size()
+        
+        # Oscurecer la pantalla
+        overlay = pygame.Surface((ancho, alto))
+        overlay.set_alpha(180)
+        overlay.fill(NEGRO)
+        pantalla.blit(overlay, (0, 0))
+        
+        # Título
+        self.dibujar_texto("PAUSA", int(alto * 0.1), AMARILLO, ancho // 2, alto * 0.2)
+        
+        # Opciones del menú
+        opciones = ["Reanudar", "Reiniciar Nivel", "Menú Principal"]
+        y_inicial = alto * 0.4
+        espaciado = alto * 0.1
+        
+        for i, opcion in enumerate(opciones):
+            color = BLANCO if i == self.opcion_pausa else GRIS
+            tam = int(alto * 0.05) if i == self.opcion_pausa else int(alto * 0.045)
+            prefijo = "> " if i == self.opcion_pausa else "  "
+            self.dibujar_texto(f"{prefijo}{opcion}", tam, color, ancho // 2, y_inicial + i * espaciado)
+        
+        # Controles
+        self.dibujar_texto("↑↓ para navegar | ENTER para seleccionar | P/ESC para reanudar", 
+                          int(alto * 0.03), GRIS, ancho // 2, alto * 0.85)
+    
+    # -------------------------------------------------------
+    # TRANSICIÓN Y FINAL
     # -------------------------------------------------------
     def transicion_texto(self, texto):
         pantalla = pygame.display.get_surface()
@@ -256,9 +748,6 @@ class juego:
             pygame.display.flip()
             pygame.time.delay(16)
 
-    # -------------------------------------------------------
-    # PANTALLA FINAL
-    # -------------------------------------------------------
     def pantalla_final(self):
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
@@ -272,37 +761,64 @@ class juego:
             self._guardado = True
 
     # -------------------------------------------------------
-    # BUCLE DE EVENTOS PRINCIPAL
+    # LOOP DE EVENTOS
     # -------------------------------------------------------
     def ejecutar(self):
         reloj = pygame.time.Clock()
         while True:
             for e in pygame.event.get():
                 if e.type == pygame.QUIT:
-                    pygame.quit()
-                    return
+                    pygame.quit(); return
                 if self.estado == "menu" and e.type == pygame.KEYDOWN:
                     if e.key == pygame.K_ESCAPE:
                         pygame.quit(); return
                     if e.key in (pygame.K_1, pygame.K_2, pygame.K_3):
                         self.iniciar_juego(int(e.key - pygame.K_0))
+
                 elif self.estado == "jugando":
-                    if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
-                        self.estado = "menu"
-                    if e.type == pygame.MOUSEBUTTONDOWN and e.button == 3 and self.jugador.cooldown_disparo == 0:
-                        mx, my = pygame.mouse.get_pos()
-                        jx, jy = self.camara.aplicar_pos(self.jugador.rect.centerx, self.jugador.rect.centery)
-                        self.proyectiles.append(proyectil(jx, jy, self.camara.offset_x + mx, self.camara.offset_y + my, self.jugador.color))
-                        self.jugador.cooldown_disparo = 15
-                        if self.sonido_disparo:
-                            self.sonido_disparo.play()
+                    if e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_p):
+                        self.estado = "pausado"
+                        self.opcion_pausa = 0
+
+                    # Ataque a distancia (click derecho o tecla ESPACIO)
+                    elif (e.type == pygame.MOUSEBUTTONDOWN and e.button == 3) or \
+                         (e.type == pygame.KEYDOWN and e.key == pygame.K_SPACE):
+                        if self.jugador.cooldown_disparo == 0:
+                            self.disparar_proyectil()
+
+                    # Ataque cuerpo a cuerpo (click izquierdo)
+                    elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                        self.ataque_corto()
+
+                elif self.estado == "pausado":
+                    if e.type == pygame.KEYDOWN:
+                        if e.key in (pygame.K_ESCAPE, pygame.K_p):
+                            self.estado = "jugando"
+                        elif e.key == pygame.K_UP:
+                            self.opcion_pausa = (self.opcion_pausa - 1) % 3
+                        elif e.key == pygame.K_DOWN:
+                            self.opcion_pausa = (self.opcion_pausa + 1) % 3
+                        elif e.key == pygame.K_RETURN:
+                            if self.opcion_pausa == 0:  # Reanudar
+                                self.estado = "jugando"
+                            elif self.opcion_pausa == 1:  # Reiniciar nivel
+                                self.cargar_nivel(self.numero_nivel)
+                                self.estado = "jugando"
+                            elif self.opcion_pausa == 2:  # Menú principal
+                                self.estado = "menu"
+                                pygame.mouse.set_visible(True)  # Mostrar cursor en menú
+                
                 elif self.estado == "fin" and e.type == pygame.KEYDOWN and e.key == pygame.K_RETURN:
                     self.estado = "menu"
+                    pygame.mouse.set_visible(True)  # Mostrar cursor en menú
 
             if self.estado == "menu":
                 self.menu()
             elif self.estado == "jugando":
-                self.jugar()
+                self.jugar(pausado=False)
+            elif self.estado == "pausado":
+                self.jugar(pausado=True)  # Mantener el juego visible pero pausado
+                self.menu_pausa()  # Dibujar el menú de pausa encima
             elif self.estado == "fin":
                 self.pantalla_final()
 
@@ -310,8 +826,204 @@ class juego:
             reloj.tick(60)
 
     # -------------------------------------------------------
+    # DISPARO
+    # -------------------------------------------------------
+    def disparar_proyectil(self):
+        """Dispara un proyectil hacia el mouse o en la dirección de movimiento"""
+        if self.jugador.cooldown_disparo > 0:
+            return
+        
+        pantalla = pygame.display.get_surface()
+        ancho, alto = pantalla.get_size()
+        offset_header = int(alto * self.altura_header)
+        
+        # Obtener posición del mouse
+        mx, my = pygame.mouse.get_pos()
+        my_ajustado = my - offset_header
+        
+        # Obtener posición del jugador en pantalla
+        jugador_pantalla = self.camara.aplicar(self.jugador.rect)
+        px, py = jugador_pantalla.centerx, jugador_pantalla.centery
+        
+        # Calcular dirección desde el jugador al mouse
+        dx = mx - px
+        dy = my_ajustado - py
+        
+        # Si el mouse está muy cerca del jugador, usar la última dirección de movimiento
+        distancia_mouse = math.hypot(dx, dy)
+        if distancia_mouse < 20:  # Mouse muy cerca del jugador
+            dx = self.jugador.ultima_direccion_x * 100
+            dy = self.jugador.ultima_direccion_y * 100
+        
+        # Convertir dirección a coordenadas del mundo
+        mundo_destino_x = self.jugador.rect.centerx + dx
+        mundo_destino_y = self.jugador.rect.centery + dy
+        
+        # Crear proyectil
+        self.proyectiles.append(
+            proyectil(
+                self.jugador.rect.centerx, 
+                self.jugador.rect.centery, 
+                mundo_destino_x, 
+                mundo_destino_y, 
+                self.jugador.color
+            )
+        )
+        
+        self.jugador.cooldown_disparo = 15
+        
+        # Reproducir sonido de disparo
+        if self.sonido_disparo:
+            try:
+                self.sonido_disparo.play()
+            except Exception as e:
+                print(f"Error al reproducir sonido: {e}")
+    
+    # -------------------------------------------------------
+    # ATAQUE CORTO (melee)
+    # -------------------------------------------------------
+    def ataque_corto(self):
+        alcance = 60
+        ang = math.atan2(pygame.mouse.get_pos()[1] - self.jugador.rect.centery,
+                         pygame.mouse.get_pos()[0] - self.jugador.rect.centerx)
+        ataque_rect = pygame.Rect(0, 0, 40, 40)
+        ataque_rect.center = (self.jugador.rect.centerx + math.cos(ang) * alcance,
+                              self.jugador.rect.centery + math.sin(ang) * alcance)
+        for enemigo_actual in list(self.enemigos):
+            if ataque_rect.colliderect(enemigo_actual.rect):
+                enemigo_actual.vida -= 1
+                enemigo_actual.color = (255, 100, 100)
+                if self.sonido_golpe:
+                    self.sonido_golpe.play()
+                if enemigo_actual.vida <= 0:
+                    self.enemigos.remove(enemigo_actual)
+
+    # -------------------------------------------------------
+    # SPAWN DE ENEMIGOS EXTRAS
+    # -------------------------------------------------------
+    def spawear_enemigo_aleatorio(self):
+        """Spawnea un enemigo en una posición aleatoria alejada del jugador"""
+        # Intentar spawear lejos del jugador
+        max_intentos = 10
+        for _ in range(max_intentos):
+            x = random.randint(100, self.nivel_actual.ancho - 100)
+            y = random.randint(100, self.nivel_actual.alto - 100)
+            
+            # Calcular distancia al jugador
+            dist_jugador = math.hypot(x - self.jugador.rect.centerx, y - self.jugador.rect.centery)
+            
+            # Solo spawear si está suficientemente lejos (al menos 400 unidades)
+            if dist_jugador > 400:
+                # Enemigos más peligrosos cuando el tiempo se agota
+                tipo = random.choices(["veloz", "acechador", "bruto"], [0.4, 0.4, 0.2])[0]
+                velocidad = random.randint(3, 5)  # Más rápidos
+                nuevo_enemigo = enemigo(x, y, velocidad, tipo=tipo)
+                # Hacerlos más agresivos
+                nuevo_enemigo.rango_deteccion = 350
+                nuevo_enemigo.velocidad_persecucion = nuevo_enemigo.velocidad + 1.5
+                self.enemigos.append(nuevo_enemigo)
+                break
+
+    def spawear_enemigos_progresivos(self):
+        """Spawnea múltiples enemigos en zonas aleatorias del mapa según el nivel"""
+        enemigos_spawneados = 0
+        max_intentos_por_enemigo = 15
+        
+        # Obtener muros para verificación de colisiones
+        muros_rects = [m.rect for m in self.nivel_actual.muros]
+        
+        # Dividir el mapa en zonas para mejor distribución
+        ancho_zona = self.nivel_actual.ancho // 3
+        alto_zona = self.nivel_actual.alto // 3
+        zonas_usadas = set()
+        
+        for _ in range(self.cantidad_spawn):
+            for intento in range(max_intentos_por_enemigo):
+                # Seleccionar una zona aleatoria que no se haya usado recientemente
+                zona_x = random.randint(0, 2)
+                zona_y = random.randint(0, 2)
+                zona_id = (zona_x, zona_y)
+                
+                # Si ya se usó esta zona en este spawn, intentar otra
+                if len(zonas_usadas) < 6 and zona_id in zonas_usadas:
+                    continue
+                
+                # Generar posición dentro de la zona seleccionada
+                x_min = zona_x * ancho_zona + 80
+                x_max = (zona_x + 1) * ancho_zona - 80
+                y_min = zona_y * alto_zona + 80
+                y_max = (zona_y + 1) * alto_zona - 80
+                
+                x = random.randint(max(80, x_min), min(self.nivel_actual.ancho - 80, x_max))
+                y = random.randint(max(80, y_min), min(self.nivel_actual.alto - 80, y_max))
+                
+                # Verificar distancia al jugador
+                dist_jugador = math.hypot(x - self.jugador.rect.centerx, y - self.jugador.rect.centery)
+                
+                # Debe estar al menos a 300 unidades del jugador
+                if dist_jugador < 300:
+                    continue
+                
+                # Verificar que no esté dentro de un muro
+                enemigo_rect = pygame.Rect(x - 25, y - 25, 50, 50)
+                colision_muro = False
+                for muro_rect in muros_rects:
+                    if enemigo_rect.colliderect(muro_rect):
+                        colision_muro = True
+                        break
+                
+                if colision_muro:
+                    continue
+                
+                # Verificar que no esté muy cerca de otros enemigos
+                muy_cerca_otro = False
+                for e in self.enemigos:
+                    dist_enemigo = math.hypot(x - e.rect.centerx, y - e.rect.centery)
+                    if dist_enemigo < 150:
+                        muy_cerca_otro = True
+                        break
+                
+                if muy_cerca_otro:
+                    continue
+                
+                # Posición válida encontrada - Crear enemigo
+                tipo = random.choices(["veloz", "acechador", "bruto"], [0.45, 0.35, 0.2])[0]
+                velocidad = random.randint(2, 4)
+                nuevo_enemigo = enemigo(x, y, velocidad, tipo=tipo)
+                
+                # Ajustar estadísticas según el nivel
+                if self.numero_nivel == 2:
+                    nuevo_enemigo.rango_deteccion = 280
+                    nuevo_enemigo.velocidad_persecucion = nuevo_enemigo.velocidad + 0.7
+                elif self.numero_nivel == 3:
+                    nuevo_enemigo.rango_deteccion = 300
+                    nuevo_enemigo.velocidad_persecucion = nuevo_enemigo.velocidad + 1.0
+                
+                self.enemigos.append(nuevo_enemigo)
+                zonas_usadas.add(zona_id)
+                enemigos_spawneados += 1
+                break
+        
+        # Mostrar mensaje si se spawnearon enemigos
+        if enemigos_spawneados > 0:
+            self.mensaje_temporal = f"⚠️ ¡{enemigos_spawneados} nuevos enemigos han aparecido! ⚠️"
+            self.mensaje_timer = 90  # 1.5 segundos
+
+    # -------------------------------------------------------
     # GUARDADO DE RESULTADOS
     # -------------------------------------------------------
+    def obtener_id_puerta_por_indice(self, indice):
+        """Devuelve el ID de la puerta correspondiente al índice de la palanca según el nivel"""
+        if self.numero_nivel == 1:
+            return "A1" if indice == 0 else None
+        elif self.numero_nivel == 2:
+            mapeo = {0: "N2_P1", 1: "N2_P2", 2: "N2_P3"}
+            return mapeo.get(indice)
+        elif self.numero_nivel == 3:
+            mapeo = {0: "N3_P1", 1: "N3_P2", 2: "N3_P3", 3: "N3_P4", 4: "N3_P5"}
+            return mapeo.get(indice)
+        return None
+    
     def guardar_resultado(self):
         with open("resultados.txt", "a", encoding="utf-8") as f:
             f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} | {self.jugador.nombre} | Nivel {self.numero_nivel} | {self.resultado}\n")
