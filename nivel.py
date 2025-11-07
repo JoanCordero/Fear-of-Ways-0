@@ -10,10 +10,12 @@ class nivel:
         self.muros = []
         self.salida = None
         self.spawn_enemigos = []
+        self.escondites = [] 
         # Dimensiones del mapa (más grandes que la pantalla)
         self.ancho = 2000
         self.alto = 1500
         self.crear_nivel()
+        self.generar_escondites_random(cantidad=random.randint(3, 5))
     
     def crear_nivel(self):
         if self.numero == 1:
@@ -232,3 +234,66 @@ class nivel:
         for muro in self.muros:
             muro.dibujar(ventana, camara)
         self.salida.dibujar(ventana, camara)
+
+    def generar_escondites_random(self, cantidad=3, tam=(140, 100), margen=30, intentos_max=400):
+        """Crea 'cantidad' zonas seguras aleatoriasque
+           - No intersecten muros, salida ni entre sí
+           - No estén demasiado cerca de spawns
+           - Queden dentro del mapa"""
+        w, h = tam
+        self.escondites = []
+        muros_rects = [m.rect for m in self.muros]
+
+        def choca_con_muros(r):
+            # margen alrededor para que no “raspen” los muros
+            if margen > 0:
+                inflados = [mr.inflate(margen*2, margen*2) for mr in muros_rects]
+            else:
+                inflados = muros_rects
+            return any(r.colliderect(mr) for mr in inflados)
+
+        def cerca_de_spawns(r, radio=120):
+            for sx, sy in self.spawn_enemigos:
+                if r.collidepoint(sx, sy):
+                    return True
+                # círculo aproximado: usa un rect inflado
+                if r.colliderect(pygame.Rect(sx-radio, sy-radio, radio*2, radio*2)):
+                    return True
+            return False
+
+        salida_rect = self.salida.rect if self.salida else None
+
+        intentos = 0
+        while len(self.escondites) < cantidad and intentos < intentos_max:
+            intentos += 1
+            x = random.randint(20, self.ancho - w - 20)
+            y = random.randint(20, self.alto - h - 20)
+            r = pygame.Rect(x, y, w, h)
+
+            # Reglas de validez
+            if choca_con_muros(r):
+                continue
+            if salida_rect and r.inflate(40, 40).colliderect(salida_rect):
+                continue
+            if any(r.inflate(20, 20).colliderect(e) for e in self.escondites):
+                continue
+            if cerca_de_spawns(r, radio=140):
+                continue
+
+            self.escondites.append(r)
+
+    def dibujar(self, ventana, camara):
+        for muro in self.muros:
+            muro.dibujar(ventana, camara)
+
+        # Zonas seguras (translúcidas)
+        for r in self.escondites:
+            rp = camara.aplicar(r)
+            surf = pygame.Surface((rp.w, rp.h), pygame.SRCALPHA)
+            surf.fill((30, 120, 180, 90))       # relleno azul translúcido
+            pygame.draw.rect(surf, (220, 240, 255, 140), surf.get_rect(), 2)
+            ventana.blit(surf, (rp.x, rp.y))
+
+        self.salida.dibujar(ventana, camara)
+
+

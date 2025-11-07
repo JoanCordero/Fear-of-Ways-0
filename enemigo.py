@@ -51,17 +51,13 @@ class enemigo:
                 self.cd[k] -= 1
 
     def distancia_a(self, objetivo):
-        """Calcula la distancia al centro de un rectángulo o jugador y devuelve distancia, dx, dy."""
-        if isinstance(objetivo, pygame.Rect):
-            rect_objetivo = objetivo
-        else:
-            rect_objetivo = objetivo.rect  # Asume que es un jugador
-
-        dx = rect_objetivo.centerx - self.rect.centerx
-        dy = rect_objetivo.centery - self.rect.centery
-        distancia = math.sqrt(dx * dx + dy * dy)
-        return distancia, dx, dy
-
+        """Acepta jugador o un pygame.Rect. Devuelve (dist, dx, dy)."""
+        # Si me pasan el objeto jugador, uso su rect
+        rect = objetivo.rect if hasattr(objetivo, "rect") else objetivo
+        dx = rect.centerx - self.rect.centerx
+        dy = rect.centery - self.rect.centery
+        dist = math.hypot(dx, dy)
+        return dist, dx, dy
 
     # ==========================================================
     # ===============   ATAQUES POR TIPO   =====================
@@ -143,12 +139,18 @@ class enemigo:
     # ===============   CICLOS MOVER / DIBUJAR   ===============
     # ==========================================================
 
-    def mover(self, muros, ancho_mapa, alto_mapa, jugador=None):  # Cambiado de rect_jugador a jugador
+    def mover(self, muros, ancho_mapa, alto_mapa, jugador=None, escondites=None):
+        if escondites is None:
+            escondites = []
         x_anterior, y_anterior = self.rect.x, self.rect.y
 
-        # --- detección ---
-        if jugador:
-            dist, _, _ = self.distancia_a(jugador.rect)
+        # --- DETECCIÓN (respeta "oculto") ---
+        jugador_oculto = False
+        if jugador is not None:
+            jugador_oculto = getattr(jugador, "oculto", False)
+
+        if jugador is not None and not jugador_oculto:
+            dist, dx, dy = self.distancia_a(jugador)
             if dist <= self.rango_deteccion:
                 self.estado = "persiguiendo"
                 self.tiempo_perdida = 0
@@ -156,15 +158,22 @@ class enemigo:
                 self.tiempo_perdida += 1
                 if self.tiempo_perdida > 120:
                     self.estado = "patrullando"
+        else:
+            # Si el jugador está oculto, empezamos a “olvidarlo”
+            if self.estado == "persiguiendo":
+                self.tiempo_perdida += 1
+                if self.tiempo_perdida > 45:   # se puede ajustar
+                    self.estado = "patrullando"
 
-        # --- comportamiento ---
-        if self.estado == "persiguiendo" and jugador:
-            dist, dx_to, dy_to = self.distancia_a(jugador.rect)
+        # --- COMPORTAMIENTO ---
+        if self.estado == "persiguiendo" and jugador is not None and not jugador_oculto:
+            dist, dx, dy = self.distancia_a(jugador)
             if dist > 0:
                 vel_actual = self.velocidad_persecucion
-                self.rect.x += int((dx_to / dist) * vel_actual)
-                self.rect.y += int((dy_to / dist) * vel_actual)
+                self.rect.x += int((dx / dist) * vel_actual)
+                self.rect.y += int((dy / dist) * vel_actual)
         else:
+            # patrulla (tu lógica actual)
             if self.direccion == "horizontal":
                 self.rect.x += self.velocidad * self.sentido
                 if self.rect.left <= 20 or self.rect.right >= ancho_mapa - 20:
@@ -174,7 +183,7 @@ class enemigo:
                 if self.rect.top <= 20 or self.rect.bottom >= alto_mapa - 20:
                     self.sentido *= -1
 
-        # --- colisión con muros (igual que antes) ---
+        # --- COLISIONES con muros (igual que tenías) ---
         for muro in muros:
             if self.rect.colliderect(muro.rect):
                 self.rect.x, self.rect.y = x_anterior, y_anterior
@@ -188,6 +197,27 @@ class enemigo:
                     else:
                         self.rect.y = y_anterior + random.randint(-3, 3)
                 break
+        
+        # --- COLISIÓN CON ZONAS SEGURAS (bloquean solo a enemigos) ---
+        for zona in escondites:
+            if self.rect.colliderect(zona):
+                # revertir movimiento
+                self.rect.x, self.rect.y = x_anterior, y_anterior
+
+                # forzar evitación similar a muros
+                if self.estado == "patrullando":
+                    self.sentido *= -1
+                    # a veces cambia de eje para “rodear”
+                    if random.random() < 0.4:
+                        self.direccion = "vertical" if self.direccion == "horizontal" else "horizontal"
+                else:
+                    # si estaba persiguiendo, dar un pequeño “desliz” lateral para buscar borde
+                    if self.direccion == "horizontal":
+                        self.rect.y += random.choice((-3, 3))
+                    else:
+                        self.rect.x += random.choice((-3, 3))
+                break
+
 
         # ataques por tipo
         if jugador is not None:

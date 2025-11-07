@@ -106,14 +106,24 @@ class juego:
                 self.proyectiles.remove(p)
                 continue
             p.dibujar(ventana, self.camara)
-            
+        
+        # ¿Está dentro de un escondite?
+        self.jugador.oculto = any(
+            esc.colliderect(self.jugador.rect) for esc in self.nivel_actual.escondites)
+
+        # Opcional: marco visual si está oculto
+        if self.jugador.oculto:
+            r = self.camara.aplicar(self.jugador.rect)
+            pygame.draw.rect(pygame.display.get_surface(), (80, 200, 255), r, 3)
+        
         # Mover y dibujar enemigos
         for enemigo_actual in self.enemigos:
             enemigo_actual.mover(
                 self.nivel_actual.muros,
                 self.nivel_actual.ancho,
                 self.nivel_actual.alto,
-                self.jugador  # Corregido: pasar el objeto completo jugador
+                self.jugador,
+                self.nivel_actual.escondites
             )
             enemigo_actual.dibujar(ventana, self.camara)
 
