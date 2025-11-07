@@ -99,10 +99,15 @@ class juego:
 
         # Mover y dibujar enemigos
         for enemigo_actual in self.enemigos:
-            enemigo_actual.mover(self.nivel_actual.muros, self.nivel_actual.ancho, self.nivel_actual.alto, self.jugador.rect)
+            enemigo_actual.mover(
+                self.nivel_actual.muros,
+                self.nivel_actual.ancho,
+                self.nivel_actual.alto,
+                self.jugador  # Corregido: pasar el objeto completo jugador
+            )
             enemigo_actual.dibujar(ventana, self.camara)
 
-            # Colisión jugador - enemigo (tal como lo tenías)
+            # Colisión jugador - enemigo
             if self.jugador.rect.colliderect(enemigo_actual.rect):
                 self.resultado = "perdiste"
                 self.estado = "fin"

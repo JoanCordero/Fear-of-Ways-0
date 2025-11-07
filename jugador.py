@@ -23,6 +23,7 @@ class jugador:
         # Vida (aun no se usa en la logica global; la vamos activar cuando agreguemos daño)
         self.vida_max = 3
         self.vida = 3
+        self.slow_ticks = 0
         
     #####################
     # Moviemiento de correr y colision por ejes
@@ -30,57 +31,67 @@ class jugador:
     def mover(self, teclas, muros, ancho_mapa, alto_mapa):
         # Direcciones simples
         dx = (1 if (teclas[pygame.K_d] or teclas[pygame.K_RIGHT]) else 0) - \
-                (1 if(teclas[pygame.K_a] or teclas[pygame.K_LEFT]) else 0)
+            (1 if (teclas[pygame.K_a] or teclas[pygame.K_LEFT]) else 0)
         dy = (1 if (teclas[pygame.K_s] or teclas[pygame.K_DOWN])  else 0) - \
-             (1 if (teclas[pygame.K_w] or teclas[pygame.K_UP])    else 0)
-        
-        # evitar problemas en las diagonales para que no sean tan rapidas
+            (1 if (teclas[pygame.K_w] or teclas[pygame.K_UP])    else 0)
+
+        # Normalizar para que la diagonal no sea más rápida
         mag = math.hypot(dx, dy)
         if mag != 0:
             dx /= mag
             dy /= mag
-            
-        # Correr con shift: mas velocidad pero gastamos mas energia; si no regenera
+
+        # --- LENTITUD (aura del bruto) ---
+        # si estás afectado, reducimos la velocidad y descontamos el contador
+        slow_mult = 0.55 if self.slow_ticks > 0 else 1.0
+        if self.slow_ticks > 0:
+            self.slow_ticks -= 1
+
+        # Sprint: más velocidad, consume energía; si no, regenera
         sprint = (teclas[pygame.K_LSHIFT] or teclas[pygame.K_RSHIFT]) and self.energia > 0.1
-        velocidad = self.velocidad_base * (1.6 if sprint else 1.0)    
-        
+        velocidad = self.velocidad_base * (1.6 if sprint else 1.0) * slow_mult
+
         if sprint and mag != 0:
-            #Consumo por frame (60 FPS): Para ajustar se puede poner mas o menos exigente
+            # consumo por frame (ajusta a tu gusto)
             self.energia -= 0.6
         else:
-            # Regeneracion suave
+            # regeneración suave
             self.energia += 0.35
-        
-        # limitar la energia a [0, energia_max]
-        if self.energia < 0: self.energia = 0.0
-        if self.energia > self.energia_max: self.energia = self.energia_max
-        
-        # Movimiento y colision por ejes (mas suave que "rebotar completo")
-        ### eje X
+
+        # Limitar energía a [0, energia_max]
+        if self.energia < 0:
+            self.energia = 0.0
+        if self.energia > self.energia_max:
+            self.energia = self.energia_max
+
+        # Movimiento y colisión por ejes (suave)
+        # --- Eje X ---
         if dx != 0:
             paso_x = int(round(dx * velocidad))
-            self.rect.x += paso_x
-            # resolver colisiones solo en X
-            for muro in muros:
-                if self.rect.colliderect(muro.rect):
-                    if paso_x > 0:
-                        self.rect.right = muro.rect.left
-                    else:
-                        self.rect.left = muro.rect.right
-        ### eje Y
+            if paso_x != 0:
+                self.rect.x += paso_x
+                for muro in muros:
+                    if self.rect.colliderect(muro.rect):
+                        if paso_x > 0:
+                            self.rect.right = muro.rect.left
+                        else:
+                            self.rect.left = muro.rect.right
+
+        # --- Eje Y ---
         if dy != 0:
             paso_y = int(round(dy * velocidad))
-            self.rect.y += paso_y
-            # resolver colisiones solo en y
-            for muro in muros:
-                if self.rect.colliderect(muro.rect):
-                    if paso_y > 0:
-                        self.rect.bottom = muro.rect.top
-                    else: 
-                        self.rect.top = muro.rect.bottom
-        
-        ## mantener dentro de los limites del mapa
+            if paso_y != 0:
+                self.rect.y += paso_y
+                for muro in muros:
+                    if self.rect.colliderect(muro.rect):
+                        if paso_y > 0:
+                            self.rect.bottom = muro.rect.top
+                        else:
+                            self.rect.top = muro.rect.bottom
+
+        # Mantener dentro de los límites del mapa
         self.rect.clamp_ip(pygame.Rect(0, 0, ancho_mapa, alto_mapa))
+
                         
     def resetear_posicion(self):
         """Resetea la posición del jugador al inicio"""
