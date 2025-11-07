@@ -89,7 +89,7 @@ class enemigo:
             "vx": vx, "vy": vy, "dmg": 1, "vivo": True
         }
         self.proyectiles_acechador.append(proj)
-        self.cd["shoot"] = 240  # 4 segundos a 60 FPS
+        self.cd["shoot"] = 120  # 2 segundos a 60 FPS
 
     def proyectil_acechador_mover_y_colisionar(self, muros, ancho_mapa, alto_mapa, jugador):
         """Mueve proyectiles, detecta colisiones con muros, fuera de mapa y jugador."""
