@@ -4,296 +4,217 @@ from pared import pared
 from salida import salida
 
 class nivel:
-    """Define un nivel con su laberinto, enemigos y salida"""
+    """Define un nivel con su laberinto, enemigos, salida y escondites"""
     def __init__(self, numero):
+        # identificación del nivel
         self.numero = numero
+
+        # listas de objetos del mapa
         self.muros = []
         self.salida = None
         self.spawn_enemigos = []
-        self.escondites = [] 
-        # Dimensiones del mapa (más grandes que la pantalla)
+        self.escondites = []  # zonas seguras donde el jugador puede ocultarse
+
+        # dimensiones generales del mapa (más grandes que la pantalla)
         self.ancho = 2000
         self.alto = 1500
+
+        # generar estructura del nivel y escondites
         self.crear_nivel()
         self.generar_escondites_random(cantidad=random.randint(3, 5))
-    
+
     def crear_nivel(self):
+        # selecciona qué versión de nivel crear
         if self.numero == 1:
             self.crear_nivel_1()
         elif self.numero == 2:
             self.crear_nivel_2()
         elif self.numero == 3:
             self.crear_nivel_3()
-    
-    def crear_nivel_1(self):
-        """Nivel 1: Laberinto expandido con múltiples cámaras"""
-        # Bordes exteriores
-        self.muros.append(pared(0, 0, self.ancho, 20))  # arriba
-        self.muros.append(pared(0, self.alto-20, self.ancho, 20))  # abajo
-        self.muros.append(pared(0, 0, 20, self.alto))  # izquierda
-        self.muros.append(pared(self.ancho-20, 0, 20, self.alto))  # derecha
 
-        # Pasillo principal horizontal
+    def crear_nivel_1(self):
+        """Nivel 1: laberinto expandido con cámaras y pasillos"""
+        # bordes del mapa
+        self.muros.append(pared(0, 0, self.ancho, 20))
+        self.muros.append(pared(0, self.alto - 20, self.ancho, 20))
+        self.muros.append(pared(0, 0, 20, self.alto))
+        self.muros.append(pared(self.ancho - 20, 0, 20, self.alto))
+
+        # pasillos y cámaras interiores
         self.muros.append(pared(200, 300, 600, 20))
         self.muros.append(pared(200, 320, 20, 300))
-
-        # Cámara izquierda
         self.muros.append(pared(400, 500, 200, 20))
         self.muros.append(pared(400, 700, 20, 200))
-
-        # Pasillo central
         self.muros.append(pared(800, 200, 20, 400))
         self.muros.append(pared(820, 580, 300, 20))
-
-        # Cámara superior derecha
         self.muros.append(pared(1200, 100, 20, 400))
         self.muros.append(pared(1000, 480, 220, 20))
-
-        # Pasillo inferior
         self.muros.append(pared(300, 900, 800, 20))
         self.muros.append(pared(1100, 700, 20, 220))
-
-        # Cámara derecha 
         self.muros.append(pared(1400, 300, 20, 600))
         self.muros.append(pared(1420, 300, 300, 20))
         self.muros.append(pared(1420, 880, 300, 20))
-
-        # Obstáculos adicionales
         self.muros.append(pared(600, 1000, 150, 20))
         self.muros.append(pared(1000, 1100, 200, 20))
         self.muros.append(pared(1500, 1000, 20, 300))
 
-        # Posiciones posibles para la salida
-        posiciones_salida = [
-            (1900, 1420),
-            (300, 1350),
-            (1850, 100),
-            (650, 150),
-            (1600, 700),
-            (500, 800)
-        ]
-        salida_pos = random.choice(posiciones_salida)
-        self.salida = salida(salida_pos[0], salida_pos[1])
-        
-        # Spawn points
+        # salida aleatoria entre posiciones posibles
+        posiciones_salida = [(1900, 1420), (300, 1350), (1850, 100),
+                             (650, 150), (1600, 700), (500, 800)]
+        x, y = random.choice(posiciones_salida)
+        self.salida = salida(x, y)
+
+        # posiciones de aparición de enemigos
         self.spawn_enemigos = [
-            (300, 400),
-            (500, 600),
-            (900, 350),
-            (1100, 250),
-            (1300, 800),
-            (700, 1050),
-            (1600, 500)
+            (300, 400), (500, 600), (900, 350),
+            (1100, 250), (1300, 800), (700, 1050), (1600, 500)
         ]
-    
+
     def crear_nivel_2(self):
-        """Nivel 2: Laberinto en espiral expandido"""
-        # Bordes exteriores
+        """Nivel 2: laberinto con forma de espiral hacia el centro"""
+        # bordes del mapa
         self.muros.append(pared(0, 0, self.ancho, 20))
-        self.muros.append(pared(0, self.alto-20, self.ancho, 20))
+        self.muros.append(pared(0, self.alto - 20, self.ancho, 20))
         self.muros.append(pared(0, 0, 20, self.alto))
-        self.muros.append(pared(self.ancho-20, 0, 20, self.alto))
-        
-        # Espiral exterior a interior
+        self.muros.append(pared(self.ancho - 20, 0, 20, self.alto))
+
+        # capas de la espiral y obstáculos centrales
         self.muros.append(pared(150, 150, 1700, 20))
         self.muros.append(pared(1830, 170, 20, 1200))
         self.muros.append(pared(200, 1350, 1650, 20))
         self.muros.append(pared(200, 250, 20, 1120))
-        
-        # Segunda capa
         self.muros.append(pared(350, 250, 1330, 20))
         self.muros.append(pared(1660, 270, 20, 950))
         self.muros.append(pared(400, 1200, 1280, 20))
         self.muros.append(pared(400, 370, 20, 850))
-        
-        # Tercera capa
         self.muros.append(pared(550, 370, 970, 20))
         self.muros.append(pared(1500, 390, 20, 690))
         self.muros.append(pared(600, 1060, 920, 20))
         self.muros.append(pared(600, 490, 20, 590))
-        
-        # Centro con obstáculos
         self.muros.append(pared(750, 550, 600, 20))
         self.muros.append(pared(1330, 570, 20, 380))
         self.muros.append(pared(800, 930, 550, 20))
         self.muros.append(pared(800, 650, 20, 300))
-        
-        # Obstáculos adicionales
         self.muros.append(pared(950, 700, 200, 20))
         self.muros.append(pared(1000, 800, 150, 20))
-        
-        # Posiciones posibles para la salida
-        posiciones_salida = [
-            (1000, 750),
-            (250, 200),
-            (1800, 1300),
-            (450, 1250),
-            (1600, 450),
-            (700, 600)
-        ]
-        salida_pos = random.choice(posiciones_salida)
-        self.salida = salida(salida_pos[0], salida_pos[1])
-        
-        # Enemigos
+
+        # salida
+        posiciones_salida = [(1000, 750), (250, 200), (1800, 1300),
+                             (450, 1250), (1600, 450), (700, 600)]
+        x, y = random.choice(posiciones_salida)
+        self.salida = salida(x, y)
+
+        # enemigos
         self.spawn_enemigos = [
-            (250, 200),
-            (1700, 300),
-            (300, 1300),
-            (500, 320),
-            (1550, 600),
-            (650, 1100),
-            (900, 600),
-            (1200, 800),
-            (1100, 450)
+            (250, 200), (1700, 300), (300, 1300),
+            (500, 320), (1550, 600), (650, 1100),
+            (900, 600), (1200, 800), (1100, 450)
         ]
-    
+
     def crear_nivel_3(self):
-        """Nivel 3: Laberinto caótico expandido"""
-        # Bordes exteriores
+        """Nivel 3: laberinto más caótico con muchas rutas"""
+        # bordes del mapa
         self.muros.append(pared(0, 0, self.ancho, 20))
-        self.muros.append(pared(0, self.alto-20, self.ancho, 20))
+        self.muros.append(pared(0, self.alto - 20, self.ancho, 20))
         self.muros.append(pared(0, 0, 20, self.alto))
-        self.muros.append(pared(self.ancho-20, 0, 20, self.alto))
-        
-        # Red de pasillos complejos - sección izquierda
+        self.muros.append(pared(self.ancho - 20, 0, 20, self.alto))
+
+        # secciones interconectadas (izquierda, centro, derecha)
         self.muros.append(pared(150, 100, 20, 400))
         self.muros.append(pared(170, 480, 300, 20))
         self.muros.append(pared(300, 200, 20, 300))
         self.muros.append(pared(320, 200, 200, 20))
         self.muros.append(pared(500, 100, 20, 600))
-        
-        # Sección central
         self.muros.append(pared(700, 150, 20, 500))
         self.muros.append(pared(550, 630, 170, 20))
         self.muros.append(pared(850, 250, 300, 20))
         self.muros.append(pared(1130, 100, 20, 400))
         self.muros.append(pared(900, 480, 250, 20))
-        
-        # Cámaras inferiores
         self.muros.append(pared(200, 700, 400, 20))
         self.muros.append(pared(200, 720, 20, 400))
         self.muros.append(pared(220, 1100, 500, 20))
         self.muros.append(pared(700, 800, 20, 320))
-        
-        # Sección derecha superior
         self.muros.append(pared(1300, 200, 20, 400))
         self.muros.append(pared(1320, 580, 400, 20))
         self.muros.append(pared(1500, 300, 220, 20))
         self.muros.append(pared(1700, 100, 20, 500))
-        
-        # Sección derecha inferior
         self.muros.append(pared(900, 750, 300, 20))
         self.muros.append(pared(1180, 650, 20, 400))
         self.muros.append(pared(1200, 1030, 400, 20))
         self.muros.append(pared(1400, 850, 20, 200))
         self.muros.append(pared(1550, 700, 20, 400))
-        
-        # Obstáculos adicionales dispersos
         self.muros.append(pared(350, 900, 150, 20))
         self.muros.append(pared(850, 1000, 200, 20))
         self.muros.append(pared(1300, 1200, 250, 20))
         self.muros.append(pared(600, 350, 80, 20))
         self.muros.append(pared(1450, 450, 100, 20))
-        
-        # Laberinto final hacia la salida
         self.muros.append(pared(1650, 1100, 20, 300))
         self.muros.append(pared(1670, 1380, 250, 20))
-        
-        # Posiciones posibles para la salida
-        posiciones_salida = [
-            (1900, 1420),
-            (100, 100),
-            (1850, 200),
-            (350, 1350),
-            (1250, 1300),
-            (850, 1150),
-            (1550, 950)
-        ]
-        salida_pos = random.choice(posiciones_salida)
-        self.salida = salida(salida_pos[0], salida_pos[1])
-        
-        # Muchos enemigos distribuidos
+
+        # salida
+        posiciones_salida = [(1900, 1420), (100, 100), (1850, 200),
+                             (350, 1350), (1250, 1300), (850, 1150), (1550, 950)]
+        x, y = random.choice(posiciones_salida)
+        self.salida = salida(x, y)
+
+        # enemigos
         self.spawn_enemigos = [
-            (200, 250),
-            (400, 350),
-            (250, 850),
-            (550, 550),
-            (650, 300),
-            (950, 350),
-            (1050, 200),
-            (850, 900),
-            (1100, 850),
-            (1250, 350),
-            (1600, 350),
-            (1450, 950),
-            (1300, 1250),
-            (1750, 1200)
+            (200, 250), (400, 350), (250, 850), (550, 550),
+            (650, 300), (950, 350), (1050, 200), (850, 900),
+            (1100, 850), (1250, 350), (1600, 350), (1450, 950),
+            (1300, 1250), (1750, 1200)
         ]
-    
-    def dibujar(self, ventana, camara):
-        for muro in self.muros:
-            muro.dibujar(ventana, camara)
-        self.salida.dibujar(ventana, camara)
 
     def generar_escondites_random(self, cantidad=3, tam=(140, 100), margen=30, intentos_max=400):
-        """Crea 'cantidad' zonas seguras aleatoriasque
-           - No intersecten muros, salida ni entre sí
-           - No estén demasiado cerca de spawns
-           - Queden dentro del mapa"""
+        """Crea zonas seguras aleatorias evitando muros, salida y spawns"""
         w, h = tam
         self.escondites = []
         muros_rects = [m.rect for m in self.muros]
+        salida_rect = self.salida.rect if self.salida else None
 
+        # verifica si choca con muros
         def choca_con_muros(r):
-            # margen alrededor para que no “raspen” los muros
-            if margen > 0:
-                inflados = [mr.inflate(margen*2, margen*2) for mr in muros_rects]
-            else:
-                inflados = muros_rects
+            inflados = [m.inflate(margen * 2, margen * 2) for m in muros_rects]
             return any(r.colliderect(mr) for mr in inflados)
 
+        # evita cercanía a los puntos de spawn
         def cerca_de_spawns(r, radio=120):
             for sx, sy in self.spawn_enemigos:
-                if r.collidepoint(sx, sy):
-                    return True
-                # círculo aproximado: usa un rect inflado
-                if r.colliderect(pygame.Rect(sx-radio, sy-radio, radio*2, radio*2)):
+                area_spawn = pygame.Rect(sx - radio, sy - radio, radio * 2, radio * 2)
+                if r.colliderect(area_spawn):
                     return True
             return False
-
-        salida_rect = self.salida.rect if self.salida else None
 
         intentos = 0
         while len(self.escondites) < cantidad and intentos < intentos_max:
             intentos += 1
             x = random.randint(20, self.ancho - w - 20)
             y = random.randint(20, self.alto - h - 20)
-            r = pygame.Rect(x, y, w, h)
+            zona = pygame.Rect(x, y, w, h)
 
-            # Reglas de validez
-            if choca_con_muros(r):
+            if choca_con_muros(zona):
                 continue
-            if salida_rect and r.inflate(40, 40).colliderect(salida_rect):
+            if salida_rect and zona.inflate(40, 40).colliderect(salida_rect):
                 continue
-            if any(r.inflate(20, 20).colliderect(e) for e in self.escondites):
+            if any(zona.inflate(20, 20).colliderect(e) for e in self.escondites):
                 continue
-            if cerca_de_spawns(r, radio=140):
+            if cerca_de_spawns(zona, radio=140):
                 continue
 
-            self.escondites.append(r)
+            self.escondites.append(zona)
 
     def dibujar(self, ventana, camara):
+        # dibuja muros
         for muro in self.muros:
             muro.dibujar(ventana, camara)
 
-        # Zonas seguras (translúcidas)
+        # dibuja zonas seguras semitransparentes
         for r in self.escondites:
             rp = camara.aplicar(r)
-            surf = pygame.Surface((rp.w, rp.h), pygame.SRCALPHA)
-            surf.fill((30, 120, 180, 90))       # relleno azul translúcido
-            pygame.draw.rect(surf, (220, 240, 255, 140), surf.get_rect(), 2)
-            ventana.blit(surf, (rp.x, rp.y))
+            zona = pygame.Surface((rp.w, rp.h), pygame.SRCALPHA)
+            zona.fill((30, 120, 180, 90))
+            pygame.draw.rect(zona, (220, 240, 255, 140), zona.get_rect(), 2)
+            ventana.blit(zona, (rp.x, rp.y))
 
+        # dibuja salida
         self.salida.dibujar(ventana, camara)
-
-

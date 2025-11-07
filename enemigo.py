@@ -9,171 +9,158 @@ class enemigo:
             "acechador": {"vida": 3, "color": (  0, 255, 255), "tam": 35},
             "bruto":     {"vida": 5, "color": (255,  80,  80), "tam": 50},
         }
+
         if tipo is None:
             tipo = random.choice(list(tipos_def.keys()))
-        self.tipo = tipo
-        self.vida       = tipos_def[tipo]["vida"]
-        self.color_base = tipos_def[tipo]["color"]
-        tam             = tipos_def[tipo]["tam"]
 
-        self.rect = pygame.Rect(x, y, tam, tam)
+        self.tipo = tipo
+        self.vida = tipos_def[tipo]["vida"]
+        self.color = tipos_def[tipo]["color"]
+        tamano = tipos_def[tipo]["tam"]
+
+        self.rect = pygame.Rect(x, y, tamano, tamano)
         self.velocidad = velocidad + (2 if tipo == "veloz" else 0)
         if tipo == "bruto":
             self.velocidad = max(1, velocidad - 1)
 
-        # patrulla / persecución
+        # movimiento y detección
         self.direccion = random.choice(["horizontal", "vertical"])
-        self.sentido   = 1
-        self.rango_deteccion       = 350  # Aumentado desde 250
-        self.estado                = "patrullando"
+        self.sentido = 1
+        self.rango_deteccion = 350  
+        self.estado = "patrullando"
         self.velocidad_persecucion = self.velocidad + 1
-        self.tiempo_perdida        = 0
+        self.tiempo_perdida = 0
 
-        # cooldowns de ataques
-        self.cd = {"melee": 0, "shoot": 0, "aura": 0}
+        # cooldowns
+        self.tiempo_recarga = {"ataque": 0, "disparo": 0, "aura": 0}
 
         # parámetros de ataques
-        self.melee_alcance = 40           # veloz
-        self.aura_radio    = 120          # bruto
-        self.shoot_vel     = 6            # acechador
+        self.alcance_melee = 40       # veloz
+        self.radio_aura = 120         # bruto
+        self.velocidad_disparo = 6    # acechador
 
+        # proyectiles del acechador
+        self.proyectiles = []  # cada uno: {"rect": Rect, "vx": float, "vy": float, "dano": int, "activo": bool}
 
-# -----------------------------
-        # Proyectiles del ACECHADOR
-        # -----------------------------
-        # Cada proyectil es un dict: {"rect": Rect, "vx": float, "vy": float, "dmg": int, "vivo": bool}
-        self.proyectiles_acechador = []
-
-    # ---------- utilidades internas ----------
-    def _bajar_cd(self):
-        for k in self.cd:
-            if self.cd[k] > 0:
-                self.cd[k] -= 1
+    # FUNCIONES INTERNAS Y GENERALES
+    def reducir_recargas(self):
+        """Reduce los tiempos de espera de cada ataque."""
+        for clave in self.tiempo_recarga:
+            if self.tiempo_recarga[clave] > 0:
+                self.tiempo_recarga[clave] -= 1
 
     def distancia_a(self, objetivo):
-        """Acepta jugador o un pygame.Rect. Devuelve (dist, dx, dy)."""
-        # Si me pasan el objeto jugador, uso su rect
-        rect = objetivo.rect if hasattr(objetivo, "rect") else objetivo
-        dx = rect.centerx - self.rect.centerx
-        dy = rect.centery - self.rect.centery
-        dist = math.hypot(dx, dy)
-        return dist, dx, dy
+        """Devuelve la distancia y dirección hacia el objetivo (jugador o rect)."""
+        rect_objetivo = objetivo.rect if hasattr(objetivo, "rect") else objetivo
+        dx = rect_objetivo.centerx - self.rect.centerx
+        dy = rect_objetivo.centery - self.rect.centery
+        distancia = math.hypot(dx, dy)
+        return distancia, dx, dy
 
-    # ==========================================================
-    # ===============   ATAQUES POR TIPO   =====================
-    # ==========================================================
-
-    # ---- Veloz: Cuerpo a cuerpo (quita 1 energía) ----
-    def ataque_veloz_cuerpo_a_cuerpo(self, jugador):
-        dist, _, _ = self.distancia_a(jugador.rect)
-        if dist < self.melee_alcance and self.cd["melee"] == 0:
+    # ATAQUES POR TIPO
+    def ataque_veloz(self, jugador):
+        """Ataque cuerpo a cuerpo del enemigo veloz."""
+        distancia, _, _ = self.distancia_a(jugador)
+        if distancia < self.alcance_melee and self.tiempo_recarga["ataque"] == 0:
             jugador.energia = max(0, jugador.energia - 1)
-            self.cd["melee"] = 35  # ~0.6s a 60 FPS
+            self.tiempo_recarga["ataque"] = 35  # ~0.6 segundos
 
-    # ---- Acechador: Proyectil ----
-    def proyectil_acechador_disparar(self, jugador):
-        """Crea un proyectil hacia el jugador si está en rango y no hay CD."""
-        if self.cd["shoot"] > 0:
+    def disparar_acechador(self, jugador):
+        """Disparo de proyectil del acechador."""
+        if self.tiempo_recarga["disparo"] > 0:
             return
-        dist, dx, dy = self.distancia_a(jugador.rect)
-        if dist >= self.rango_deteccion:
+
+        distancia, dx, dy = self.distancia_a(jugador)
+        if distancia >= self.rango_deteccion:
             return
-        d = max(1, dist)
-        vx, vy = (dx / d) * self.shoot_vel, (dy / d) * self.shoot_vel
-        proj = {
+
+        d = max(1, distancia)
+        vx, vy = (dx / d) * self.velocidad_disparo, (dy / d) * self.velocidad_disparo
+
+        proyectil = {
             "rect": pygame.Rect(self.rect.centerx, self.rect.centery, 8, 8),
-            "vx": vx, "vy": vy, "dmg": 1, "vivo": True
+            "vx": vx,
+            "vy": vy,
+            "dano": 1,
+            "activo": True
         }
-        self.proyectiles_acechador.append(proj)
-        self.cd["shoot"] = 120  # 2 segundos a 60 FPS
+        self.proyectiles.append(proyectil)
+        self.tiempo_recarga["disparo"] = 120  # 2 segundos
 
-    def proyectil_acechador_mover_y_colisionar(self, muros, ancho_mapa, alto_mapa, jugador):
-        """Mueve proyectiles, detecta colisiones con muros, fuera de mapa y jugador."""
-        vivos = []
-        for p in self.proyectiles_acechador:
-            if not p["vivo"]:
+    def mover_proyectiles(self, muros, ancho_mapa, alto_mapa, jugador):
+        """Actualiza proyectiles y revisa colisiones."""
+        activos = []
+        for p in self.proyectiles:
+            if not p["activo"]:
                 continue
 
-            # mover
+            # mover proyectil
             p["rect"].x += int(p["vx"])
             p["rect"].y += int(p["vy"])
 
             # fuera del mapa
             if (p["rect"].right < 0 or p["rect"].left > ancho_mapa or
                 p["rect"].bottom < 0 or p["rect"].top > alto_mapa):
-                p["vivo"] = False
+                p["activo"] = False
 
-            # muros
-            if p["vivo"]:
-                for m in muros:
-                    if p["rect"].colliderect(m.rect):
-                        p["vivo"] = False
-                        break
+            # colisión con muros
+            for muro in muros:
+                if p["activo"] and p["rect"].colliderect(muro.rect):
+                    p["activo"] = False
+                    break
 
-            # jugador
-            if p["vivo"] and p["rect"].colliderect(jugador.rect):
-                jugador.energia = max(0, jugador.energia - p["dmg"])
-                p["vivo"] = False
+            # colisión con jugador
+            if p["activo"] and p["rect"].colliderect(jugador.rect):
+                jugador.energia = max(0, jugador.energia - p["dano"])
+                p["activo"] = False
 
-            if p["vivo"]:
-                vivos.append(p)
+            if p["activo"]:
+                activos.append(p)
 
-        self.proyectiles_acechador = vivos
+        self.proyectiles = activos
 
-    def proyectil_acechador_dibujar(self, ventana, camara):
-        for p in self.proyectiles_acechador:
-            pygame.draw.rect(ventana, (255, 255, 120), camara.aplicar(p["rect"]))
-
-    # ---- Bruto: Aura de lentitud + golpe si toca (quita 1 energía en contacto) ----
-    def aura_bruto_aplicar(self, jugador):
-        # si el jugador está dentro del radio, aplica lentitud (contador en el jugador)
-        dist, _, _ = self.distancia_a(jugador.rect)
-        if dist < self.aura_radio:
-            jugador.slow_ticks = max(jugador.slow_ticks, 45)  # ~0.75s
-        # si hay contacto directo, daña
-        if self.rect.colliderect(jugador.rect) and self.cd["aura"] == 0:
+    def aplicar_aura_bruto(self, jugador):
+        """Aura del bruto: ralentiza y daña si hay contacto."""
+        distancia, _, _ = self.distancia_a(jugador)
+        if distancia < self.radio_aura:
+            jugador.slow_ticks = max(jugador.slow_ticks, 45)
+        if self.rect.colliderect(jugador.rect) and self.tiempo_recarga["aura"] == 0:
             jugador.energia = max(0, jugador.energia - 1)
-            self.cd["aura"] = 30
+            self.tiempo_recarga["aura"] = 30
 
-    # ==========================================================
-    # ===============   CICLOS MOVER / DIBUJAR   ===============
-    # ==========================================================
+    # MOVIMIENTO Y DETECCIÓN
+    def mover(self, muros, ancho_mapa, alto_mapa, jugador=None, zonas_seguras=None):
+        if zonas_seguras is None:
+            zonas_seguras = []
 
-    def mover(self, muros, ancho_mapa, alto_mapa, jugador=None, escondites=None):
-        if escondites is None:
-            escondites = []
         x_anterior, y_anterior = self.rect.x, self.rect.y
 
-        # --- DETECCIÓN (respeta "oculto") ---
-        jugador_oculto = False
-        if jugador is not None:
-            jugador_oculto = getattr(jugador, "oculto", False)
+        # detección del jugador
+        jugador_oculto = getattr(jugador, "oculto", False) if jugador else False
 
-        if jugador is not None and not jugador_oculto:
-            dist, dx, dy = self.distancia_a(jugador)
-            if dist <= self.rango_deteccion:
+        if jugador and not jugador_oculto:
+            distancia, dx, dy = self.distancia_a(jugador)
+            if distancia <= self.rango_deteccion:
                 self.estado = "persiguiendo"
                 self.tiempo_perdida = 0
             elif self.estado == "persiguiendo":
                 self.tiempo_perdida += 1
                 if self.tiempo_perdida > 120:
                     self.estado = "patrullando"
-        else:
-            # Si el jugador está oculto, empezamos a “olvidarlo”
-            if self.estado == "persiguiendo":
-                self.tiempo_perdida += 1
-                if self.tiempo_perdida > 45:   # se puede ajustar
-                    self.estado = "patrullando"
+        elif self.estado == "persiguiendo":
+            self.tiempo_perdida += 1
+            if self.tiempo_perdida > 45:
+                self.estado = "patrullando"
 
-        # --- COMPORTAMIENTO ---
-        if self.estado == "persiguiendo" and jugador is not None and not jugador_oculto:
-            dist, dx, dy = self.distancia_a(jugador)
-            if dist > 0:
-                vel_actual = self.velocidad_persecucion
-                self.rect.x += int((dx / dist) * vel_actual)
-                self.rect.y += int((dy / dist) * vel_actual)
+        # movimiento general
+        if self.estado == "persiguiendo" and jugador and not jugador_oculto:
+            distancia, dx, dy = self.distancia_a(jugador)
+            if distancia > 0:
+                vel = self.velocidad_persecucion
+                self.rect.x += int((dx / distancia) * vel)
+                self.rect.y += int((dy / distancia) * vel)
         else:
-            # patrulla (tu lógica actual)
+            # patrulla básica
             if self.direccion == "horizontal":
                 self.rect.x += self.velocidad * self.sentido
                 if self.rect.left <= 20 or self.rect.right >= ancho_mapa - 20:
@@ -183,64 +170,42 @@ class enemigo:
                 if self.rect.top <= 20 or self.rect.bottom >= alto_mapa - 20:
                     self.sentido *= -1
 
-        # --- COLISIONES con muros (igual que tenías) ---
+        # colisión con muros
         for muro in muros:
             if self.rect.colliderect(muro.rect):
                 self.rect.x, self.rect.y = x_anterior, y_anterior
-                if self.estado == "patrullando":
-                    self.sentido *= -1
-                    if random.random() < 0.3:
-                        self.direccion = "vertical" if self.direccion == "horizontal" else "horizontal"
-                else:
-                    if random.random() < 0.5:
-                        self.rect.x = x_anterior + random.randint(-3, 3)
-                    else:
-                        self.rect.y = y_anterior + random.randint(-3, 3)
+                self.sentido *= -1
+                if random.random() < 0.3:
+                    self.direccion = "vertical" if self.direccion == "horizontal" else "horizontal"
                 break
-        
-        # --- COLISIÓN CON ZONAS SEGURAS (bloquean solo a enemigos) ---
-        for zona in escondites:
+
+        # colisión con zonas seguras (bloquean a enemigos)
+        for zona in zonas_seguras:
             if self.rect.colliderect(zona):
-                # revertir movimiento
                 self.rect.x, self.rect.y = x_anterior, y_anterior
-
-                # forzar evitación similar a muros
-                if self.estado == "patrullando":
-                    self.sentido *= -1
-                    # a veces cambia de eje para “rodear”
-                    if random.random() < 0.4:
-                        self.direccion = "vertical" if self.direccion == "horizontal" else "horizontal"
-                else:
-                    # si estaba persiguiendo, dar un pequeño “desliz” lateral para buscar borde
-                    if self.direccion == "horizontal":
-                        self.rect.y += random.choice((-3, 3))
-                    else:
-                        self.rect.x += random.choice((-3, 3))
+                self.sentido *= -1
+                if random.random() < 0.4:
+                    self.direccion = "vertical" if self.direccion == "horizontal" else "horizontal"
                 break
 
-
-        # ataques por tipo
-        if jugador is not None:
+        # ataques
+        if jugador:
             if self.tipo == "veloz":
-                self.ataque_veloz_cuerpo_a_cuerpo(jugador)
+                self.ataque_veloz(jugador)
             elif self.tipo == "acechador":
-                self.proyectil_acechador_disparar(jugador)
-                self.proyectil_acechador_mover_y_colisionar(muros, ancho_mapa, alto_mapa, jugador)
+                self.disparar_acechador(jugador)
+                self.mover_proyectiles(muros, ancho_mapa, alto_mapa, jugador)
             elif self.tipo == "bruto":
-                self.aura_bruto_aplicar(jugador)
+                self.aplicar_aura_bruto(jugador)
 
+    # DIBUJO
     def dibujar(self, ventana, camara):
-        # cuerpo
-        pygame.draw.rect(ventana, self.color_base, camara.aplicar(self.rect))
+        pygame.draw.rect(ventana, self.color, camara.aplicar(self.rect))
 
-        # ojos / alerta simple
-        # (opcionalmente puedes mantener tus ojos y circulitos de alerta aquí)
-
-        # aura visible del bruto
         if self.tipo == "bruto":
             cx, cy = camara.aplicar_pos(self.rect.centerx, self.rect.centery)
-            pygame.draw.circle(ventana, (120, 120, 200), (int(cx), int(cy)), self.aura_radio, 2)
+            pygame.draw.circle(ventana, (120, 120, 200), (int(cx), int(cy)), self.radio_aura, 2)
 
-        # proyectiles del acechador
         if self.tipo == "acechador":
-            self.proyectil_acechador_dibujar(ventana, camara)
+            for p in self.proyectiles:
+                pygame.draw.rect(ventana, (255, 255, 120), camara.aplicar(p["rect"]))
