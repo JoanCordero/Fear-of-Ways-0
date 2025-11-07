@@ -95,16 +95,6 @@ class jugador:
         # Reducir cooldown si esta activo
         if self.daño_cooldown > 0:
             self.daño_cooldown -= 1
-            
-        ## mantener dentro de los limites del mapa
-            if paso_y != 0:
-                self.rect.y += paso_y
-                for muro in muros:
-                    if self.rect.colliderect(muro.rect):
-                        if paso_y > 0:
-                            self.rect.bottom = muro.rect.top
-                        else:
-                            self.rect.top = muro.rect.bottom
 
         # Mantener dentro de los límites del mapa
         self.rect.clamp_ip(pygame.Rect(0, 0, ancho_mapa, alto_mapa))
@@ -128,4 +118,4 @@ class jugador:
             self.daño_cooldown = 60
             if self.vida < 0:
                 self.vida = 0
-                
+

@@ -24,7 +24,7 @@ class enemigo:
         # patrulla / persecución
         self.direccion = random.choice(["horizontal", "vertical"])
         self.sentido   = 1
-        self.rango_deteccion       = 250
+        self.rango_deteccion       = 350  # Aumentado desde 250
         self.estado                = "patrullando"
         self.velocidad_persecucion = self.velocidad + 1
         self.tiempo_perdida        = 0
@@ -77,7 +77,7 @@ class enemigo:
     # ---- Acechador: Proyectil ----
     def proyectil_acechador_disparar(self, jugador):
         """Crea un proyectil hacia el jugador si está en rango y no hay CD."""
-        if self.cd["shoot"] != 0:
+        if self.cd["shoot"] > 0:
             return
         dist, dx, dy = self.distancia_a(jugador.rect)
         if dist >= self.rango_deteccion:
@@ -89,7 +89,7 @@ class enemigo:
             "vx": vx, "vy": vy, "dmg": 1, "vivo": True
         }
         self.proyectiles_acechador.append(proj)
-        self.cd["shoot"] = 50  # ~0.83s
+        self.cd["shoot"] = 240  # 4 segundos a 60 FPS
 
     def proyectil_acechador_mover_y_colisionar(self, muros, ancho_mapa, alto_mapa, jugador):
         """Mueve proyectiles, detecta colisiones con muros, fuera de mapa y jugador."""
@@ -123,10 +123,12 @@ class enemigo:
                 vivos.append(p)
 
         self.proyectiles_acechador = vivos
+        print(f"Proyectiles vivos: {len(self.proyectiles_acechador)}")  # Debugging
 
     def proyectil_acechador_dibujar(self, ventana, camara):
         for p in self.proyectiles_acechador:
             pygame.draw.rect(ventana, (255, 255, 120), camara.aplicar(p["rect"]))
+        print(f"Proyectiles dibujados: {len(self.proyectiles_acechador)}")  # Debugging
 
     # ---- Bruto: Aura de lentitud + golpe si toca (quita 1 energía en contacto) ----
     def aura_bruto_aplicar(self, jugador):
