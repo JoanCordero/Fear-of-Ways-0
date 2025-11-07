@@ -3,21 +3,13 @@ import pygame
 class salida:
     """Representa la salida del nivel"""
     def __init__(self, x, y):
-        # rectángulo de la salida
         self.rect = pygame.Rect(x, y, 50, 50)
 
-    def dibujar(self, ventana, camara, bloqueada: bool = False):
-        """
-        Dibuja la salida. Si está bloqueada (p.ej. faltan llaves), usa colores más oscuros.
-
-        Args:
-            ventana: superficie donde dibujar.
-            camara: cámara para ajustar las coordenadas.
-            bloqueada: muestra si aún no se puede usar la salida.
-        """
+    def dibujar(self, ventana, camara, bloqueada=False):
+        """Dibuja la salida, opcionalmente con color distinto si está bloqueada."""
         rect_pantalla = camara.aplicar(self.rect)
         if bloqueada:
-            # salida bloqueada: colores más apagados
+            # Color más oscuro para indicar que no se puede usar aún
             pygame.draw.rect(ventana, (30, 120, 30), rect_pantalla)
             pygame.draw.rect(ventana, (0, 180, 0), rect_pantalla, 3)
         else:
