@@ -1,4 +1,5 @@
 import pygame
+import os
 import random
 import math
 from nivel import nivel
@@ -40,6 +41,42 @@ class juego:
         except Exception:
             self.sonido_disparo = None
 
+        # Carga de recursos gráficos para HUD y menú
+        self._dir = os.path.dirname(__file__)
+        # Cargar icono del corazón (vida)
+        try:
+            img = pygame.image.load(os.path.join(self._dir, 'heart.png')).convert_alpha()
+            self.heart_img = pygame.transform.scale(img, (32, 32))
+        except Exception:
+            self.heart_img = None
+        # Cargar icono de la llave
+        try:
+            img = pygame.image.load(os.path.join(self._dir, 'key_icon.png')).convert_alpha()
+            # hacer la llave más visible que los corazones
+            self.key_img = pygame.transform.scale(img, (44, 44))
+        except Exception:
+            self.key_img = None
+        # Cargar icono del rayo
+        try:
+            img = pygame.image.load(os.path.join(self._dir, 'lightning.png')).convert_alpha()
+            self.lightning_img = pygame.transform.scale(img, (32, 32))
+        except Exception:
+            self.lightning_img = None
+        # Cargar marco para el menú
+        try:
+            self.menu_frame_img = pygame.image.load(os.path.join(self._dir, 'menu_frame.png')).convert_alpha()
+        except Exception:
+            self.menu_frame_img = None
+
+        # Seleccionar fuente predeterminada para menús y HUD (por ejemplo, freesansbold)
+        # Pygame usa una fuente por defecto si None; sin embargo, definimos explícitamente el nombre para un estilo consistente
+        try:
+            # match_font devuelve la ruta a una fuente del sistema; fallback a None si no se encuentra
+            self.font_path = pygame.font.match_font('freesansbold') or pygame.font.get_default_font()
+        except Exception:
+            # Fallback a fuente predeterminada de pygame
+            self.font_path = pygame.font.get_default_font()
+
     # -------------------------------------------------------
     # MENÚ PRINCIPAL
     # -------------------------------------------------------
@@ -47,11 +84,120 @@ class juego:
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
         pantalla.fill(NEGRO)
-        self.dibujar_texto("Fear of Ways", int(alto * 0.1), BLANCO, ancho // 2, alto * 0.2)
-        self.dibujar_texto("3 Mazmorras Extensas", int(alto * 0.05), AMARILLO, ancho // 2, alto * 0.35)
-        self.dibujar_texto("Selecciona tu personaje:", int(alto * 0.045), BLANCO, ancho // 2, alto * 0.45)
-        self.dibujar_texto("1. Explorador   2. Cazador   3. Ingeniero", int(alto * 0.04), BLANCO, ancho // 2, alto * 0.52)
-        self.dibujar_texto("ESC para salir", int(alto * 0.03), GRIS, ancho // 2, alto * 0.9)
+
+        # Título principal y subtítulo
+        self.dibujar_texto("Fear of Ways", int(alto * 0.1), BLANCO, ancho // 2, int(alto * 0.15))
+        self.dibujar_texto("3 Mazmorras Extensas", int(alto * 0.05), AMARILLO, ancho // 2, int(alto * 0.28))
+
+        # Dibujar marco decorativo si existe
+        if self.menu_frame_img:
+            marco_ancho_dest = int(ancho * 0.5)
+            factor = marco_ancho_dest / self.menu_frame_img.get_width()
+            marco_alto_dest = int(self.menu_frame_img.get_height() * factor)
+            marco = pygame.transform.scale(self.menu_frame_img, (marco_ancho_dest, marco_alto_dest))
+            marco_rect = marco.get_rect()
+            marco_rect.center = (ancho // 2, int(alto * 0.55))
+            pantalla.blit(marco, marco_rect)
+            opciones = [
+                ("Selecciona tu personaje:", BLANCO, 0.045),
+                ("1. Explorador", AMARILLO, 0.04),
+                ("2. Cazador", VERDE, 0.04),
+                ("3. Ingeniero", AZUL, 0.04),
+            ]
+            # padding y dimensiones internas para el texto
+            pad_x = max(12, int(marco_rect.width * 0.06))
+            max_w = marco_rect.width - pad_x * 2
+            # calcular tamaños iniciales por línea
+            line_count = len(opciones)
+            fonts_sizes = []
+            surfaces = []
+            heights = []
+            # tamaño máximo disponible vertical dentro del marco
+            avail_h = int(marco_rect.height * 0.75)
+            # empezar con tamaños relativos
+            for texto, color, rel_size in opciones:
+                tam = max(10, int(marco_rect.height * rel_size * 0.9))
+                # crear superficie y reducir si excede ancho
+                try:
+                    f = pygame.font.Font(self.font_path, tam)
+                except Exception:
+                    f = pygame.font.Font(None, tam)
+                surf = f.render(texto, True, color)
+                while surf.get_width() > max_w and tam > 8:
+                    tam -= 1
+                    try:
+                        f = pygame.font.Font(self.font_path, tam)
+                    except Exception:
+                        f = pygame.font.Font(None, tam)
+                    surf = f.render(texto, True, color)
+                fonts_sizes.append(tam)
+                surfaces.append((surf, color, texto))
+                heights.append(surf.get_height())
+
+            # calcular spacing y ajustar si la suma excede el alto disponible
+            spacing = int(marco_rect.height * 0.11)
+            total_h = sum(heights) + spacing * (line_count - 1)
+            if total_h > avail_h:
+                # reducir todos los tamaños proporcionalmente
+                scale = avail_h / total_h
+                new_surfaces = []
+                heights = []
+                for i, (texto, color, rel_size) in enumerate(opciones):
+                    tam = max(8, int(fonts_sizes[i] * scale))
+                    try:
+                        f = pygame.font.Font(self.font_path, tam)
+                    except Exception:
+                        f = pygame.font.Font(None, tam)
+                    surf = f.render(texto, True, color)
+                    # asegurar ancho
+                    while surf.get_width() > max_w and tam > 6:
+                        tam -= 1
+                        try:
+                            f = pygame.font.Font(self.font_path, tam)
+                        except Exception:
+                            f = pygame.font.Font(None, tam)
+                        surf = f.render(texto, True, color)
+                    new_surfaces.append((surf, tam))
+                    heights.append(surf.get_height())
+                surfaces = [(s, opciones[i][1], opciones[i][0]) for i, (s, _) in enumerate(new_surfaces)]
+                fonts_sizes = [t for (_, t) in new_surfaces]
+                total_h = sum(heights) + spacing * (line_count - 1)
+
+            # dibujar líneas centradas y distribuidas verticalmente dentro del marco
+            top_start = marco_rect.top + (marco_rect.height - total_h) // 2
+            for i, (texto, color, rel_size) in enumerate(opciones):
+                tam = fonts_sizes[i]
+                try:
+                    f = pygame.font.Font(self.font_path, tam)
+                except Exception:
+                    f = pygame.font.Font(None, tam)
+                surf = f.render(texto, True, color)
+                x_text = marco_rect.centerx
+                y_text = top_start + sum(heights[:i]) + i * spacing + surf.get_height() // 2
+                rect_final = surf.get_rect(center=(x_text, y_text))
+                pantalla.blit(surf, rect_final)
+        else:
+            rect_ancho = int(ancho * 0.5)
+            rect_alto = int(alto * 0.3)
+            rect = pygame.Rect(0, 0, rect_ancho, rect_alto)
+            rect.center = (ancho // 2, int(alto * 0.55))
+            pygame.draw.rect(pantalla, (60, 30, 10), rect)
+            pygame.draw.rect(pantalla, (120, 80, 40), rect, 2)
+            opciones = [
+                ("Selecciona tu personaje:", BLANCO, 0.045),
+                ("1. Explorador", AMARILLO, 0.04),
+                ("2. Cazador", VERDE, 0.04),
+                ("3. Ingeniero", AZUL, 0.04),
+            ]
+            y_base = rect.top + int(rect.height * 0.15)
+            for idx, (texto, color, rel_size) in enumerate(opciones):
+                tam_fuente = int(alto * rel_size)
+                self.dibujar_texto(texto, tam_fuente, color,
+                                   rect.centerx,
+                                   y_base + idx * int(alto * 0.06))
+
+        # Mensaje de salida
+        self.dibujar_texto("ESC para salir", int(alto * 0.03), GRIS, ancho // 2, int(alto * 0.92))
 
     # -------------------------------------------------------
     # INICIO Y CARGA DE JUEGO
@@ -163,39 +309,128 @@ class juego:
     # DIBUJAR HEADER (HUD)
     # -------------------------------------------------------
     def dibujar_header(self, pantalla, ancho, alto, offset):
+        # Fondo semitransparente y línea inferior
         alto_header = offset
         pygame.draw.rect(pantalla, (20, 20, 30, 230), (0, 0, ancho, alto_header))
         pygame.draw.line(pantalla, (120, 120, 150), (0, alto_header - 2), (ancho, alto_header - 2), 2)
 
         margen_x = int(ancho * 0.03)
-        margen_y = int(alto_header * 0.25)
-        barra_ancho = int(ancho * 0.25)
-        barra_alto = int(alto_header * 0.25)
+        y_elementos = int(alto_header * 0.25)
 
-        # Vida izquierda
-        self.dibujar_texto("❤️ VIDA", int(alto * 0.035), (255, 100, 100),
-                           margen_x, margen_y - 5, centrado=False)
-        self.dibujar_barra(pantalla, margen_x, margen_y + int(alto_header * 0.35),
-                           barra_ancho, barra_alto,
-                           self.jugador.vida, self.jugador.vida_max, (255, 80, 80))
+        # --- Corazones de vida ---
+        if self.heart_img:
+            for i in range(self.jugador.vida_max):
+                x_corazon = margen_x + i * (self.heart_img.get_width() + 4)
+                if i < self.jugador.vida:
+                    pantalla.blit(self.heart_img, (x_corazon, y_elementos))
+                else:
+                    corazon_gray = self.heart_img.copy()
+                    corazon_gray.set_alpha(100)
+                    pantalla.blit(corazon_gray, (x_corazon, y_elementos))
+            ultimo_x = margen_x + self.jugador.vida_max * (self.heart_img.get_width() + 4)
+        else:
+            ultimo_x = margen_x
+            self.dibujar_texto(f"Vida: {self.jugador.vida}/{self.jugador.vida_max}",
+                               int(alto * 0.035), (255, 100, 100),
+                               ultimo_x, y_elementos, centrado=False)
+            ultimo_x += int(ancho * 0.15)
 
-        # Energía derecha
-        self.dibujar_texto("⚡ ENERGÍA", int(alto * 0.035), (120, 200, 255),
-                           ancho - barra_ancho - margen_x, margen_y - 5, centrado=False)
-        self.dibujar_barra(pantalla, ancho - barra_ancho - margen_x, margen_y + int(alto_header * 0.35),
+        # --- Llaves recogidas ---
+        if hasattr(self.nivel_actual, "llaves_requeridas"):
+            obtenidas = self.nivel_actual.llaves_requeridas - len(self.nivel_actual.llaves)
+            total = self.nivel_actual.llaves_requeridas
+            if self.key_img:
+                # Mostrar icono de llave y el conteo a la derecha; alinear verticalmente con los corazones
+                x_llave = ultimo_x + 30
+                # determinar altura del corazón (fallback a un tamaño estimado)
+                if self.heart_img:
+                    heart_h = self.heart_img.get_height()
+                else:
+                    heart_h = int(alto * 0.035)
+                # colocar el top de la llave de forma que sus centros coincidan con los corazones
+                y_llave = y_elementos + (heart_h - self.key_img.get_height()) // 2
+                pantalla.blit(self.key_img, (x_llave, y_llave))
+                texto_llaves = f"{obtenidas}/{total}"
+                # posición del texto a la derecha del icono con separación mayor
+                gap = 36
+                x_text = x_llave + self.key_img.get_width() + gap
+                y_text_center = y_elementos + heart_h // 2
+                # renderizar texto manualmente (control de tamaño y centrado vertical)
+                try:
+                    fuente_k = pygame.font.Font(self.font_path, int(alto * 0.018))
+                except Exception:
+                    fuente_k = pygame.font.Font(None, int(alto * 0.018))
+                surf_k = fuente_k.render(texto_llaves, True, (255, 220, 140))
+                rect_k = surf_k.get_rect(center=(x_text, y_text_center))
+                pantalla.blit(surf_k, rect_k)
+            else:
+                # Si no hay icono, mostrar un texto pequeño y discreto
+                self.dibujar_texto(f"Llaves: {obtenidas}/{total}", int(alto * 0.03), (255, 220, 140),
+                                   ultimo_x + 20, y_elementos, centrado=False)
+
+        # --- Barra de energía con icono de rayo ---
+        # Ajuste visual: barra de energía más compacta
+        barra_ancho = int(ancho * 0.12)
+        barra_alto = max(6, int(alto_header * 0.18))
+        x_barra = ancho - barra_ancho - margen_x
+        y_barra = y_elementos
+        if self.lightning_img:
+            pantalla.blit(self.lightning_img,
+                          (x_barra - self.lightning_img.get_width() - 6, y_barra))
+        self.dibujar_barra(pantalla, x_barra, y_barra,
                            barra_ancho, barra_alto,
                            self.jugador.energia, self.jugador.energia_max, (80, 200, 255))
+        # No mostrar el número de energía junto a la barra (diseño más limpio)
 
-        # Nivel al centro
-        self.dibujar_texto(f"Nivel {self.numero_nivel}/3",
-                           int(alto * 0.045), BLANCO, ancho // 2, alto_header // 2, centrado=True)
+        # --- Nivel al centro ---
+        # Muestra solo el número de nivel actual (sin total). Si existe una imagen
+        # decorativa (`menu_frame_img`) la usamos como marco ajustado al tamaño del texto.
+        center_x = ancho // 2
+        center_y = alto_header // 2
+
+        texto_nivel = f"Nivel {self.numero_nivel}"
+        tam_texto = int(alto * 0.04)
+        try:
+            fuente_nivel = pygame.font.Font(self.font_path, tam_texto)
+        except Exception:
+            fuente_nivel = pygame.font.Font(None, tam_texto)
+        surf_texto = fuente_nivel.render(texto_nivel, True, BLANCO)
+        text_w, text_h = surf_texto.get_size()
+
+        if self.menu_frame_img:
+            try:
+                orig_w = self.menu_frame_img.get_width()
+                orig_h = self.menu_frame_img.get_height()
+                # Padding alrededor del texto dentro del marco
+                pad_x = max(12, int(text_w * 0.18))
+                pad_y = max(6, int(text_h * 0.4))
+                target_w = text_w + pad_x * 2
+                target_h = text_h + pad_y * 2
+                # Escalar manteniendo la relación de aspecto
+                scale = min(target_w / orig_w if orig_w else 1.0, target_h / orig_h if orig_h else 1.0)
+                new_w = max(1, int(orig_w * scale))
+                new_h = max(1, int(orig_h * scale))
+                marco = pygame.transform.scale(self.menu_frame_img, (new_w, new_h))
+                marco_rect = marco.get_rect(center=(center_x, center_y))
+                pantalla.blit(marco, marco_rect)
+            except Exception:
+                pass
+
+        # dibujar el texto del nivel encima (siempre)
+        rect_texto = surf_texto.get_rect(center=(center_x, center_y))
+        pantalla.blit(surf_texto, rect_texto)
 
     # -------------------------------------------------------
     # DIBUJADO DE ELEMENTOS
     # -------------------------------------------------------
     def dibujar_texto(self, texto, tam, color, x, y, centrado=True):
+        """Renderiza un texto utilizando una fuente predefinida y lo dibuja en pantalla."""
         pantalla = pygame.display.get_surface()
-        fuente = pygame.font.Font(None, tam)
+        # Utiliza la fuente configurada en self.font_path; si está indefinida, usa la predeterminada de pygame
+        try:
+            fuente = pygame.font.Font(self.font_path, tam)
+        except Exception:
+            fuente = pygame.font.Font(None, tam)
         imagen = fuente.render(texto, True, color)
         rect = imagen.get_rect()
         rect.center = (x, y) if centrado else (x, y)
