@@ -95,19 +95,23 @@ class juego:
         ancho, alto = pantalla.get_size()
         pantalla.fill(gris)
 
-        # Actualiza cámara centrada en el jugador
+        # Actualiza la cámara centrada en el jugador
         self.camara.actualizar(self.jugador.rect)
 
-        # Dibuja mapa (muros, salida, escondites)
+        # Dibuja el mapa (muros, salida, escondites, llaves, palancas)
         self.nivel_actual.dibujar(pantalla, self.camara)
 
-        # Mueve jugador con colisiones y energía
+        # Filtramos los muros que realmente bloquean: las puertas abiertas no deben colisionar
+        muros_bloq = [m for m in self.nivel_actual.muros if getattr(m, "bloquea", True)]
+
+        # Mueve al jugador con colisiones contra muros bloqueantes y gestiona energía
         teclas = pygame.key.get_pressed()
-        self.jugador.mover(teclas, self.nivel_actual.muros, self.nivel_actual.ancho, self.nivel_actual.alto)
+        self.jugador.mover(teclas, muros_bloq, self.nivel_actual.ancho, self.nivel_actual.alto)
 
         # Actualiza proyectiles del jugador (mover, colisión, dibujar)
         for bala in list(self.proyectiles):
-            sigue_activo = bala.mover(self.nivel_actual.muros)
+            # utiliza muros bloqueantes para las colisiones
+            sigue_activo = bala.mover(muros_bloq)
             if not sigue_activo:
                 self.proyectiles.remove(bala)
                 continue
@@ -121,10 +125,26 @@ class juego:
             rect_pantalla = self.camara.aplicar(self.jugador.rect)
             pygame.draw.rect(pantalla, (80, 200, 255), rect_pantalla, 3)
 
+        # --- Recolección de llaves y activación de palancas ---
+        # Recoge una llave al tocarla y la elimina de la lista
+        if hasattr(self.nivel_actual, "llaves"):
+            for r in list(self.nivel_actual.llaves):
+                if self.jugador.rect.colliderect(r):
+                    self.nivel_actual.llaves.remove(r)
+
+        # Activa una palanca al tocarla: abre o alterna puertas asociadas
+        if hasattr(self.nivel_actual, "palancas"):
+            for r in self.nivel_actual.palancas:
+                if self.jugador.rect.colliderect(r):
+                    # Todas las puertas con id "A1" se abren (o se alternan)
+                    for p in getattr(self.nivel_actual, "_puertas_por_id", {}).get("A1", []):
+                        # Alterna entre abierta y cerrada
+                        p.abierta = True
+
         # Mueve y dibuja enemigos (considera zonas seguras y ataques)
         for enemigo_actual in list(self.enemigos):
             enemigo_actual.mover(
-                self.nivel_actual.muros,
+                muros_bloq,
                 self.nivel_actual.ancho,
                 self.nivel_actual.alto,
                 self.jugador,
@@ -157,17 +177,32 @@ class juego:
         self.jugador.dibujar(pantalla, self.camara)
         self.dibujar_linterna()
 
-        # Verifica si llegó a la salida y avanza de nivel
+        # Verifica si llegó a la salida y avanza de nivel solo si tiene las llaves necesarias
         if self.jugador.rect.colliderect(self.nivel_actual.salida.rect):
-            if self.numero_nivel < 3:
-                self.cargar_nivel(self.numero_nivel + 1)
-            else:
-                self.resultado = "ganaste"
-                self.estado = "fin"
+            # Requiere recolectar todas las llaves si está configurado
+            llaves_restantes = len(getattr(self.nivel_actual, "llaves", []))
+            llaves_ok = True
+            if hasattr(self.nivel_actual, "llaves_requeridas"):
+                llaves_ok = (llaves_restantes == 0)
+            if llaves_ok:
+                if self.numero_nivel < 3:
+                    self.cargar_nivel(self.numero_nivel + 1)
+                else:
+                    self.resultado = "ganaste"
+                    self.estado = "fin"
 
         # UI básica
         self.dibujar_texto(f"Nivel: {self.numero_nivel}/3", 30, blanco, 10, 10, centrado=False)
         self.dibujar_texto(f"Energía: {int(self.jugador.energia)}", 30, blanco, 10, 40, centrado=False)
+
+        # Muestra cuántas llaves se han recolectado (si aplica)
+        if hasattr(self.nivel_actual, "llaves_requeridas"):
+            total = self.nivel_actual.llaves_requeridas
+            obt = total - len(getattr(self.nivel_actual, "llaves", []))
+            self.dibujar_texto(f"Llaves: {obt}/{total}", 30, amarillo, 10, 70, centrado=False)
+            # Mensaje si la salida aún está bloqueada
+            if obt < total:
+                self.dibujar_texto("La salida está bloqueada", 24, (255, 180, 120), 10, 96, centrado=False)
 
         # Barras de vida y energía (HUD)
         self.dibujar_barra(1075, 10, 200, 12, self.jugador.vida, self.jugador.vida_max, (255, 80, 80))
@@ -335,4 +370,3 @@ class juego:
 
             pygame.display.flip()
             reloj.tick(60)
-
