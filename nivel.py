@@ -33,59 +33,67 @@ class nivel:
             self.crear_nivel_3()
 
     def crear_nivel_1(self):
-        """Nivel 1: Procedural por celdas con llaves, puertas y palancas."""
+        """Nivel 1: Procedural por celdas con habitaciones (estilo cueva)."""
+        # limpia muros previos por si acaso
+        self.muros = []
         # bordes del mapa (mantiene límites duros)
         self.muros.append(pared(0, 0, self.ancho, 20))
         self.muros.append(pared(0, self.alto - 20, self.ancho, 20))
         self.muros.append(pared(0, 0, 20, self.alto))
         self.muros.append(pared(self.ancho - 20, 0, 20, self.alto))
 
-        # Parámetros del generador de laberinto
-        cols, filas = 28, 20        # densidad de celdas
-        tam = 60                    # tamaño de celda (pasillos ~ tam-esp)
-        esp = 16                    # grosor de muro
-        carving_extra = 0.11        # porcentaje de paredes a romper adicional
+        # parámetros del generador de celdas
+        cols, filas = 22, 16  # número de celdas en x,y (menos celdas -> celdas más grandes)
+        tam = 80              # tamaño de cada celda (define ancho de pasillos)
+        esp = 16              # grosor de muro
+        carving_extra = 0.15  # porcentaje de paredes a romper para ciclos
+        num_habitaciones = max(2, (cols * filas) // 50)  # número aproximado de habitaciones
 
-        # Genera la estructura de celdas y las paredes entre ellas
+        # genera estructura base del laberinto
         celdas, paredes = self._generar_laberinto_por_celdas(cols, filas)
+
+        # crea habitaciones al estilo cueva: abre clusters de celdas
+        self._crear_habitaciones(celdas, paredes, cols, filas, num_habitaciones)
+
+        # levanta muros basados en la estructura resultante
         self._levantar_paredes_de_celdas(paredes, tam, esp)
 
-        # Carving extra: rompe algunos muros para crear rutas alternativas
+        # carving extra: rompe algunos muros aleatorios para crear rutas alternativas y espacios abiertos
         self._romper_paredes_aleatorias(paredes, cols, filas, cantidad=int(cols*filas*carving_extra), tam=tam, esp=esp)
 
-        # Coloca salida en la celda más lejana desde el inicio
-        start = (0, 0)
-        fin = self._celda_mas_lejana_desde(start, celdas, cols, filas)
-        sx, sy = fin
-        self.salida = salida(20 + sx*tam + tam//2, 20 + sy*tam + tam//2)
+        # define celda de inicio y busca la más lejana para colocar la salida
+        origen = (0, 0)
+        destino = self._celda_mas_lejana_desde(origen, celdas, cols, filas)
+        dx, dy = destino
+        # posiciona la salida en el centro de la celda destino
+        self.salida = salida(20 + dx * tam + tam // 2, 20 + dy * tam + tam // 2)
 
-        # Genera spawns de enemigos distribuidos
-        self.spawn_enemigos = self._spawns_distribuidos(celdas, cols, filas, tam, cuantos=9)
+        # define puntos de spawn de enemigos dispersos
+        self.spawn_enemigos = self._spawns_distribuidos(celdas, cols, filas, tam, cuantos=10)
 
-        # Llaves escondidas en callejones sin salida
-        dead_ends = [c for c in celdas if len(celdas[c]) == 1 and c != fin]
+        # coloca llaves en callejones sin salida
+        dead_ends = [c for c in celdas if len(celdas[c]) == 1 and c != destino]
         random.shuffle(dead_ends)
         self.llaves = []
-        # 3 a 4 llaves dependiendo del tamaño
-        self.llaves_requeridas = min(4, max(3, len(dead_ends)//6))
+        self.llaves_requeridas = min(5, max(3, len(dead_ends)//5))
         for i in range(self.llaves_requeridas):
             cx, cy = dead_ends[i]
-            rx = 20 + cx*tam + tam//2 - 10
-            ry = 20 + cy*tam + tam//2 - 10
+            # posición de la llave dentro de la celda
+            rx = 20 + cx * tam + tam // 2 - 10
+            ry = 20 + cy * tam + tam // 2 - 10
             self.llaves.append(pygame.Rect(rx, ry, 20, 20))
 
-        # Puertas y palancas
+        # coloca una puerta y una palanca para forzar backtracking
         self.palancas = []
         self._puertas_por_id = {}
         cuello = self._elige_cuello_bottleneck(celdas, cols, filas)
         if cuello:
             (a, b) = cuello
-            # Coloca una puerta entre las celdas a y b
             self._colocar_puerta_entre(a, b, tam, esp, puerta_id="A1")
-            # Coloca la palanca en una celda lejana para abrir la puerta
+            # coloca la palanca en un punto alejado del cuello
             px, py = self._celda_mas_lejana_desde(b, celdas, cols, filas)
-            prx = 20 + px*tam + tam//2 - 12
-            pry = 20 + py*tam + tam//2 - 12
+            prx = 20 + px * tam + tam // 2 - 12
+            pry = 20 + py * tam + tam // 2 - 12
             self.palancas.append(pygame.Rect(prx, pry, 24, 24))
 
     def crear_nivel_2(self):
@@ -183,147 +191,6 @@ class nivel:
             (1300, 1250), (1750, 1200)
         ]
 
-    # --- Métodos auxiliares para el generador de laberintos procedurales ---
-    def _idx(self, x, y, cols, filas):
-        """Verifica si las coordenadas están dentro de la grilla."""
-        return 0 <= x < cols and 0 <= y < filas
-
-    def _vecinos_cardinales(self, x, y, cols, filas):
-        """Genera vecinos en las cuatro direcciones cardinales."""
-        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            nx, ny = x + dx, y + dy
-            if self._idx(nx, ny, cols, filas):
-                yield (nx, ny)
-
-    def _generar_laberinto_por_celdas(self, cols, filas):
-        """Genera un laberinto por celdas usando DFS backtracker."""
-        visit = set()
-        stack = [(0, 0)]
-        visit.add((0, 0))
-        celdas = {(0, 0): set()}
-        paredes = set()
-        while stack:
-            x, y = stack[-1]
-            candidatos = [(nx, ny) for (nx, ny) in self._vecinos_cardinales(x, y, cols, filas) if (nx, ny) not in visit]
-            if candidatos:
-                nx, ny = random.choice(candidatos)
-                visit.add((nx, ny))
-                stack.append((nx, ny))
-                celdas.setdefault((x, y), set()).add((nx, ny))
-                celdas.setdefault((nx, ny), set()).add((x, y))
-            else:
-                stack.pop()
-        # Paredes entre celdas no conectadas
-        for y in range(filas):
-            for x in range(cols):
-                for nx, ny in self._vecinos_cardinales(x, y, cols, filas):
-                    if (nx, ny) not in celdas.get((x, y), set()):
-                        # Para evitar duplicados, ordena la tupla
-                        if (x, y, nx, ny) < (nx, ny, x, y):
-                            paredes.add((x, y, nx, ny))
-        return celdas, paredes
-
-    def _levantar_paredes_de_celdas(self, paredes, tam, esp):
-        """Convierte cada arista-muro en un rectángulo pygame y lo añade a muros."""
-        for (x, y, nx, ny) in paredes:
-            if x == nx:
-                # Muro horizontal entre filas
-                miny = min(y, ny)
-                rx = 20 + x * tam
-                ry = 20 + (miny + 1) * tam - esp // 2
-                self.muros.append(pared(rx, ry, tam, esp))
-            else:
-                # Muro vertical entre columnas
-                minx = min(x, nx)
-                rx = 20 + (minx + 1) * tam - esp // 2
-                ry = 20 + y * tam
-                self.muros.append(pared(rx, ry, esp, tam))
-
-    def _romper_paredes_aleatorias(self, paredes, cols, filas, cantidad, tam, esp):
-        """Elimina algunas paredes para abrir ciclos en el laberinto."""
-        paredes_lista = list(paredes)
-        random.shuffle(paredes_lista)
-        rotas = 0
-        i = 0
-        while rotas < cantidad and i < len(paredes_lista):
-            (x, y, nx, ny) = paredes_lista[i]
-            i += 1
-            if x == nx:
-                rx = 20 + x * tam
-                ry = 20 + (min(y, ny) + 1) * tam - esp // 2
-                w, h = tam, esp
-            else:
-                rx = 20 + (min(x, nx) + 1) * tam - esp // 2
-                ry = 20 + y * tam
-                w, h = esp, tam
-            # Encuentra el rect correspondiente y elimínalo
-            for m in list(self.muros):
-                if m.rect.x == rx and m.rect.y == ry and m.rect.w == w and m.rect.h == h and not getattr(m, "puerta", False):
-                    self.muros.remove(m)
-                    rotas += 1
-                    break
-
-    def _dist_bfs(self, origen, celdas, cols, filas):
-        """Calcula distancias desde origen a todas las celdas conectadas."""
-        from collections import deque
-        q = deque([origen])
-        dist = {origen: 0}
-        while q:
-            u = q.popleft()
-            for v in celdas.get(u, []):
-                if v not in dist:
-                    dist[v] = dist[u] + 1
-                    q.append(v)
-        return dist
-
-    def _celda_mas_lejana_desde(self, origen, celdas, cols, filas):
-        """Devuelve la celda más lejana en el laberinto desde el origen."""
-        dist = self._dist_bfs(origen, celdas, cols, filas)
-        return max(dist, key=dist.get)
-
-    def _spawns_distribuidos(self, celdas, cols, filas, tam, cuantos=8):
-        """Elige celdas espaciadas para colocar enemigos."""
-        todas = list(celdas.keys())
-        random.shuffle(todas)
-        elegidas = []
-        for c in todas:
-            if all(abs(c[0] - e[0]) + abs(c[1] - e[1]) >= 6 for e in elegidas):
-                elegidas.append(c)
-                if len(elegidas) >= cuantos:
-                    break
-        pts = []
-        for cx, cy in elegidas:
-            px = 20 + cx * tam + tam // 2
-            py = 20 + cy * tam + tam // 2
-            pts.append((px, py))
-        return pts
-
-    def _elige_cuello_bottleneck(self, celdas, cols, filas):
-        """Encuentra una arista con grado alto para colocar puerta."""
-        candidatos = []
-        for (x, y), vs in celdas.items():
-            for (nx, ny) in vs:
-                if (x, y) < (nx, ny):
-                    grado = len(vs) + len(celdas.get((nx, ny), []))
-                    if grado >= 5:
-                        candidatos.append(((x, y), (nx, ny)))
-        return random.choice(candidatos) if candidatos else None
-
-    def _colocar_puerta_entre(self, a, b, tam, esp, puerta_id="A1"):
-        """Genera un muro que actúa como puerta entre dos celdas."""
-        (x, y), (nx, ny) = a, b
-        if x == nx:
-            rx = 20 + x * tam
-            ry = 20 + (min(y, ny) + 1) * tam - esp // 2
-            w, h = tam, esp
-        else:
-            rx = 20 + (min(x, nx) + 1) * tam - esp // 2
-            ry = 20 + y * tam
-            w, h = esp, tam
-        p = pared(rx, ry, w, h, puerta=True, abierta=False, id_puerta=puerta_id)
-        self.muros.append(p)
-        self._puertas_por_id.setdefault(puerta_id, []).append(p)
-
     def generar_escondites_random(self, cantidad=3, tam=(140, 100), margen=30, intentos_max=400):
         """Crea zonas seguras aleatorias evitando muros, salida y spawns"""
         w, h = tam
@@ -375,20 +242,196 @@ class nivel:
             pygame.draw.rect(zona, (220, 240, 255, 140), zona.get_rect(), 2)
             ventana.blit(zona, (rp.x, rp.y))
 
-        # dibuja salida (bloqueada si faltan llaves)
-        bloqueada = False
-        if hasattr(self, "llaves_requeridas"):
-            bloqueada = len(self.llaves) > 0
-        self.salida.dibujar(ventana, camara, bloqueada=bloqueada)
+        # dibuja salida
+        self.salida.dibujar(ventana, camara)
 
-        # dibuja llaves (amarillas)
-        for r in getattr(self, "llaves", []):
-            rp = camara.aplicar(r)
-            pygame.draw.rect(ventana, (240, 220, 40), rp)
-            pygame.draw.rect(ventana, (255, 255, 120), rp, 2)
+        # dibuja llaves si existen
+        if hasattr(self, "llaves"):
+            for r in self.llaves:
+                rp = camara.aplicar(r)
+                # cuerpo de la llave
+                pygame.draw.rect(ventana, (240, 220, 40), rp)
+                # borde
+                pygame.draw.rect(ventana, (255, 255, 120), rp, 2)
 
-        # dibuja palancas (azules)
-        for r in getattr(self, "palancas", []):
-            rp = camara.aplicar(r)
-            pygame.draw.rect(ventana, (60, 140, 255), rp)
-            pygame.draw.rect(ventana, (180, 220, 255), rp, 2)
+        # dibuja palancas si existen
+        if hasattr(self, "palancas"):
+            for r in self.palancas:
+                rp = camara.aplicar(r)
+                pygame.draw.rect(ventana, (60, 140, 255), rp)
+                pygame.draw.rect(ventana, (180, 220, 255), rp, 2)
+
+    # -----------------------------------------------------------------------
+    # Métodos auxiliares para generación procedural del laberinto
+
+    def _idx(self, x, y, cols, filas):
+        """Retorna True si la posición (x,y) está dentro de los límites de la grilla"""
+        return 0 <= x < cols and 0 <= y < filas
+
+    def _vecinos_cardinales(self, x, y, cols, filas):
+        """Itera sobre los vecinos en cuatro direcciones (N, S, E, O)"""
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nx, ny = x + dx, y + dy
+            if self._idx(nx, ny, cols, filas):
+                yield (nx, ny)
+
+    def _generar_laberinto_por_celdas(self, cols, filas):
+        """Genera un laberinto por celdas usando DFS (backtracker). Devuelve un grafo de celdas y un set de paredes"""
+        visitadas = set()
+        stack = [(0, 0)]
+        visitadas.add((0, 0))
+        celdas = {(0, 0): set()}
+        paredes = set()
+        while stack:
+            x, y = stack[-1]
+            # lista de vecinos no visitados
+            opciones = [(nx, ny) for (nx, ny) in self._vecinos_cardinales(x, y, cols, filas) if (nx, ny) not in visitadas]
+            if opciones:
+                nx, ny = random.choice(opciones)
+                visitadas.add((nx, ny))
+                stack.append((nx, ny))
+                # conecta ambos lados
+                celdas.setdefault((x, y), set()).add((nx, ny))
+                celdas.setdefault((nx, ny), set()).add((x, y))
+            else:
+                stack.pop()
+
+        # crea set inicial de paredes entre pares no conectados
+        for y in range(filas):
+            for x in range(cols):
+                for nx, ny in self._vecinos_cardinales(x, y, cols, filas):
+                    if (nx, ny) not in celdas.get((x, y), set()):
+                        # usa orden para evitar duplicados
+                        if (x, y, nx, ny) < (nx, ny, x, y):
+                            paredes.add((x, y, nx, ny))
+        return celdas, paredes
+
+    def _crear_habitaciones(self, celdas, paredes, cols, filas, num_habitaciones):
+        """Expande ciertas regiones para crear espacios abiertos (habitaciones)."""
+        # evita bordes para no salir del mapa
+        posibles = [(x, y) for x in range(1, cols - 1) for y in range(1, filas - 1)]
+        random.shuffle(posibles)
+        seleccionadas = posibles[:num_habitaciones]
+        for cx, cy in seleccionadas:
+            # define la región 3x3 alrededor del centro
+            region = [(x, y) for x in range(cx - 1, cx + 2) for y in range(cy - 1, cy + 2)
+                      if self._idx(x, y, cols, filas)]
+            # conecta todas las celdas cardinalmente dentro de la región
+            for x, y in region:
+                for nx, ny in self._vecinos_cardinales(x, y, cols, filas):
+                    if (nx, ny) in region:
+                        # actualiza celdas para incluir la conexión
+                        celdas.setdefault((x, y), set()).add((nx, ny))
+                        celdas.setdefault((nx, ny), set()).add((x, y))
+                        # elimina la pared si existe entre estos dos
+                        par = (x, y, nx, ny)
+                        inverso = (nx, ny, x, y)
+                        if par in paredes:
+                            paredes.discard(par)
+                        elif inverso in paredes:
+                            paredes.discard(inverso)
+
+    def _levantar_paredes_de_celdas(self, paredes, tam, esp):
+        """Convierte cada arista-muro en un rectángulo de pygame y lo añade a la lista de muros"""
+        for (x, y, nx, ny) in paredes:
+            if x == nx:
+                # muro horizontal entre filas
+                miny = min(y, ny)
+                rx = 20 + x * tam
+                ry = 20 + (miny + 1) * tam - esp // 2
+                self.muros.append(pared(rx, ry, tam, esp))
+            else:
+                # muro vertical entre columnas
+                minx = min(x, nx)
+                rx = 20 + (minx + 1) * tam - esp // 2
+                ry = 20 + y * tam
+                self.muros.append(pared(rx, ry, esp, tam))
+
+    def _romper_paredes_aleatorias(self, paredes, cols, filas, cantidad, tam, esp):
+        """Rompe un número dado de paredes al azar (que no sean puertas) para crear ciclos"""
+        paredes_lista = list(paredes)
+        random.shuffle(paredes_lista)
+        rotas = 0
+        i = 0
+        while rotas < cantidad and i < len(paredes_lista):
+            (x, y, nx, ny) = paredes_lista[i]
+            i += 1
+            # calcula las coordenadas del muro en pantalla
+            if x == nx:
+                rx = 20 + x * tam
+                ry = 20 + (min(y, ny) + 1) * tam - esp // 2
+                w, h = tam, esp
+            else:
+                rx = 20 + (min(x, nx) + 1) * tam - esp // 2
+                ry = 20 + y * tam
+                w, h = esp, tam
+            # busca y elimina el muro correspondiente, si no es puerta
+            for m in list(self.muros):
+                if m.rect.x == rx and m.rect.y == ry and m.rect.w == w and m.rect.h == h and not getattr(m, 'puerta', False):
+                    self.muros.remove(m)
+                    rotas += 1
+                    break
+
+    def _dist_bfs(self, origen, celdas, cols, filas):
+        """Calcula las distancias BFS desde la celda origen en el grafo de celdas"""
+        from collections import deque
+        q = deque([origen])
+        dist = {origen: 0}
+        while q:
+            u = q.popleft()
+            for v in celdas.get(u, []):
+                if v not in dist:
+                    dist[v] = dist[u] + 1
+                    q.append(v)
+        return dist
+
+    def _celda_mas_lejana_desde(self, origen, celdas, cols, filas):
+        """Devuelve la celda con mayor distancia BFS desde el origen"""
+        dist = self._dist_bfs(origen, celdas, cols, filas)
+        return max(dist, key=dist.get)
+
+    def _spawns_distribuidos(self, celdas, cols, filas, tam, cuantos=8):
+        """Elige celdas espaciadas para generar apariciones de enemigos"""
+        todas = list(celdas.keys())
+        random.shuffle(todas)
+        elegidas = []
+        for c in todas:
+            # evita que spawns estén demasiado cerca entre sí
+            if all(abs(c[0] - e[0]) + abs(c[1] - e[1]) >= 5 for e in elegidas):
+                elegidas.append(c)
+                if len(elegidas) >= cuantos:
+                    break
+        pts = []
+        for cx, cy in elegidas:
+            px = 20 + cx * tam + tam // 2
+            py = 20 + cy * tam + tam // 2
+            pts.append((px, py))
+        return pts
+
+    def _elige_cuello_bottleneck(self, celdas, cols, filas):
+        """Heurística para elegir una arista concurrida donde colocar la puerta"""
+        candidatos = []
+        for (x, y), vecinos in celdas.items():
+            for (nx, ny) in vecinos:
+                if (x, y) < (nx, ny):
+                    grado = len(vecinos) + len(celdas.get((nx, ny), []))
+                    if grado >= 6:
+                        candidatos.append(((x, y), (nx, ny)))
+        return random.choice(candidatos) if candidatos else None
+
+    def _colocar_puerta_entre(self, a, b, tam, esp, puerta_id="A1"):
+        """Coloca un muro especial (puerta) entre dos celdas adyacentes"""
+        (x, y), (nx, ny) = a, b
+        if x == nx:
+            # puerta horizontal
+            rx = 20 + x * tam
+            ry = 20 + (min(y, ny) + 1) * tam - esp // 2
+            w, h = tam, esp
+        else:
+            # puerta vertical
+            rx = 20 + (min(x, nx) + 1) * tam - esp // 2
+            ry = 20 + y * tam
+            w, h = esp, tam
+        p = pared(rx, ry, w, h, puerta=True, abierta=False, id_puerta=puerta_id)
+        self.muros.append(p)
+        self._puertas_por_id.setdefault(puerta_id, []).append(p)
