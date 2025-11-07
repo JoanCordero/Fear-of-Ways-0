@@ -1,14 +1,8 @@
 import pygame
 import os
 
-# Carga la textura para los muros. Se asume que existe un archivo "wall_texture.png"
-# en el mismo directorio que este módulo. Si la carga falla, se dejará en None.
-_texture_path = os.path.join(os.path.dirname(__file__), 'wall_texture.png')
-try:
-    # convert() prepara la imagen para blittear más rápido
-    TEXTURA_MURO = pygame.image.load(_texture_path).convert()
-except Exception:
-    TEXTURA_MURO = None
+# la textura se cargará desde main.py
+TEXTURA_MURO = None
 
 
 class pared:
