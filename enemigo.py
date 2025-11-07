@@ -123,12 +123,10 @@ class enemigo:
                 vivos.append(p)
 
         self.proyectiles_acechador = vivos
-        print(f"Proyectiles vivos: {len(self.proyectiles_acechador)}")  # Debugging
 
     def proyectil_acechador_dibujar(self, ventana, camara):
         for p in self.proyectiles_acechador:
             pygame.draw.rect(ventana, (255, 255, 120), camara.aplicar(p["rect"]))
-        print(f"Proyectiles dibujados: {len(self.proyectiles_acechador)}")  # Debugging
 
     # ---- Bruto: Aura de lentitud + golpe si toca (quita 1 energía en contacto) ----
     def aura_bruto_aplicar(self, jugador):
