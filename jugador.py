@@ -23,6 +23,10 @@ class jugador:
         # Vida (aun no se usa en la logica global; la vamos activar cuando agreguemos daño)
         self.vida_max = 3
         self.vida = 3
+        
+        # Daño / invulnerabilidad
+        self.daño_cooldown = 0  # frames restantes sin recibir daño
+
         self.slow_ticks = 0
         
     #####################
@@ -80,6 +84,19 @@ class jugador:
         # --- Eje Y ---
         if dy != 0:
             paso_y = int(round(dy * velocidad))
+            self.rect.y += paso_y
+            # resolver colisiones solo en y
+            for muro in muros:
+                if self.rect.colliderect(muro.rect):
+                    if paso_y > 0:
+                        self.rect.bottom = muro.rect.top
+                    else: 
+                        self.rect.top = muro.rect.bottom
+        # Reducir cooldown si esta activo
+        if self.daño_cooldown > 0:
+            self.daño_cooldown -= 1
+            
+        ## mantener dentro de los limites del mapa
             if paso_y != 0:
                 self.rect.y += paso_y
                 for muro in muros:
@@ -101,3 +118,14 @@ class jugador:
         rect_pantalla = camara.aplicar(self.rect)
         pygame.draw.rect(ventana, self.color, rect_pantalla)
         pygame.draw.rect(ventana, blanco, rect_pantalla, 2)
+      
+    def recibir_daño(self, cantidad):
+        """
+        Reduce la vida y activa un tiempo de invulnerabilidad
+        """
+        if self.daño_cooldown <= 0: # Solo si puede recibir daño
+            self.vida -= cantidad
+            self.daño_cooldown = 60
+            if self.vida < 0:
+                self.vida = 0
+                
