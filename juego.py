@@ -5,6 +5,7 @@ from nivel import nivel
 from camara import camara
 from jugador import jugador
 from enemigo import enemigo
+from proyectil import proyectil
 
 # Colores
 negro = (0, 0, 0)
@@ -25,6 +26,7 @@ class juego:
         self.camara = None
         self.opcion_pausa = 0
         self.rects_pausa = []  
+        self.proyectiles = []
 
     # Pantallas
     def menu(self):
@@ -97,6 +99,14 @@ class juego:
         teclas = pygame.key.get_pressed()
         self.jugador.mover(teclas, self.nivel_actual.muros, self.nivel_actual.ancho, self.nivel_actual.alto)
 
+        # Mover y dibujar proyectiles
+        for p in list(self.proyectiles):
+            activo = p.mover(self.nivel_actual.muros)
+            if not activo:
+                self.proyectiles.remove(p)
+                continue
+            p.dibujar(ventana, self.camara)
+            
         # Mover y dibujar enemigos
         for enemigo_actual in self.enemigos:
             enemigo_actual.mover(self.nivel_actual.muros, self.nivel_actual.ancho, self.nivel_actual.alto, self.jugador.rect)
@@ -104,9 +114,21 @@ class juego:
 
             # Colisión jugador - enemigo (tal como lo tenías)
             if self.jugador.rect.colliderect(enemigo_actual.rect):
-                self.resultado = "perdiste"
-                self.estado = "fin"
-
+                self.jugador.recibir_daño(1)
+                # flash visual opcional (enemigo rojo si hizo daño)
+                enemigo_actual.color_base = (255, 50, 50)
+                if self.jugador.vida <= 0:    
+                    self.resultado = "perdiste"
+                    self.estado = "fin"
+        # Detectar impactos de proyectiles con enemigos
+        for p in list(self.proyectiles):
+            for enemigo_actual in list(self.enemigos):
+                if p.rect.colliderect(enemigo_actual.rect):
+                    enemigo_actual.vida -= 1
+                    self.proyectiles.remove(p)
+                    if enemigo_actual.vida <= 0:
+                        self.enemigos.remove(enemigo_actual)
+                    break
         # Dibujar jugador
         self.jugador.dibujar(ventana, self.camara)
 
@@ -125,6 +147,10 @@ class juego:
         self.dibujar_texto(f"Nivel: {self.numero_nivel}/3", 30, blanco, 10, 10, centrado=False)
         self.dibujar_texto(f"Energía: {int(self.jugador.energia)}", 30, blanco, 10, 40, centrado=False)
 
+        #HUD: vida y energia
+        self.dibujar_barra(1075, 10, 200, 12, self.jugador.vida, self.jugador.vida_max, (255, 80, 80))
+        self.dibujar_barra(1075, 28, 200, 10, self.jugador.energia, self.jugador.energia_max, (80, 200, 255))
+        
     def pantalla_final(self):
         ventana = pygame.display.get_surface()
         ancho, alto = ventana.get_size()
@@ -196,7 +222,19 @@ class juego:
 
         sombra.blit(luz, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
         ventana.blit(sombra, (0, 0))
-
+    
+    def dibujar_barra(self, x, y, ancho, alto, valor, valor_max, color):
+        ventana = pygame.display.get_surface()
+        ratio = valor / valor_max
+        if ratio < 0:
+            ratio = 0
+        if ratio > 1:
+            ratio = 1
+        fondo = pygame.Rect(x, y, ancho, alto)
+        barra = pygame.Rect(x, y, int(ancho * ratio), alto)
+        pygame.draw.rect(ventana, (50, 50, 50), fondo)
+        pygame.draw.rect(ventana, color, barra)
+        pygame.draw.rect(ventana, (255, 255, 255), fondo, 1)
     def pantalla_pausa(self):
         ventana = pygame.display.get_surface()
         ancho, alto = ventana.get_size()
@@ -263,6 +301,13 @@ class juego:
                     if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
                         self.estado = "pausa"
                         self.opcion_pausa = 0
+                    
+                    # lanzar proyectil con clik derecho
+                    if e.type == pygame.MOUSEBUTTONDOWN and e.button == 3:
+                        mx, my = pygame.mouse.get_pos()
+                        px, py = self.camara.aplicar_pos(self.jugador.rect.centerx, self.jugador.rect.centery)
+                        nuevo = proyectil(px, py, self.camara.offset_x + mx, self.camara.offset_y + my, self.jugador.color)
+                        self.proyectiles.append(nuevo)
 
                 # pantalla final
                 elif self.estado == "fin":
