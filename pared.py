@@ -1,26 +1,49 @@
 import pygame
+import os
+
+# Carga la textura para los muros. Se asume que existe un archivo "wall_texture.png"
+# en el mismo directorio que este módulo. Si la carga falla, se dejará en None.
+_texture_path = os.path.join(os.path.dirname(__file__), 'wall_texture.png')
+try:
+    # convert() prepara la imagen para blittear más rápido
+    TEXTURA_MURO = pygame.image.load(_texture_path).convert()
+except Exception:
+    TEXTURA_MURO = None
+
 
 class pared:
     """Representa un muro del laberinto (puede ser puerta)."""
-    def __init__(self, x, y, ancho, alto, puerta=False, abierta=False, id_puerta=None):
+
+    def __init__(self, x, y, ancho, alto, puerta: bool = False, abierta: bool = False, id_puerta=None):
         self.rect = pygame.Rect(x, y, ancho, alto)
         self.puerta = bool(puerta)
         self.abierta = bool(abierta)
         self.id_puerta = id_puerta
 
     @property
-    def bloquea(self):
-        """Indica si el muro debe bloquear el paso (puertas abiertas no bloquean)."""
+    def bloquea(self) -> bool:
+        """Devuelve True si este muro bloquea al jugador/enemigos. Las puertas abiertas no bloquean."""
         return not (self.puerta and self.abierta)
 
-    def dibujar(self, ventana, camara):
+    def dibujar(self, ventana: pygame.Surface, camara) -> None:
+        """Dibuja el muro sobre la superficie de la ventana usando la cámara."""
         rect_pantalla = camara.aplicar(self.rect)
+        # Si es puerta, dibujamos un rectángulo con color diferente
         if self.puerta:
-            # color distinto para puertas
-            color = (90, 60, 20) if self.abierta else (120, 80, 40)
-            borde = (180, 140, 90) if self.abierta else (220, 190, 140)
-            pygame.draw.rect(ventana, color, rect_pantalla)
-            pygame.draw.rect(ventana, borde, rect_pantalla, 2)
+            # Selecciona colores dependiendo de si está abierta
+            color_fondo = (90, 60, 20) if self.abierta else (120, 80, 40)
+            color_borde = (180, 140, 90) if self.abierta else (220, 190, 140)
+            pygame.draw.rect(ventana, color_fondo, rect_pantalla)
+            pygame.draw.rect(ventana, color_borde, rect_pantalla, 2)
         else:
-            pygame.draw.rect(ventana, (60, 60, 60), rect_pantalla)
-            pygame.draw.rect(ventana, (80, 80, 80), rect_pantalla, 2)  # borde
+            # Muro normal: intentar usar textura
+            if TEXTURA_MURO:
+                # Escalar la textura al tamaño del muro en pantalla
+                textura_escalada = pygame.transform.scale(TEXTURA_MURO, (rect_pantalla.w, rect_pantalla.h))
+                ventana.blit(textura_escalada, rect_pantalla)
+                # Opcionalmente dibujar borde oscuro para delimitar
+                pygame.draw.rect(ventana, (30, 30, 30), rect_pantalla, 1)
+            else:
+                # Fallback: color sólido si no hay textura cargada
+                pygame.draw.rect(ventana, (60, 60, 60), rect_pantalla)
+                pygame.draw.rect(ventana, (80, 80, 80), rect_pantalla, 2)
