@@ -103,14 +103,11 @@ class juego:
 
         # Mueve jugador con colisiones y energía
         teclas = pygame.key.get_pressed()
-        # Filtra muros que realmente bloquean (ignora puertas abiertas)
-        muros_bloq = [m for m in self.nivel_actual.muros if getattr(m, "bloquea", True)]
-        self.jugador.mover(teclas, muros_bloq, self.nivel_actual.ancho, self.nivel_actual.alto)
+        self.jugador.mover(teclas, self.nivel_actual.muros, self.nivel_actual.ancho, self.nivel_actual.alto)
 
         # Actualiza proyectiles del jugador (mover, colisión, dibujar)
         for bala in list(self.proyectiles):
-            # proyectiles también se detienen en muros bloqueantes
-            sigue_activo = bala.mover(muros_bloq)
+            sigue_activo = bala.mover(self.nivel_actual.muros)
             if not sigue_activo:
                 self.proyectiles.remove(bala)
                 continue
@@ -127,7 +124,7 @@ class juego:
         # Mueve y dibuja enemigos (considera zonas seguras y ataques)
         for enemigo_actual in list(self.enemigos):
             enemigo_actual.mover(
-                muros_bloq,
+                self.nivel_actual.muros,
                 self.nivel_actual.ancho,
                 self.nivel_actual.alto,
                 self.jugador,
@@ -138,7 +135,26 @@ class juego:
             # Daño por contacto al jugador
             if self.jugador.rect.colliderect(enemigo_actual.rect):
                 self.jugador.recibir_daño(1)
+                # Efecto de choque: empuja al enemigo en la dirección opuesta al jugador
+                dx = enemigo_actual.rect.centerx - self.jugador.rect.centerx
+                dy = enemigo_actual.rect.centery - self.jugador.rect.centery
+                dist = math.hypot(dx, dy)
+                # normalizar vector y definir distancia de empuje
+                if dist != 0:
+                    nx = dx / dist
+                    ny = dy / dist
+                    push = 20  # píxeles de retroceso
+                    old_x, old_y = enemigo_actual.rect.x, enemigo_actual.rect.y
+                    enemigo_actual.rect.x += int(nx * push)
+                    enemigo_actual.rect.y += int(ny * push)
+                    # evita que el empuje meta al enemigo en muros; revierte si colisiona
+                    if any(enemigo_actual.rect.colliderect(m.rect) for m in muros_bloq):
+                        enemigo_actual.rect.x, enemigo_actual.rect.y = old_x, old_y
+                # cambia color para indicar impacto
                 enemigo_actual.color = (255, 50, 50)
+                # invierte su sentido de patrulla para simular retroceso
+                enemigo_actual.sentido *= -1
+                # si la vida del jugador llega a cero, termina el juego
                 if self.jugador.vida <= 0:
                     self.resultado = "perdiste"
                     self.estado = "fin"
@@ -160,26 +176,8 @@ class juego:
         self.jugador.dibujar(pantalla, self.camara)
         self.dibujar_linterna()
 
-        # Recoger llaves si las hay
-        if hasattr(self.nivel_actual, "llaves"):
-            for r in list(self.nivel_actual.llaves):
-                if self.jugador.rect.colliderect(r):
-                    self.nivel_actual.llaves.remove(r)
-
-        # Activar palancas (abrir/cerrar puertas asociadas)
-        if hasattr(self.nivel_actual, "palancas"):
-            for r in self.nivel_actual.palancas:
-                if self.jugador.rect.colliderect(r):
-                    # alterna el estado de las puertas con id "A1"
-                    for p in getattr(self.nivel_actual, "_puertas_por_id", {}).get("A1", []):
-                        p.abierta = True  # cambia a True; usa not p.abierta para alternar
-
-        # Verifica si llegó a la salida y cumple requisitos de llaves
-        llaves_ok = True
-        if hasattr(self.nivel_actual, "llaves_requeridas"):
-            llaves_ok = (len(self.nivel_actual.llaves) == 0)
-
-        if self.jugador.rect.colliderect(self.nivel_actual.salida.rect) and llaves_ok:
+        # Verifica si llegó a la salida y avanza de nivel
+        if self.jugador.rect.colliderect(self.nivel_actual.salida.rect):
             if self.numero_nivel < 3:
                 self.cargar_nivel(self.numero_nivel + 1)
             else:
@@ -193,14 +191,6 @@ class juego:
         # Barras de vida y energía (HUD)
         self.dibujar_barra(1075, 10, 200, 12, self.jugador.vida, self.jugador.vida_max, (255, 80, 80))
         self.dibujar_barra(1075, 28, 200, 10, self.jugador.energia, self.jugador.energia_max, (80, 200, 255))
-
-        # HUD de llaves
-        if hasattr(self.nivel_actual, "llaves_requeridas"):
-            total = self.nivel_actual.llaves_requeridas
-            obtenidas = total - len(self.nivel_actual.llaves)
-            self.dibujar_texto(f"Llaves: {obtenidas}/{total}", 30, amarillo, 10, 70, centrado=False)
-            if obtenidas < total:
-                self.dibujar_texto("La salida está bloqueada", 24, (255, 180, 120), 10, 96, centrado=False)
 
     def pantalla_final(self):
         # Pantalla de victoria o derrota
