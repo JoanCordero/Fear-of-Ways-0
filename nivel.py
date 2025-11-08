@@ -335,20 +335,64 @@ class nivel:
     def dibujar(self, ventana, camara):
         # dibuja el suelo: usa una superficie pre-renderizada si está disponible
         if hasattr(self, 'surface_suelo') and self.surface_suelo:
-            # Determinar el área visible en el mapa (en coordenadas del mundo)
-            area_visible = pygame.Rect(0, 0, self.ancho, self.alto)
-            ventana.blit(self.surface_suelo, camara.aplicar(area_visible))
+            # Calcular el área visible del mundo según la cámara
+            ancho_pantalla, alto_pantalla = ventana.get_size()
+            vis_mundo_ancho = ancho_pantalla / camara.zoom
+            vis_mundo_alto = alto_pantalla / camara.zoom
+            
+            # Área visible en coordenadas del mundo
+            area_visible_mundo = pygame.Rect(
+                int(camara.offset_x),
+                int(camara.offset_y),
+                int(vis_mundo_ancho),
+                int(vis_mundo_alto)
+            )
+            
+            # Asegurar que el área visible esté dentro de los límites del mapa
+            area_visible_mundo.x = max(0, min(area_visible_mundo.x, self.ancho - area_visible_mundo.width))
+            area_visible_mundo.y = max(0, min(area_visible_mundo.y, self.alto - area_visible_mundo.height))
+            area_visible_mundo.width = min(area_visible_mundo.width, self.ancho - area_visible_mundo.x)
+            area_visible_mundo.height = min(area_visible_mundo.height, self.alto - area_visible_mundo.y)
+            
+            # Extraer la porción visible del suelo y escalarla al tamaño del área de juego
+            try:
+                porcion_suelo = self.surface_suelo.subsurface(area_visible_mundo)
+                # Escalar al tamaño completo del área de juego para cubrir toda la pantalla
+                porcion_escalada = pygame.transform.scale(porcion_suelo, (ancho_pantalla, alto_pantalla))
+                # Dibujar en la posición (0, 0) del área de juego
+                ventana.blit(porcion_escalada, (0, 0))
+            except (ValueError, pygame.error):
+                # Si hay error con subsurface (por ejemplo, área fuera de límites), usar fallback
+                # Dibujar el suelo completo escalado
+                suelo_escalado = pygame.transform.scale(
+                    self.surface_suelo,
+                    (int(self.ancho * camara.zoom), int(self.alto * camara.zoom))
+                )
+                rect_pantalla = camara.aplicar(pygame.Rect(0, 0, self.ancho, self.alto))
+                ventana.blit(suelo_escalado, (rect_pantalla.x, rect_pantalla.y))
         elif TEXTURA_SUELO:
             # Fallback: recorre el área total del nivel y repite la textura
             tex_w, tex_h = TEXTURA_SUELO.get_width(), TEXTURA_SUELO.get_height()
-            for xx in range(0, self.ancho, tex_w):
-                for yy in range(0, self.alto, tex_h):
+            # Calcular el área visible para optimizar el dibujado
+            ancho_pantalla, alto_pantalla = ventana.get_size()
+            vis_mundo_ancho = ancho_pantalla / camara.zoom
+            vis_mundo_alto = alto_pantalla / camara.zoom
+            
+            # Rango de texturas a dibujar (solo las visibles)
+            inicio_x = max(0, int((camara.offset_x - tex_w) // tex_w) * tex_w)
+            fin_x = min(self.ancho, int((camara.offset_x + vis_mundo_ancho + tex_w) // tex_w) * tex_w)
+            inicio_y = max(0, int((camara.offset_y - tex_h) // tex_h) * tex_h)
+            fin_y = min(self.alto, int((camara.offset_y + vis_mundo_alto + tex_h) // tex_h) * tex_h)
+            
+            for xx in range(inicio_x, fin_x, tex_w):
+                for yy in range(inicio_y, fin_y, tex_h):
                     rect = pygame.Rect(xx, yy, tex_w, tex_h)
                     ventana.blit(TEXTURA_SUELO, camara.aplicar(rect))
         else:
             # Si no hay textura, rellena con un color oscuro
             area_total = pygame.Rect(0, 0, self.ancho, self.alto)
-            ventana.fill((20, 20, 20), camara.aplicar(area_total))
+            rect_pantalla = camara.aplicar(area_total)
+            ventana.fill((20, 20, 20), rect_pantalla)
 
         # dibuja muros
         for muro in self.muros:
