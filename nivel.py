@@ -19,18 +19,13 @@ class nivel:
         self.spawn_enemigos = []
         self.escondites = []  # zonas seguras donde el jugador puede ocultarse
 
-        # dimensiones generales del mapa (ajustadas para mazmorras más densas)
-        self.ancho = 1900
-        self.alto = 1450
+        # dimensiones generales del mapa (más grandes que la pantalla)
+        self.ancho = 2000
+        self.alto = 1500
 
         # generar estructura del nivel y escondites
         self.crear_nivel()
         self.generar_escondites_random(cantidad=random.randint(3, 5))
-
-        self.bonus = [
-            {"tipo": "vida", "rect": pygame.Rect(400, 300, 30, 30)},
-            {"tipo": "arma", "rect": pygame.Rect(800, 500, 30, 30)},
-        ]
 
     def crear_nivel(self):
         # selecciona qué versión de nivel crear
@@ -60,19 +55,27 @@ class nivel:
         self.muros.append(pared(0, 0, 20, self.alto))
         self.muros.append(pared(self.ancho - 20, 0, 20, self.alto))
 
-        # parámetros del laberinto estilo mazmorra
-        # Se aumentan las celdas y se reducen sus tamaños para crear pasillos estrechos
-        # más laberínticos, similares a una mazmorra clásica
-        cols, filas = 28, 21          # número de columnas y filas de celdas (más denso)
-        tam = 65                     # tamaño de cada celda más pequeño (pasillos estrechos)
-        esp = 18                     # grosor de los muros entre celdas
-        carving_extra = 0.45         # más muros derribados para crear ciclos y bifurcaciones
+        # parámetros del laberinto
+        # Se reduce el número de celdas y se incrementa el tamaño de cada celda para
+        # incrementar el espacio libre entre muros. Con estas dimensiones el
+        # laberinto ocupa menos celdas pero cada una es más grande.
+        # Ajustar el tamaño de las celdas y el espesor de los muros para dar la sensación
+        # de un mapa más amplio. Se mantiene el mismo tamaño general del laberinto,
+        # pero aumentando el grosor de los muros y disminuyendo ligeramente el
+        # espacio libre por celda. Esto produce pasillos más estrechos y muros más gruesos
+        # sin cambiar la disposición global de celdas.
+        cols, filas = 16, 12          # número de columnas y filas de celdas
+        tam = 100                    # tamaño de cada celda (incluye pasillo)
+        # Aumentar grosor de los muros: 40 en lugar de 20. De esta forma el laberinto
+        # ocupa la misma anchura total, pero los muros se perciben más gruesos.
+        esp = 40                     # grosor de los muros entre celdas
+        carving_extra = 0.35         # proporción de muros derribados extra para formar ciclos
 
         # genera la topología inicial del laberinto (celdas conectadas y paredes que las separan)
         celdas, paredes = self._generar_laberinto_por_celdas(cols, filas)
 
-        # crea habitaciones amplias estilo caverna: más numerosas y espaciadas
-        self._crear_habitaciones(celdas, paredes, cols, filas, num_habitaciones=max(8, (cols * filas) // 50))
+        # crea habitaciones amplias: selecciona varias regiones 3×3 para unirlas completamente
+        self._crear_habitaciones(celdas, paredes, cols, filas, num_habitaciones=max(4, (cols * filas) // 60))
 
         # levanta físicamente las paredes en la lista de muros
         self._levantar_paredes_de_celdas(paredes, tam, esp)
@@ -98,14 +101,11 @@ class nivel:
         self.llaves = []
         # número de llaves: al menos 3 y al máximo 4 o proporción de dead ends
         self.llaves_requeridas = min(4, max(3, len(dead_ends) // 6))
-        # tamaño visual de la llave en el mapa (más grande para que sea visible)
-        tam_llave = 36
         for i in range(self.llaves_requeridas):
             cx, cy = dead_ends[i]
-            # posición de la llave centrada en la celda
-            rx = 20 + cx * tam + tam // 2 - tam_llave // 2
-            ry = 20 + cy * tam + tam // 2 - tam_llave // 2
-            self.llaves.append(pygame.Rect(rx, ry, tam_llave, tam_llave))
+            rx = 20 + cx * tam + tam // 2 - 10
+            ry = 20 + cy * tam + tam // 2 - 10
+            self.llaves.append(pygame.Rect(rx, ry, 20, 20))
 
         # prepara puertas y palancas
         self.palancas = []
@@ -122,7 +122,7 @@ class nivel:
             self.palancas.append(pygame.Rect(prx, pry, 24, 24))
 
     def crear_nivel_2(self):
-        """Nivel 2: laberinto con forma de espiral hacia el centro con puertas y palancas"""
+        """Nivel 2: laberinto con forma de espiral hacia el centro"""
         # bordes del mapa
         self.muros.append(pared(0, 0, self.ancho, 20))
         self.muros.append(pared(0, self.alto - 20, self.ancho, 20))
@@ -149,169 +149,72 @@ class nivel:
         self.muros.append(pared(950, 700, 200, 20))
         self.muros.append(pared(1000, 800, 150, 20))
 
-        # === PUERTAS Y PALANCAS DEL NIVEL 2 ===
-        # Puerta 1: Bloquea paso en la espiral exterior (vertical)
-        puerta1 = pared(1660, 600, 20, 100, puerta=True, abierta=False, id_puerta="N2_P1")
-        self.muros.append(puerta1)
-        
-        # Puerta 2: Bloquea paso en zona intermedia (horizontal)
-        puerta2 = pared(900, 370, 150, 20, puerta=True, abierta=False, id_puerta="N2_P2")
-        self.muros.append(puerta2)
-        
-        # Puerta 3: Bloquea acceso al centro (vertical)
-        puerta3 = pared(1000, 700, 20, 100, puerta=True, abierta=False, id_puerta="N2_P3")
-        self.muros.append(puerta3)
-        
-        # Registrar puertas por ID
-        self._puertas_por_id = {
-            "N2_P1": [puerta1],
-            "N2_P2": [puerta2],
-            "N2_P3": [puerta3]
-        }
-        
-        # Palancas para controlar las puertas (distribuidas estratégicamente)
-        self.palancas = [
-            pygame.Rect(1750, 250, 24, 24),   # Palanca para puerta 1 (esquina superior derecha)
-            pygame.Rect(450, 450, 24, 24),     # Palanca para puerta 2 (zona izquierda)
-            pygame.Rect(1250, 1150, 24, 24)    # Palanca para puerta 3 (zona inferior)
-        ]
+        # salida
+        posiciones_salida = [(1000, 750), (250, 200), (1800, 1300),
+                             (450, 1250), (1600, 450), (700, 600)]
+        x, y = random.choice(posiciones_salida)
+        self.salida = salida(x, y)
 
-        # salida en el centro de la espiral
-        self.salida = salida(1000, 750)
-
-        # enemigos distribuidos por toda la espiral
+        # enemigos
         self.spawn_enemigos = [
             (250, 200), (1700, 300), (300, 1300),
             (500, 320), (1550, 600), (650, 1100),
-            (900, 600), (1200, 800), (1100, 450),
-            (700, 700), (1400, 500), (500, 900)
+            (900, 600), (1200, 800), (1100, 450)
         ]
-        
-        # llaves en posiciones estratégicas (más difíciles de alcanzar)
-        posiciones_llaves = [
-            (1750, 500),   # Zona exterior derecha
-            (300, 300),    # Zona exterior izquierda superior
-            (450, 1250),   # Zona exterior izquierda inferior
-            (850, 750),    # Zona intermedia
-            (1250, 400)    # Zona intermedia derecha
-        ]
-        random.shuffle(posiciones_llaves)
-        self.llaves_requeridas = 4  # Aumentado de 3 a 4 para más desafío
-        self.llaves = []
-        for i in range(self.llaves_requeridas):
-            x, y = posiciones_llaves[i]
-            self.llaves.append(pygame.Rect(x, y, 20, 20))
 
     def crear_nivel_3(self):
-        """Nivel 3: laberinto caótico con múltiples cámaras, puertas y desafíos"""
+        """Nivel 3: laberinto más caótico con muchas rutas"""
         # bordes del mapa
         self.muros.append(pared(0, 0, self.ancho, 20))
         self.muros.append(pared(0, self.alto - 20, self.ancho, 20))
         self.muros.append(pared(0, 0, 20, self.alto))
         self.muros.append(pared(self.ancho - 20, 0, 20, self.alto))
 
-        # secciones interconectadas con diseño más elaborado
-        # Zona izquierda - laberinto denso
+        # secciones interconectadas (izquierda, centro, derecha)
         self.muros.append(pared(150, 100, 20, 400))
         self.muros.append(pared(170, 480, 300, 20))
         self.muros.append(pared(300, 200, 20, 300))
         self.muros.append(pared(320, 200, 200, 20))
-        self.muros.append(pared(200, 700, 400, 20))
-        self.muros.append(pared(200, 720, 20, 400))
-        self.muros.append(pared(220, 1100, 500, 20))
-        self.muros.append(pared(350, 900, 150, 20))
-        
-        # Zona central - cámaras conectadas
         self.muros.append(pared(500, 100, 20, 600))
         self.muros.append(pared(700, 150, 20, 500))
         self.muros.append(pared(550, 630, 170, 20))
-        self.muros.append(pared(700, 800, 20, 320))
         self.muros.append(pared(850, 250, 300, 20))
-        self.muros.append(pared(900, 480, 250, 20))
-        self.muros.append(pared(900, 750, 300, 20))
-        self.muros.append(pared(850, 1000, 200, 20))
-        self.muros.append(pared(600, 350, 80, 20))
-        
-        # Zona derecha - pasajes estrechos
         self.muros.append(pared(1130, 100, 20, 400))
+        self.muros.append(pared(900, 480, 250, 20))
+        self.muros.append(pared(200, 700, 400, 20))
+        self.muros.append(pared(200, 720, 20, 400))
+        self.muros.append(pared(220, 1100, 500, 20))
+        self.muros.append(pared(700, 800, 20, 320))
         self.muros.append(pared(1300, 200, 20, 400))
         self.muros.append(pared(1320, 580, 400, 20))
         self.muros.append(pared(1500, 300, 220, 20))
         self.muros.append(pared(1700, 100, 20, 500))
+        self.muros.append(pared(900, 750, 300, 20))
         self.muros.append(pared(1180, 650, 20, 400))
         self.muros.append(pared(1200, 1030, 400, 20))
         self.muros.append(pared(1400, 850, 20, 200))
         self.muros.append(pared(1550, 700, 20, 400))
+        self.muros.append(pared(350, 900, 150, 20))
+        self.muros.append(pared(850, 1000, 200, 20))
+        self.muros.append(pared(1300, 1200, 250, 20))
+        self.muros.append(pared(600, 350, 80, 20))
         self.muros.append(pared(1450, 450, 100, 20))
         self.muros.append(pared(1650, 1100, 20, 300))
         self.muros.append(pared(1670, 1380, 250, 20))
-        self.muros.append(pared(1300, 1200, 250, 20))
 
-        # === SISTEMA COMPLEJO DE PUERTAS Y PALANCAS DEL NIVEL 3 ===
-        # Puerta 1: Bloquea entrada a zona central (vertical)
-        puerta1 = pared(700, 400, 20, 150, puerta=True, abierta=False, id_puerta="N3_P1")
-        self.muros.append(puerta1)
-        
-        # Puerta 2: Bloquea paso horizontal en zona central
-        puerta2 = pared(900, 630, 200, 20, puerta=True, abierta=False, id_puerta="N3_P2")
-        self.muros.append(puerta2)
-        
-        # Puerta 3: Bloquea entrada a zona derecha (vertical)
-        puerta3 = pared(1130, 250, 20, 150, puerta=True, abierta=False, id_puerta="N3_P3")
-        self.muros.append(puerta3)
-        
-        # Puerta 4: Bloquea acceso a la zona inferior derecha (horizontal)
-        puerta4 = pared(1200, 850, 180, 20, puerta=True, abierta=False, id_puerta="N3_P4")
-        self.muros.append(puerta4)
-        
-        # Puerta 5: Pasaje secreto en zona izquierda (horizontal)
-        puerta5 = pared(320, 850, 150, 20, puerta=True, abierta=False, id_puerta="N3_P5")
-        self.muros.append(puerta5)
-        
-        # Registrar puertas por ID
-        self._puertas_por_id = {
-            "N3_P1": [puerta1],
-            "N3_P2": [puerta2],
-            "N3_P3": [puerta3],
-            "N3_P4": [puerta4],
-            "N3_P5": [puerta5]
-        }
-        
-        # Palancas distribuidas estratégicamente (una por cada puerta)
-        self.palancas = [
-            pygame.Rect(350, 350, 24, 24),     # Palanca 1 - zona izquierda superior
-            pygame.Rect(650, 900, 24, 24),     # Palanca 2 - zona central inferior
-            pygame.Rect(1600, 250, 24, 24),    # Palanca 3 - zona derecha superior
-            pygame.Rect(1750, 1250, 24, 24),   # Palanca 4 - zona derecha inferior
-            pygame.Rect(250, 1050, 24, 24)     # Palanca 5 - zona izquierda inferior (secreto)
-        ]
+        # salida
+        posiciones_salida = [(1900, 1420), (100, 100), (1850, 200),
+                             (350, 1350), (1250, 1300), (850, 1150), (1550, 950)]
+        x, y = random.choice(posiciones_salida)
+        self.salida = salida(x, y)
 
-        # salida en zona difícil de alcanzar (esquina inferior derecha)
-        self.salida = salida(1750, 1300)
-
-        # enemigos distribuidos agresivamente
+        # enemigos
         self.spawn_enemigos = [
             (200, 250), (400, 350), (250, 850), (550, 550),
             (650, 300), (950, 350), (1050, 200), (850, 900),
             (1100, 850), (1250, 350), (1600, 350), (1450, 950),
-            (1300, 1250), (1750, 1200), (600, 700), (1000, 500)
+            (1300, 1250), (1750, 1200)
         ]
-        
-        # llaves en las posiciones MÁS difíciles (requiere resolver puzzles de puertas)
-        posiciones_llaves = [
-            (250, 300),     # Zona inicial
-            (600, 450),     # Tras puerta 1
-            (1050, 650),    # Zona central tras puerta 2
-            (1650, 250),    # Zona derecha tras puerta 3
-            (1500, 1200),   # Zona final tras puerta 4
-            (400, 1000)     # Zona secreta tras puerta 5
-        ]
-        random.shuffle(posiciones_llaves)
-        self.llaves_requeridas = 5  # Nivel final: 5 llaves
-        self.llaves = []
-        for i in range(self.llaves_requeridas):
-            x, y = posiciones_llaves[i]
-            self.llaves.append(pygame.Rect(x, y, 20, 20))
 
     def generar_escondites_random(self, cantidad=3, tam=(140, 100), margen=30, intentos_max=400):
         """Crea zonas seguras aleatorias evitando muros, salida y spawns"""
@@ -352,118 +255,101 @@ class nivel:
             self.escondites.append(zona)
 
     def obtener_spawn_jugador_seguro(self, tamaño_jugador=30):
-        """Encuentra una posición de spawn válida para el jugador.
-        
-        Verifica que:
-        - No esté dentro de paredes
-        - No esté fuera del mapa
-        - No esté demasiado cerca de enemigos
-        - Esté en una zona segura con espacio suficiente
+        """Encuentra una posición inicial válida para el jugador.
+
+        Esta función intenta varias veces generar una posición aleatoria dentro
+        del mapa que cumpla las siguientes condiciones:
+
+        - No colisionar con muros ni estar demasiado cerca de ellos.
+        - No comenzar demasiado cerca de la salida.
+        - No situarse en las inmediaciones de los puntos de spawn de enemigos.
+        - Evitar colocar al jugador encima de llaves.
+
+        Si tras varios intentos no se encuentra una posición adecuada, la función
+        recorre una cuadrícula de posiciones cerca del origen del mapa hasta
+        localizar un hueco. Como último recurso devuelve una posición por defecto.
         """
-        margen = 50  # Distancia mínima desde los bordes
-        radio_seguridad = 200  # Distancia mínima desde enemigos
+        margen = 50  # margen mínimo desde los bordes del mapa
+        radio_seguridad = 200  # distancia mínima a spawns de enemigos
         max_intentos = 100
-        
+
+        # Precalcular rectángulos de muros para acelerar las colisiones
         muros_rects = [m.rect for m in self.muros]
-        
+
         for _ in range(max_intentos):
-            # Generar posición aleatoria con márgenes
+            # Genera posición aleatoria dentro de los límites seguros
             x = random.randint(margen, self.ancho - margen - tamaño_jugador)
             y = random.randint(margen, self.alto - margen - tamaño_jugador)
-            
-            # Crear rectángulo del jugador con un área de seguridad
             jugador_rect = pygame.Rect(x, y, tamaño_jugador, tamaño_jugador)
-            area_seguridad = jugador_rect.inflate(20, 20)  # Área más grande para verificar
-            
-            # Verificar que no colisione con muros
-            colision_muro = False
-            for muro_rect in muros_rects:
-                if area_seguridad.colliderect(muro_rect):
-                    colision_muro = True
-                    break
-            
-            if colision_muro:
+            area_seguridad = jugador_rect.inflate(20, 20)
+
+            # Colisión con muros
+            if any(area_seguridad.colliderect(muro) for muro in muros_rects):
                 continue
-            
-            # Verificar que no esté muy cerca de la salida
+
+            # Cercanía a la salida
             if self.salida and jugador_rect.inflate(100, 100).colliderect(self.salida.rect):
                 continue
-            
-            # Verificar que no esté muy cerca de spawns de enemigos
+
+            # Cercanía a spawns de enemigos
             muy_cerca_enemigo = False
             for ex, ey in self.spawn_enemigos:
                 distancia = ((x - ex) ** 2 + (y - ey) ** 2) ** 0.5
                 if distancia < radio_seguridad:
                     muy_cerca_enemigo = True
                     break
-            
             if muy_cerca_enemigo:
                 continue
-            
-            # Verificar que no esté muy cerca de llaves
+
+            # Cercanía a llaves
             muy_cerca_llave = False
             for llave_rect in getattr(self, "llaves", []):
                 if jugador_rect.inflate(80, 80).colliderect(llave_rect):
                     muy_cerca_llave = True
                     break
-            
             if muy_cerca_llave:
                 continue
-            
+
             # Posición válida encontrada
             return (x, y)
-        
-        # Si no se encuentra posición después de muchos intentos, usar posición por defecto segura
-        # Buscar el primer espacio libre cerca del inicio del mapa
+
+        # Si no se encuentra en los intentos aleatorios, probar posiciones en una rejilla
         for y in range(50, 500, 50):
             for x in range(50, 500, 50):
                 jugador_rect = pygame.Rect(x, y, tamaño_jugador, tamaño_jugador)
                 area_seguridad = jugador_rect.inflate(20, 20)
-                
-                colision = False
-                for muro_rect in muros_rects:
-                    if area_seguridad.colliderect(muro_rect):
-                        colision = True
-                        break
-                
-                if not colision:
-                    return (x, y)
-        
-        # Última opción: posición por defecto
+                if any(area_seguridad.colliderect(muro) for muro in muros_rects):
+                    continue
+                return (x, y)
+
+        # Última opción: devolver posición por defecto
         return (100, 100)
 
     def dibujar(self, ventana, camara):
         # dibuja el suelo como mosaico de la textura, ajustado por la cámara
         if TEXTURA_SUELO:
             tex_w, tex_h = TEXTURA_SUELO.get_width(), TEXTURA_SUELO.get_height()
-            
-            # Calcular el área visible en coordenadas del mundo
-            cam_x = camara.x
-            cam_y = camara.y
-            ancho_ventana, alto_ventana = ventana.get_size()
-            
-            # Calcular los rangos de tiles a dibujar con un pequeño margen
-            start_x = max(0, int(cam_x // tex_w) * tex_w - tex_w)
-            start_y = max(0, int(cam_y // tex_h) * tex_h - tex_h)
-            end_x = min(self.ancho, int((cam_x + ancho_ventana) // tex_w + 2) * tex_w)
-            end_y = min(self.alto, int((cam_y + alto_ventana) // tex_h + 2) * tex_h)
-            
-            # Solo dibuja las texturas visibles en el viewport
-            for xx in range(start_x, end_x, tex_w):
-                for yy in range(start_y, end_y, tex_h):
+            # recorre el área total del nivel y repite la textura
+            for xx in range(0, self.ancho, tex_w):
+                for yy in range(0, self.alto, tex_h):
                     rect = pygame.Rect(xx, yy, tex_w, tex_h)
-                    rect_pantalla = camara.aplicar(rect)
-                    ventana.blit(TEXTURA_SUELO, rect_pantalla)
+                    ventana.blit(TEXTURA_SUELO, camara.aplicar(rect))
         else:
-            # fallback: rellena con un color oscuro en el área visible
-            ventana.fill((20, 20, 20))
+            # fallback: rellena con un color oscuro
+            area_total = pygame.Rect(0, 0, self.ancho, self.alto)
+            ventana.fill((20, 20, 20), camara.aplicar(area_total))
 
         # dibuja muros
         for muro in self.muros:
             muro.dibujar(ventana, camara)
 
-        # Las zonas de escondites ya no se dibujan visualmente
-        # (aún existen en la lógica pero no se muestran)
+        # dibuja zonas seguras semitransparentes
+        for r in self.escondites:
+            rp = camara.aplicar(r)
+            zona = pygame.Surface((rp.w, rp.h), pygame.SRCALPHA)
+            zona.fill((30, 120, 180, 90))
+            pygame.draw.rect(zona, (220, 240, 255, 140), zona.get_rect(), 2)
+            ventana.blit(zona, (rp.x, rp.y))
 
         # dibuja salida
         # la salida se colorea diferente si aún hay llaves pendientes
@@ -472,67 +358,17 @@ class nivel:
             bloqueada = len(self.llaves) > 0
         self.salida.dibujar(ventana, camara, bloqueada=bloqueada)
 
-        # dibuja llaves con efecto visual mejorado
-        import math
-        import time
-        for i, r in enumerate(getattr(self, "llaves", [])):
+        # dibuja llaves
+        for r in getattr(self, "llaves", []):
             rp = camara.aplicar(r)
-            # Efecto de brillo pulsante
-            pulso = math.sin(time.time() * 3 + i) * 0.3 + 0.7
-            
-            # Sombra
-            sombra = pygame.Rect(rp.x + 2, rp.y + 2, rp.w, rp.h)
-            pygame.draw.rect(ventana, (100, 90, 20), sombra, border_radius=4)
-            
-            # Cuerpo de la llave
-            color_base = (int(240 * pulso), int(220 * pulso), int(40 * pulso))
-            pygame.draw.rect(ventana, color_base, rp, border_radius=4)
-            
-            # Borde brillante
-            pygame.draw.rect(ventana, (255, 255, 120), rp, 2, border_radius=4)
-            
-            # Detalles de la llave (cabeza y dientes)
-            # Cabeza circular
-            cabeza_x = rp.x + 5
-            cabeza_y = rp.y + rp.h // 2
-            pygame.draw.circle(ventana, (255, 255, 150), (cabeza_x, cabeza_y), 4)
-            pygame.draw.circle(ventana, (255, 255, 200), (cabeza_x, cabeza_y), 2)
-            
-            # Dientes de la llave
-            diente_y = rp.y + rp.h // 2
-            pygame.draw.line(ventana, (255, 255, 150), (rp.x + 12, diente_y), (rp.x + 18, diente_y), 2)
-            pygame.draw.line(ventana, (255, 255, 150), (rp.x + 14, diente_y), (rp.x + 14, diente_y + 3), 1)
-            pygame.draw.line(ventana, (255, 255, 150), (rp.x + 17, diente_y), (rp.x + 17, diente_y + 2), 1)
+            pygame.draw.rect(ventana, (240, 220, 40), rp)
+            pygame.draw.rect(ventana, (255, 255, 120), rp, 2)
 
-        # dibuja palancas con efecto mejorado
-        import time
-        for i, r in enumerate(getattr(self, "palancas", [])):
+        # dibuja palancas
+        for r in getattr(self, "palancas", []):
             rp = camara.aplicar(r)
-            
-            # Efecto de brillo pulsante
-            pulso = math.sin(time.time() * 2 + i * 0.5) * 0.2 + 0.8
-            
-            # Sombra
-            sombra = pygame.Rect(rp.x + 3, rp.y + 3, rp.w, rp.h)
-            pygame.draw.rect(ventana, (20, 50, 100), sombra, border_radius=4)
-            
-            # Base de la palanca (más oscuro)
-            base_color = (int(40 * pulso), int(100 * pulso), int(200 * pulso))
-            pygame.draw.rect(ventana, base_color, rp, border_radius=4)
-            
-            # Borde brillante
-            borde_color = (int(120 * pulso), int(180 * pulso), int(255 * pulso))
-            pygame.draw.rect(ventana, borde_color, rp, 3, border_radius=4)
-            
-            # Manija de la palanca (línea vertical en el centro)
-            centro_x = rp.centerx
-            inicio_y = rp.y + rp.h // 4
-            fin_y = rp.y + 3 * rp.h // 4
-            pygame.draw.line(ventana, (200, 220, 255), (centro_x, inicio_y), (centro_x, fin_y), 3)
-            
-            # Círculo en la punta
-            pygame.draw.circle(ventana, (220, 240, 255), (centro_x, inicio_y), 4)
-            pygame.draw.circle(ventana, (180, 200, 255), (centro_x, inicio_y), 2)
+            pygame.draw.rect(ventana, (60, 140, 255), rp)
+            pygame.draw.rect(ventana, (180, 220, 255), rp, 2)
 
     # ------------------------------------------------------------
     # Métodos auxiliares para generación procedural
@@ -701,26 +537,23 @@ class nivel:
         self._puertas_por_id.setdefault(puerta_id, []).append(p)
 
     def _crear_habitaciones(self, celdas, paredes, cols, filas, num_habitaciones=4):
-        """Genera habitaciones de tamaños variados uniendo completamente sus paredes.
+        """Genera habitaciones de 3×3 celdas uniendo completamente sus paredes.
 
-        Crea habitaciones de diferentes tamaños (2×2, 3×3, 4×4, 5×5) para darle
-        más variedad a la mazmorra. Selecciona posiciones al azar y elimina los muros
-        internos que separan las celdas dentro de ese bloque, creando espacios abiertos
-        tipo caverna. Las celdas se conectan en el grafo y las paredes se eliminan.
+        Selecciona `num_habitaciones` posiciones al azar (sin acercarse al borde) y
+        elimina los muros internos que separan las celdas dentro de ese bloque.
+        Esto crea espacios amplios similares a cavernas. Además, las celdas se
+        conectan en el grafo `celdas` y las paredes correspondientes se eliminan
+        del conjunto `paredes`.
         """
         for _ in range(num_habitaciones):
-            # Tamaño variable de habitación (2x2 a 5x5)
-            tamaño_hab = random.choice([2, 2, 3, 3, 3, 4, 5])
-            
             # elige la esquina superior izquierda de la habitación dentro de los límites
-            cx = random.randint(1, max(1, cols - tamaño_hab))
-            cy = random.randint(1, max(1, filas - tamaño_hab))
-            
-            # recorre las celdas dentro del bloque
-            for dx in range(tamaño_hab):
-                for dy in range(tamaño_hab):
+            cx = random.randint(1, max(1, cols - 3))
+            cy = random.randint(1, max(1, filas - 3))
+            # recorre las celdas dentro del bloque 3×3
+            for dx in range(3):
+                for dy in range(3):
                     # conecta con la celda de la derecha
-                    if dx < tamaño_hab - 1:
+                    if dx < 2:
                         a = (cx + dx, cy + dy)
                         b = (cx + dx + 1, cy + dy)
                         if b not in celdas.get(a, set()):
@@ -732,7 +565,7 @@ class nivel:
                             elif (b[0], b[1], a[0], a[1]) in paredes:
                                 paredes.discard((b[0], b[1], a[0], a[1]))
                     # conecta con la celda de abajo
-                    if dy < tamaño_hab - 1:
+                    if dy < 2:
                         a = (cx + dx, cy + dy)
                         b = (cx + dx, cy + dy + 1)
                         if b not in celdas.get(a, set()):
