@@ -40,8 +40,8 @@ class jugador:
         self.velocidad_base = float(velocidad)
         if pos_inicial is None:
             pos_inicial = (100, 100)
-        # Rectángulo de colisión más grande para mejor jugabilidad (50x70)
-        self.rect = pygame.Rect(pos_inicial[0], pos_inicial[1], 50, 70)
+        # Rectángulo de colisión más pequeño para pasar por pasillos estrechos (35x50)
+        self.rect = pygame.Rect(pos_inicial[0], pos_inicial[1], 35, 50)
         self.pos_inicial = pos_inicial
         self.vel_x = 0.0
         self.vel_y = 0.0
@@ -80,13 +80,14 @@ class jugador:
         self.frame_index = 0
         self.tiempo_anim = 0
         self.muriendo = False
+        self.mirando_izquierda = False  # Para voltear el sprite
 
         # Cargar animaciones desde el sprite sheet
         # El sprite sheet es 1080x1080
         # Estructura: 5 columnas x 3 filas = 15 frames totales
-        # Cada sprite COMPLETO (cabeza a pies): 216 ancho x 340 alto (ajustado para no tomar el sprite de abajo)
+        # Cada sprite: 200 ancho x 340 alto (ancho reducido para no capturar el sprite adyacente)
         ruta = "assets/ingeniero_sheet.png"
-        frames = cargar_frames("assets/ingeniero_sheet.png", 216, 340, escala=0.24)
+        frames = cargar_frames("assets/ingeniero_sheet.png", 200, 340, escala=0.18)
 
         self.animaciones = {
             "idle":     frames[0:5],    # primera fila: 5 frames
@@ -121,6 +122,11 @@ class jugador:
             dy /= mag
             self.ultima_direccion_x = dx
             self.ultima_direccion_y = dy
+            # Actualizar dirección de mirada
+            if dx < 0:
+                self.mirando_izquierda = True
+            elif dx > 0:
+                self.mirando_izquierda = False
 
         # Modificadores de velocidad
         slow_mult = 0.6 if self.slow_ticks > 0 else 1.0
@@ -188,14 +194,16 @@ class jugador:
         if self.flash_timer > 0:
             self.flash_timer -= 1
 
-        # Actualizar estado según movimiento
+        # Actualizar estado según movimiento (solo si no está en una animación especial)
         if self.vida <= 0:
             self.estado = "morir"
             self.muriendo = True
-        elif dx == 0 and dy == 0:
-            self.estado = "idle"
-        else:
-            self.estado = "caminar"
+        elif self.estado not in ["disparar", "daño", "morir"]:
+            # Solo cambiar estado si no está en una acción especial
+            if dx == 0 and dy == 0:
+                self.estado = "idle"
+            else:
+                self.estado = "caminar"
 
     # -------------------------------------------------------
     # UTILIDADES
@@ -219,6 +227,7 @@ class jugador:
             return
 
         self.estado = "disparar"  # usa animación de disparo también para ataque corto
+        self.frame_index = 0  # Reiniciar animación desde el principio
         rango = 45
         area = pygame.Rect(
             self.rect.centerx - rango // 2,
@@ -247,13 +256,27 @@ class jugador:
             return
 
         self.tiempo_anim += 1
-        if self.tiempo_anim > 14:
+        velocidad_anim = 16  # Velocidad normal de animación (más rápida)
+        
+        # Animaciones especiales mucho más rápidas
+        if self.estado in ["disparar", "daño"]:
+            velocidad_anim = 8
+        
+        if self.tiempo_anim > velocidad_anim:
             self.tiempo_anim = 0
 
             # Si está muriendo, no ciclar animación
             if self.estado == "morir":
                 if self.frame_index < len(frames) - 1:
                     self.frame_index += 1
+            # Si está disparando o recibiendo daño, volver a idle al terminar
+            elif self.estado in ["disparar", "daño"]:
+                if self.frame_index < len(frames) - 1:
+                    self.frame_index += 1
+                else:
+                    # Termina la animación especial, volver a idle
+                    self.estado = "idle"
+                    self.frame_index = 0
             else:
                 self.frame_index = (self.frame_index + 1) % len(frames)
 
@@ -262,6 +285,10 @@ class jugador:
             self.frame_index = len(frames) - 1
 
         frame = frames[self.frame_index]
+        
+        # Voltear sprite si mira a la izquierda
+        if self.mirando_izquierda:
+            frame = pygame.transform.flip(frame, True, False)
         
         # Escalar el frame según el zoom de la cámara
         frame_escalado = pygame.transform.scale(
@@ -289,8 +316,10 @@ class jugador:
             self.daño_cooldown = 120
             self.flash_timer = 20
             self.estado = "daño"
+            self.frame_index = 0  # Reiniciar animación desde el principio
             if self.sonido_daño:
                 self.sonido_daño.play()
             if self.vida <= 0:
                 self.estado = "morir"
                 self.muriendo = True
+                self.frame_index = 0  # Reiniciar animación de muerte
