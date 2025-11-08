@@ -98,11 +98,14 @@ class nivel:
         self.llaves = []
         # número de llaves: al menos 3 y al máximo 4 o proporción de dead ends
         self.llaves_requeridas = min(4, max(3, len(dead_ends) // 6))
+        # tamaño visual de la llave en el mapa (más grande para que sea visible)
+        tam_llave = 36
         for i in range(self.llaves_requeridas):
             cx, cy = dead_ends[i]
-            rx = 20 + cx * tam + tam // 2 - 10
-            ry = 20 + cy * tam + tam // 2 - 10
-            self.llaves.append(pygame.Rect(rx, ry, 20, 20))
+            # posición de la llave centrada en la celda
+            rx = 20 + cx * tam + tam // 2 - tam_llave // 2
+            ry = 20 + cy * tam + tam // 2 - tam_llave // 2
+            self.llaves.append(pygame.Rect(rx, ry, tam_llave, tam_llave))
 
         # prepara puertas y palancas
         self.palancas = []
