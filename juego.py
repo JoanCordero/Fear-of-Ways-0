@@ -82,10 +82,8 @@ class juego:
         # Almacenamos el directorio actual para localizar imágenes
         self._dir = os.path.dirname(__file__)
 
-        # Tamaño base de los iconos para el HUD. Al usar un tamaño único se simplifica
-        # el diseño y se consigue un aspecto más minimalista. 28 píxeles funciona bien en
-        # la mayoría de resoluciones. Si falla la carga, los iconos simplemente no se dibujan.
-        icon_size = 28
+     
+        icon_size = 24
 
         # Cargar icono del corazón (vida)
         try:
@@ -369,11 +367,11 @@ class juego:
                 
                 # Advertencia cuando quedan 30 segundos
                 if self.tiempo_restante == 30 * 60:
-                    self.mensaje_temporal = "⚠️ ¡QUEDAN 30 SEGUNDOS! ⚠️"
+                    self.mensaje_temporal = "¡QUEDAN 30 SEGUNDOS!"
                     self.mensaje_timer = 120
                 # Advertencia cuando quedan 10 segundos
                 elif self.tiempo_restante == 10 * 60:
-                    self.mensaje_temporal = "⚠️ ¡SOLO 10 SEGUNDOS! ⚠️"
+                    self.mensaje_temporal = "¡SOLO 10 SEGUNDOS!"
                     self.mensaje_timer = 120
                     
             # Si el tiempo se acaba, spawear enemigos continuamente
@@ -572,7 +570,8 @@ class juego:
                 k_w, k_h = self.key_img.get_size()
                 pantalla.blit(self.key_img, (x_cursor, y_center - k_h // 2))
                 x_cursor += k_w + 5
-            font_key_size = max(12, int(alto_header * 0.4))
+            # Reduce el tamaño de la fuente de las llaves para que no sea tan grande
+            font_key_size = max(12, int(alto_header * 0.25))
             try:
                 font_key = pygame.font.Font(self.font_path, font_key_size)
             except Exception:
@@ -581,8 +580,8 @@ class juego:
             pantalla.blit(txt, (x_cursor, y_center - txt.get_height() // 2))
             x_cursor += txt.get_width() + 5
         # Barra de energía y icono de rayo
-        bar_width = int(ancho * 0.15)
-        bar_height = int(alto_header * 0.3)
+        bar_width  = int(ancho * 0.08)
+        bar_height = int(alto_header * 0.20)
         bar_x = ancho - bar_width - 20
         bar_y = y_center - bar_height // 2
         if self.lightning_img:
@@ -628,7 +627,8 @@ class juego:
                 font_t = pygame.font.Font(self.font_path, font_size_lvl)
             except Exception:
                 font_t = pygame.font.Font(None, font_size_lvl)
-            surf = font_t.render(f"{self.numero_nivel}", True, (240, 220, 150))
+            # Mostrar la palabra "Nivel" seguida del número para mayor claridad
+            surf = font_t.render(f"Nivel {self.numero_nivel}", True, (240, 220, 150))
             pantalla.blit(surf, (center_x - surf.get_width() // 2, y_center - surf.get_height() // 2))
     
     def dibujar_corazon(self, pantalla, x, y, tamaño):
@@ -1114,7 +1114,7 @@ class juego:
         
         # Mostrar mensaje si se spawnearon enemigos
         if enemigos_spawneados > 0:
-            self.mensaje_temporal = f"⚠️ ¡{enemigos_spawneados} nuevos enemigos han aparecido! ⚠️"
+            self.mensaje_temporal = f"¡{enemigos_spawneados} nuevos enemigos han aparecido!"
             self.mensaje_timer = 90  # 1.5 segundos
 
     # -------------------------------------------------------
@@ -1135,5 +1135,6 @@ class juego:
     def guardar_resultado(self):
         with open("resultados.txt", "a", encoding="utf-8") as f:
             f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} | {self.jugador.nombre} | Nivel {self.numero_nivel} | {self.resultado}\n")
+
 
 
