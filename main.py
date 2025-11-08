@@ -14,7 +14,6 @@ pygame.mixer.music.play(-1)
 pygame.mixer.music.set_volume(0.3)
 
 
-
 # cargar texturas después de iniciar pygame
 def cargar_texturas():
     ruta_muro = os.path.join(os.path.dirname(__file__), 'wall_texture.png')
