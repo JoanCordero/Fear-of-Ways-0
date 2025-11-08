@@ -420,7 +420,9 @@ class juego:
             rect = bonus["rect"]
             tipo = bonus["tipo"]
             color = (255, 215, 0) if tipo == "arma" else (0, 255, 120) if tipo == "vida" else (80, 200, 255)
-            pygame.draw.rect(area_juego, color, rect)
+            # Aplicar transformación de cámara para que se muevan con el mundo
+            rect_pantalla = self.camara.aplicar(rect)
+            pygame.draw.rect(area_juego, color, rect_pantalla)
             if not pausado and self.jugador.rect.colliderect(rect):
                 if tipo == "vida":
                     self.jugador.vida = min(self.jugador.vida_max, self.jugador.vida + 1)
