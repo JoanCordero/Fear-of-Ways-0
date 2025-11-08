@@ -786,38 +786,92 @@ class juego:
 
     def dibujar_linterna_en_superficie(self, superficie):
         """
-        Dibuja una iluminación radial alrededor del jugador.
-
-        Esta versión reemplaza el cono direccional por un círculo graduado que
-        sigue al jugador. La oscuridad general del mapa es algo menor y el
-        centro se ilumina suavemente, generando un efecto de linterna redonda.
+        Dibuja una linterna en forma de cono que sale de la mano del jugador.
+        Solo ilumina al jugador y lo que está dentro del cono de luz.
         """
         ancho, alto = superficie.get_size()
-        # Crea una capa oscura semitransparente. Un alfa alto hace el mapa más oscuro.
+        
+        # Crear capa oscura (sombra negra semitransparente)
         sombra = pygame.Surface((ancho, alto), pygame.SRCALPHA)
-        # Aumentamos el valor alfa para simular mejor la oscuridad de una mazmorra por la noche.
-        sombra.fill((0, 0, 0, 240))
-        # Posición del jugador en coordenadas de pantalla
+        sombra.fill((0, 0, 0, 250))  # Muy oscuro
+        
+        # Obtener posición del mouse para dirección de la linterna
+        pantalla = pygame.display.get_surface()
+        pantalla_ancho, pantalla_alto = pantalla.get_size()
+        offset_header = int(pantalla_alto * self.altura_header)
+        mx, my = pygame.mouse.get_pos()
+        my_ajustado = my - offset_header
+        
+        # Actualizar ángulo de la linterna del jugador
+        self.jugador.actualizar_angulo_linterna(mx, my_ajustado, self.camara)
+        
+        # Posición del centro del jugador en pantalla (origen del cono)
         cx, cy = self.camara.aplicar_pos(self.jugador.rect.centerx, self.jugador.rect.centery)
-        # Radio de la linterna en función de la visión del jugador y el zoom
+        
+        # Radio de la linterna (alcance máximo)
         radio = int(self.jugador.vision * self.camara.zoom)
         if radio <= 0:
             superficie.blit(sombra, (0, 0))
             return
-        # Dibujar un gradiente radial: círculos concéntricos con alfa decreciente. Cuantos más pasos,
-        # más suave será la transición. Se utiliza un exponente ligeramente mayor para que la
-        # luz se desvanezca de manera más pronunciada hacia el borde.
-        pasos = max(12, radio // 8)
+        
+        # Ángulo del cono (semiancho en radianes)
+        semiancho_cono = math.radians(40)  # 40 grados de ancho total (20 a cada lado)
+        
+        # Número de pasos para el gradiente del cono
+        pasos = max(30, radio // 4)
+        
+        # Crear superficie de luz del cono
+        luz_cono = pygame.Surface((ancho, alto), pygame.SRCALPHA)
+        
+        # Dibujar el cono de luz con gradiente radial desde el centro del jugador
         for i in range(pasos, 0, -1):
             fraccion = i / pasos
-            r = int(radio * fraccion)
-            # Alfa alto cerca del centro, decreciendo hacia el borde; se eleva la fracción
-            # para que el efecto sea más intenso y visible.
-            alpha = int(240 * (fraccion ** 1.5))
-            pygame.draw.circle(sombra, (0, 0, 0, alpha), (cx, cy), r)
-        # Aplicar la sombra al mapa restando el valor alpha (más transparente cerca del jugador).
-        # Utilizamos BLEND_RGBA_SUB para que los valores de alfa de los círculos resten al fondo oscuro.
-        superficie.blit(sombra, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+            r_actual = int(radio * fraccion)
+            
+            if r_actual <= 0:
+                continue
+            
+            # Calcular ancho del cono a esta distancia (se expande ligeramente con la distancia)
+            ancho_actual = semiancho_cono * (0.4 + 0.6 * fraccion)
+            
+            # Puntos del cono a esta distancia
+            angulo_izq = self.jugador.angulo_linterna - ancho_actual
+            angulo_der = self.jugador.angulo_linterna + ancho_actual
+            
+            punto_izq = (
+                cx + r_actual * math.cos(angulo_izq),
+                cy + r_actual * math.sin(angulo_izq)
+            )
+            punto_der = (
+                cx + r_actual * math.cos(angulo_der),
+                cy + r_actual * math.sin(angulo_der)
+            )
+            
+            # Alpha más intenso cerca del jugador, más tenue lejos
+            alpha = int(255 * (fraccion ** 1.5))
+            alpha = max(0, min(255, alpha))
+            
+            # Dibujar triángulo del cono desde el centro del jugador
+            puntos_triangulo = [
+                (int(cx), int(cy)),
+                (int(punto_izq[0]), int(punto_izq[1])),
+                (int(punto_der[0]), int(punto_der[1]))
+            ]
+            pygame.draw.polygon(luz_cono, (255, 255, 255, alpha), puntos_triangulo)
+        
+        # Asegurar que el jugador siempre esté iluminado (círculo alrededor del jugador)
+        radio_jugador = max(20, int(35 * self.camara.zoom))
+        for i in range(8, 0, -1):
+            fraccion = i / 8
+            r = int(radio_jugador * fraccion)
+            alpha = int(220 * (fraccion ** 1.3))
+            pygame.draw.circle(luz_cono, (255, 255, 255, alpha), (int(cx), int(cy)), r)
+        
+        # Aplicar la luz del cono a la sombra (resta la oscuridad donde hay luz)
+        sombra.blit(luz_cono, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+        
+        # Aplicar la sombra final a la superficie del juego
+        superficie.blit(sombra, (0, 0))
 
     # -------------------------------------------------------
     # MENÚ DE PAUSA
@@ -948,7 +1002,8 @@ class juego:
     # -------------------------------------------------------
     def disparar_proyectil(self):
         """Dispara un proyectil hacia el mouse o en la dirección de movimiento"""
-        if self.jugador.cooldown_disparo > 0:
+        # Iniciar animación de disparo primero
+        if not self.jugador.iniciar_disparo():
             return
         
         pantalla = pygame.display.get_surface()
@@ -988,7 +1043,7 @@ class juego:
             )
         )
         
-        self.jugador.cooldown_disparo = 15
+        self.jugador.cooldown_disparo = 20
         
         # Reproducir sonido de disparo
         if self.sonido_disparo:
