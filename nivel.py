@@ -4,6 +4,10 @@ import os
 from pared import pared
 from salida import salida
 
+# Carga opcional de un icono de llave desde el código principal.
+# Este icono se dibujará sobre las llaves en el mapa si está definido.
+ICONO_LLAVE = None
+
 # La textura se asignará desde main.py después de inicializar pygame
 TEXTURA_SUELO = None  # Valor inicial, será reemplazado
 
@@ -25,6 +29,9 @@ class nivel:
 
         # generar estructura del nivel y escondites
         self.crear_nivel()
+        # una vez creado el nivel, pre-renderizar el suelo a una superficie grande
+        # Esto evita artefactos de bordes y garantiza que el suelo cubra todo el laberinto.
+        self._crear_surface_suelo()
         self.generar_escondites_random(cantidad=random.randint(3, 5))
 
     def crear_nivel(self):
@@ -326,16 +333,20 @@ class nivel:
         return (100, 100)
 
     def dibujar(self, ventana, camara):
-        # dibuja el suelo como mosaico de la textura, ajustado por la cámara
-        if TEXTURA_SUELO:
+        # dibuja el suelo: usa una superficie pre-renderizada si está disponible
+        if hasattr(self, 'surface_suelo') and self.surface_suelo:
+            # Determinar el área visible en el mapa (en coordenadas del mundo)
+            area_visible = pygame.Rect(0, 0, self.ancho, self.alto)
+            ventana.blit(self.surface_suelo, camara.aplicar(area_visible))
+        elif TEXTURA_SUELO:
+            # Fallback: recorre el área total del nivel y repite la textura
             tex_w, tex_h = TEXTURA_SUELO.get_width(), TEXTURA_SUELO.get_height()
-            # recorre el área total del nivel y repite la textura
             for xx in range(0, self.ancho, tex_w):
                 for yy in range(0, self.alto, tex_h):
                     rect = pygame.Rect(xx, yy, tex_w, tex_h)
                     ventana.blit(TEXTURA_SUELO, camara.aplicar(rect))
         else:
-            # fallback: rellena con un color oscuro
+            # Si no hay textura, rellena con un color oscuro
             area_total = pygame.Rect(0, 0, self.ancho, self.alto)
             ventana.fill((20, 20, 20), camara.aplicar(area_total))
 
@@ -361,14 +372,43 @@ class nivel:
         # dibuja llaves
         for r in getattr(self, "llaves", []):
             rp = camara.aplicar(r)
-            pygame.draw.rect(ventana, (240, 220, 40), rp)
-            pygame.draw.rect(ventana, (255, 255, 120), rp, 2)
+            # Si hay un icono de llave definido a nivel de módulo, usarlo y escalarlo al tamaño de la celda
+            if ICONO_LLAVE:
+                # Escalar el icono a las dimensiones de la celda
+                try:
+                    icono_escalado = pygame.transform.smoothscale(ICONO_LLAVE, (rp.w, rp.h))
+                    ventana.blit(icono_escalado, (rp.x, rp.y))
+                except Exception:
+                    pygame.draw.rect(ventana, (240, 220, 40), rp)
+                    pygame.draw.rect(ventana, (255, 255, 120), rp, 2)
+            else:
+                # Fallback: rectángulo visible
+                pygame.draw.rect(ventana, (240, 220, 40), rp)
+                pygame.draw.rect(ventana, (255, 255, 120), rp, 2)
 
         # dibuja palancas
         for r in getattr(self, "palancas", []):
             rp = camara.aplicar(r)
             pygame.draw.rect(ventana, (60, 140, 255), rp)
             pygame.draw.rect(ventana, (180, 220, 255), rp, 2)
+
+    def _crear_surface_suelo(self):
+        """Pre-renderiza el suelo en una superficie del tamaño del mapa.
+        Esto evita huecos entre teselas al aplicar zoom.
+        """
+        global TEXTURA_SUELO
+        try:
+            # Si existe una textura de suelo, crear una superficie grande y repetir la textura
+            if TEXTURA_SUELO:
+                self.surface_suelo = pygame.Surface((self.ancho, self.alto))
+                tex_w, tex_h = TEXTURA_SUELO.get_width(), TEXTURA_SUELO.get_height()
+                for xx in range(0, self.ancho, tex_w):
+                    for yy in range(0, self.alto, tex_h):
+                        self.surface_suelo.blit(TEXTURA_SUELO, (xx, yy))
+            else:
+                self.surface_suelo = None
+        except Exception:
+            self.surface_suelo = None
 
     # ------------------------------------------------------------
     # Métodos auxiliares para generación procedural

@@ -24,44 +24,23 @@ class pared:
         rect_pantalla = camara.aplicar(self.rect)
         # Si es puerta, dibujamos un rectángulo con color diferente
         if self.puerta:
-            if self.abierta:
-                # Puerta abierta: verde oscuro translúcido
-                color_fondo = (40, 100, 40)
-                color_borde = (80, 200, 80)
-                # Dibujar con efecto de apertura
-                pygame.draw.rect(ventana, color_fondo, rect_pantalla)
-                pygame.draw.rect(ventana, color_borde, rect_pantalla, 3)
-                # Líneas diagonales para indicar apertura
-                pygame.draw.line(ventana, (120, 255, 120), 
-                               rect_pantalla.topleft, rect_pantalla.bottomright, 2)
-                pygame.draw.line(ventana, (120, 255, 120),
-                               rect_pantalla.topright, rect_pantalla.bottomleft, 2)
-            else:
-                # Puerta cerrada: marrón oscuro sólido
-                color_fondo = (120, 80, 40)
-                color_borde = (220, 190, 140)
-                pygame.draw.rect(ventana, color_fondo, rect_pantalla)
-                # Detalles de madera
-                num_tablas = max(3, rect_pantalla.h // 30) if rect_pantalla.h > rect_pantalla.w else max(3, rect_pantalla.w // 30)
-                for i in range(1, num_tablas):
-                    if rect_pantalla.h > rect_pantalla.w:  # Puerta vertical
-                        y_pos = rect_pantalla.y + (rect_pantalla.h * i // num_tablas)
-                        pygame.draw.line(ventana, (90, 60, 30),
-                                       (rect_pantalla.x, y_pos), (rect_pantalla.right, y_pos), 1)
-                    else:  # Puerta horizontal
-                        x_pos = rect_pantalla.x + (rect_pantalla.w * i // num_tablas)
-                        pygame.draw.line(ventana, (90, 60, 30),
-                                       (x_pos, rect_pantalla.y), (x_pos, rect_pantalla.bottom), 1)
-                pygame.draw.rect(ventana, color_borde, rect_pantalla, 3)
+            # Selecciona colores dependiendo de si está abierta
+            color_fondo = (90, 60, 20) if self.abierta else (120, 80, 40)
+            color_borde = (180, 140, 90) if self.abierta else (220, 190, 140)
+            pygame.draw.rect(ventana, color_fondo, rect_pantalla)
+            pygame.draw.rect(ventana, color_borde, rect_pantalla, 2)
         else:
-            # Muro normal: intentar usar textura
+            # Muro normal: intenta usar textura. Los bordes tienen radios más suaves para
+            # evitar una apariencia completamente cuadrada. Incrementamos el radio para
+            # que el efecto sea visible incluso con texturas.
+            borde_radio = 8
             if TEXTURA_MURO:
                 # Escalar la textura al tamaño del muro en pantalla
                 textura_escalada = pygame.transform.scale(TEXTURA_MURO, (rect_pantalla.w, rect_pantalla.h))
                 ventana.blit(textura_escalada, rect_pantalla)
-                # Opcionalmente dibujar borde oscuro para delimitar
-                pygame.draw.rect(ventana, (30, 30, 30), rect_pantalla, 1)
+                # Dibujar un contorno oscuro con bordes redondeados
+                pygame.draw.rect(ventana, (30, 30, 30), rect_pantalla, 1, border_radius=borde_radio)
             else:
-                # Fallback: color sólido si no hay textura cargada
-                pygame.draw.rect(ventana, (60, 60, 60), rect_pantalla)
-                pygame.draw.rect(ventana, (80, 80, 80), rect_pantalla, 2)
+                # Fallback: color sólido con bordes redondeados si no hay textura cargada
+                pygame.draw.rect(ventana, (60, 60, 60), rect_pantalla, border_radius=borde_radio)
+                pygame.draw.rect(ventana, (80, 80, 80), rect_pantalla, 2, border_radius=borde_radio)

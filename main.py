@@ -14,6 +14,7 @@ pygame.mixer.music.play(-1)
 pygame.mixer.music.set_volume(0.3)
 
 
+
 # cargar texturas después de iniciar pygame
 def cargar_texturas():
     ruta_muro = os.path.join(os.path.dirname(__file__), 'wall_texture.png')
@@ -33,5 +34,12 @@ if __name__ == "__main__":
     import nivel
     pared.TEXTURA_MURO = textura_muro
     nivel.TEXTURA_SUELO = textura_suelo
+    # Cargar icono de llave para usar tanto en el HUD como en el mapa
+    ruta_llave = os.path.join(os.path.dirname(__file__), 'key_icon.png')
+    try:
+        icono_llave = pygame.image.load(ruta_llave).convert_alpha()
+    except Exception:
+        icono_llave = None
+    nivel.ICONO_LLAVE = icono_llave
     juego_inst = juego()
     juego_inst.ejecutar()

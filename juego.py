@@ -82,8 +82,10 @@ class juego:
         # Almacenamos el directorio actual para localizar imágenes
         self._dir = os.path.dirname(__file__)
 
-     
-        icon_size = 24
+        # Tamaño base de los iconos para el HUD. Al usar un tamaño único se simplifica
+        # el diseño y se consigue un aspecto más minimalista. 28 píxeles funciona bien en
+        # la mayoría de resoluciones. Si falla la carga, los iconos simplemente no se dibujan.
+        icon_size = 28
 
         # Cargar icono del corazón (vida)
         try:
@@ -367,11 +369,11 @@ class juego:
                 
                 # Advertencia cuando quedan 30 segundos
                 if self.tiempo_restante == 30 * 60:
-                    self.mensaje_temporal = "¡QUEDAN 30 SEGUNDOS!"
+                    self.mensaje_temporal = "⚠️ ¡QUEDAN 30 SEGUNDOS! ⚠️"
                     self.mensaje_timer = 120
                 # Advertencia cuando quedan 10 segundos
                 elif self.tiempo_restante == 10 * 60:
-                    self.mensaje_temporal = "¡SOLO 10 SEGUNDOS!"
+                    self.mensaje_temporal = "⚠️ ¡SOLO 10 SEGUNDOS! ⚠️"
                     self.mensaje_timer = 120
                     
             # Si el tiempo se acaba, spawear enemigos continuamente
@@ -570,8 +572,7 @@ class juego:
                 k_w, k_h = self.key_img.get_size()
                 pantalla.blit(self.key_img, (x_cursor, y_center - k_h // 2))
                 x_cursor += k_w + 5
-            # Reduce el tamaño de la fuente de las llaves para que no sea tan grande
-            font_key_size = max(12, int(alto_header * 0.25))
+            font_key_size = max(12, int(alto_header * 0.4))
             try:
                 font_key = pygame.font.Font(self.font_path, font_key_size)
             except Exception:
@@ -580,8 +581,8 @@ class juego:
             pantalla.blit(txt, (x_cursor, y_center - txt.get_height() // 2))
             x_cursor += txt.get_width() + 5
         # Barra de energía y icono de rayo
-        bar_width  = int(ancho * 0.08)
-        bar_height = int(alto_header * 0.20)
+        bar_width = int(ancho * 0.15)
+        bar_height = int(alto_header * 0.3)
         bar_x = ancho - bar_width - 20
         bar_y = y_center - bar_height // 2
         if self.lightning_img:
@@ -627,8 +628,7 @@ class juego:
                 font_t = pygame.font.Font(self.font_path, font_size_lvl)
             except Exception:
                 font_t = pygame.font.Font(None, font_size_lvl)
-            # Mostrar la palabra "Nivel" seguida del número para mayor claridad
-            surf = font_t.render(f"Nivel {self.numero_nivel}", True, (240, 220, 150))
+            surf = font_t.render(f"{self.numero_nivel}", True, (240, 220, 150))
             pantalla.blit(surf, (center_x - surf.get_width() // 2, y_center - surf.get_height() // 2))
     
     def dibujar_corazon(self, pantalla, x, y, tamaño):
@@ -785,29 +785,39 @@ class juego:
         pygame.draw.circle(pantalla, color_mira, (mx, my), 8, 1)
 
     def dibujar_linterna_en_superficie(self, superficie):
+        """
+        Dibuja una iluminación radial alrededor del jugador.
+
+        Esta versión reemplaza el cono direccional por un círculo graduado que
+        sigue al jugador. La oscuridad general del mapa es algo menor y el
+        centro se ilumina suavemente, generando un efecto de linterna redonda.
+        """
         ancho, alto = superficie.get_size()
+        # Crea una capa oscura semitransparente. Un alfa alto hace el mapa más oscuro.
         sombra = pygame.Surface((ancho, alto), pygame.SRCALPHA)
+        # Aumentamos el valor alfa para simular mejor la oscuridad de una mazmorra por la noche.
         sombra.fill((0, 0, 0, 240))
-        luz = pygame.Surface((ancho, alto), pygame.SRCALPHA)
+        # Posición del jugador en coordenadas de pantalla
         cx, cy = self.camara.aplicar_pos(self.jugador.rect.centerx, self.jugador.rect.centery)
-        mx, my = pygame.mouse.get_pos()
-        dy_ajust = my - cy - int(pygame.display.get_surface().get_height() * self.altura_header)
-        dx, dy = mx - cx, dy_ajust
-        ang = math.atan2(dy, dx) if (dx or dy) else 0.0
-        # Ajustar el radio de la linterna con el zoom
-        base_radio = self.jugador.vision * (0.8 + 0.2 * random.random()) * self.camara.zoom
-        radio = int(base_radio)
-        semiancho = math.radians(35)
-        pasos = 48
+        # Radio de la linterna en función de la visión del jugador y el zoom
+        radio = int(self.jugador.vision * self.camara.zoom)
+        if radio <= 0:
+            superficie.blit(sombra, (0, 0))
+            return
+        # Dibujar un gradiente radial: círculos concéntricos con alfa decreciente. Cuantos más pasos,
+        # más suave será la transición. Se utiliza un exponente ligeramente mayor para que la
+        # luz se desvanezca de manera más pronunciada hacia el borde.
+        pasos = max(12, radio // 8)
         for i in range(pasos, 0, -1):
-            r = radio * (i / pasos)
-            a = semiancho * (i / pasos)
-            p_izq = (cx + r * math.cos(ang - a), cy + r * math.sin(ang - a))
-            p_der = (cx + r * math.cos(ang + a), cy + r * math.sin(ang + a))
-            alpha = int(240 * (i / pasos))
-            pygame.draw.polygon(luz, (255, 255, 255, alpha), [(cx, cy), p_izq, p_der])
-        sombra.blit(luz, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
-        superficie.blit(sombra, (0, 0))
+            fraccion = i / pasos
+            r = int(radio * fraccion)
+            # Alfa alto cerca del centro, decreciendo hacia el borde; se eleva la fracción
+            # para que el efecto sea más intenso y visible.
+            alpha = int(240 * (fraccion ** 1.5))
+            pygame.draw.circle(sombra, (0, 0, 0, alpha), (cx, cy), r)
+        # Aplicar la sombra al mapa restando el valor alpha (más transparente cerca del jugador).
+        # Utilizamos BLEND_RGBA_SUB para que los valores de alfa de los círculos resten al fondo oscuro.
+        superficie.blit(sombra, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
 
     # -------------------------------------------------------
     # MENÚ DE PAUSA
@@ -979,8 +989,6 @@ class juego:
         )
         
         self.jugador.cooldown_disparo = 15
-        self.jugador.estado = "disparar"
-        self.jugador.frame_index = 0  # reinicia la animación
         
         # Reproducir sonido de disparo
         if self.sonido_disparo:
@@ -993,9 +1001,6 @@ class juego:
     # ATAQUE CORTO (melee)
     # -------------------------------------------------------
     def ataque_corto(self):
-        self.jugador.estado = "disparar"  # reutiliza la animación de disparo para el ataque corto
-        self.jugador.frame_index = 0
-
         alcance = 60
         ang = math.atan2(pygame.mouse.get_pos()[1] - self.jugador.rect.centery,
                          pygame.mouse.get_pos()[0] - self.jugador.rect.centerx)
@@ -1119,7 +1124,7 @@ class juego:
         
         # Mostrar mensaje si se spawnearon enemigos
         if enemigos_spawneados > 0:
-            self.mensaje_temporal = f"¡{enemigos_spawneados} nuevos enemigos han aparecido!"
+            self.mensaje_temporal = f"⚠️ ¡{enemigos_spawneados} nuevos enemigos han aparecido! ⚠️"
             self.mensaje_timer = 90  # 1.5 segundos
 
     # -------------------------------------------------------
