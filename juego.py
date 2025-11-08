@@ -979,6 +979,8 @@ class juego:
         )
         
         self.jugador.cooldown_disparo = 15
+        self.jugador.estado = "disparar"
+        self.jugador.frame_index = 0  # reinicia la animación
         
         # Reproducir sonido de disparo
         if self.sonido_disparo:
@@ -991,6 +993,9 @@ class juego:
     # ATAQUE CORTO (melee)
     # -------------------------------------------------------
     def ataque_corto(self):
+        self.jugador.estado = "disparar"  # reutiliza la animación de disparo para el ataque corto
+        self.jugador.frame_index = 0
+
         alcance = 60
         ang = math.atan2(pygame.mouse.get_pos()[1] - self.jugador.rect.centery,
                          pygame.mouse.get_pos()[0] - self.jugador.rect.centerx)

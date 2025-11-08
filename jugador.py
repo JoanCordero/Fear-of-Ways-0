@@ -3,6 +3,33 @@ import math
 
 BLANCO = (255, 255, 255)
 
+
+def cargar_frames(ruta, ancho, alto, escala=1.0):
+    """Corta un sprite sheet en frames individuales y aplica escala."""
+    hoja = pygame.image.load(ruta).convert_alpha()
+    hoja_w, hoja_h = hoja.get_size()
+    frames = []
+
+    # Ajustar número de columnas y filas en función del tamaño real
+    columnas = hoja_w // ancho
+    filas = hoja_h // alto
+
+    for y in range(filas):
+        for x in range(columnas):
+            rect = pygame.Rect(x * ancho, y * alto, ancho, alto)
+            frame = hoja.subsurface(rect)
+            
+            # Aplicar escala si es diferente de 1.0
+            if escala != 1.0:
+                nuevo_ancho = int(ancho * escala)
+                nuevo_alto = int(alto * escala)
+                frame = pygame.transform.scale(frame, (nuevo_ancho, nuevo_alto))
+            
+            frames.append(frame)
+    return frames
+
+
+
 class jugador:
     def __init__(self, nombre, color, velocidad, energia, vision, pos_inicial=None):
         # Identidad y apariencia
@@ -11,10 +38,10 @@ class jugador:
 
         # Movimiento e inercia
         self.velocidad_base = float(velocidad)
-        # Posición inicial (se puede establecer después)
         if pos_inicial is None:
-            pos_inicial = (100, 100)  # Temporal, se actualizará
-        self.rect = pygame.Rect(pos_inicial[0], pos_inicial[1], 30, 30)
+            pos_inicial = (100, 100)
+        # Rectángulo de colisión más grande para mejor jugabilidad (50x70)
+        self.rect = pygame.Rect(pos_inicial[0], pos_inicial[1], 50, 70)
         self.pos_inicial = pos_inicial
         self.vel_x = 0.0
         self.vel_y = 0.0
@@ -23,7 +50,7 @@ class jugador:
 
         # Dirección de mirada (para ataques o linterna)
         self.angulo_mira = 0.0
-        self.ultima_direccion_x = 1.0  # Dirección por defecto: derecha
+        self.ultima_direccion_x = 1.0
         self.ultima_direccion_y = 0.0
 
         # Linterna
@@ -34,11 +61,11 @@ class jugador:
         self.energia = float(energia)
         self.recuperacion_delay = 0
 
-        # Vida e invulnerabilidad - MEJORADO
-        self.vida_max = 5  # Aumentado de 3 a 5
+        # Vida e invulnerabilidad
+        self.vida_max = 5
         self.vida = 5
         self.daño_cooldown = 0
-        self.flash_timer = 0  # duración del parpadeo de daño
+        self.flash_timer = 0
 
         # Efectos de estado
         self.slow_ticks = 0
@@ -48,16 +75,42 @@ class jugador:
         self.cooldown_disparo = 0
         self.cooldown_ataque = 0
 
-        # Sonido de daño seguro
+        # Estado y animación
+        self.estado = "idle"
+        self.frame_index = 0
+        self.tiempo_anim = 0
+        self.muriendo = False
+
+        # Cargar animaciones desde el sprite sheet
+        # El sprite sheet es 1080x1080
+        # Estructura: 5 columnas x 3 filas = 15 frames totales
+        # Cada sprite COMPLETO (cabeza a pies): 216 ancho x 340 alto (ajustado para no tomar el sprite de abajo)
+        ruta = "assets/ingeniero_sheet.png"
+        frames = cargar_frames("assets/ingeniero_sheet.png", 216, 340, escala=0.24)
+
+        self.animaciones = {
+            "idle":     frames[0:5],    # primera fila: 5 frames
+            "caminar":  frames[0:5],    # misma animación
+            "disparar": frames[5:10],   # segunda fila: 5 frames
+            "daño":     frames[10:15],  # tercera fila: 5 frames
+            "morir":    frames[10:15],  # tercera fila
+        }
+
+
+        # Sonido de daño (opcional)
         try:
             self.sonido_daño = pygame.mixer.Sound("daño.mp3")
         except Exception:
             self.sonido_daño = None
 
     # -------------------------------------------------------
-    # MOVIMIENTO HUMANO
+    # MOVIMIENTO
     # -------------------------------------------------------
     def mover(self, teclas, muros, ancho_mapa, alto_mapa):
+        if self.muriendo:
+            self.estado = "morir"
+            return
+
         dx = (1 if teclas[pygame.K_d] else 0) - (1 if teclas[pygame.K_a] else 0)
         dy = (1 if teclas[pygame.K_s] else 0) - (1 if teclas[pygame.K_w] else 0)
 
@@ -66,7 +119,6 @@ class jugador:
         if mag > 0:
             dx /= mag
             dy /= mag
-            # Actualizar la última dirección de movimiento
             self.ultima_direccion_x = dx
             self.ultima_direccion_y = dy
 
@@ -76,20 +128,18 @@ class jugador:
             self.slow_ticks -= 1
 
         sprint = (teclas[pygame.K_LSHIFT] or teclas[pygame.K_RSHIFT]) and self.energia > 0
-        mult_velocidad = 1.8 if sprint else 1.0  # Aumento de velocidad máxima más notorio
-        mult_aceleracion = 1.6 if sprint else 1.0  # Aceleración mucho más rápida durante sprint
-        friccion_actual = 0.88 if sprint else self.friccion  # Menos fricción durante sprint
+        mult_velocidad = 1.8 if sprint else 1.0
+        mult_aceleracion = 1.6 if sprint else 1.0
+        friccion_actual = 0.88 if sprint else self.friccion
         velocidad = self.velocidad_base * slow_mult * mult_velocidad
 
-        # Movimiento con aceleración progresiva (mayor aceleración durante sprint)
+        # Movimiento con aceleración progresiva
         self.vel_x += dx * self.aceleracion * mult_aceleracion
         self.vel_y += dy * self.aceleracion * mult_aceleracion
 
-        # Aplicar fricción (reducida durante sprint)
         self.vel_x *= friccion_actual
         self.vel_y *= friccion_actual
 
-        # Limitar velocidad máxima
         limite_vel = velocidad
         vel_total = math.hypot(self.vel_x, self.vel_y)
         if vel_total > limite_vel:
@@ -97,7 +147,7 @@ class jugador:
             self.vel_x *= factor
             self.vel_y *= factor
 
-        # Sprint: consumo y recuperación
+        # Sprint: energía
         if sprint and vel_total > 0.2:
             self.energia = max(0, self.energia - 0.5)
             self.recuperacion_delay = 40
@@ -107,7 +157,7 @@ class jugador:
             else:
                 self.energia = min(self.energia_max, self.energia + 0.3)
 
-        # Aplicar movimiento
+        # Movimiento con colisiones
         self.rect.x += int(self.vel_x)
         for m in muros:
             if self.rect.colliderect(m.rect):
@@ -126,10 +176,9 @@ class jugador:
                     self.rect.top = m.rect.bottom
                 self.vel_y = 0
 
-        # Restringir al área jugable
         self.rect.clamp_ip(pygame.Rect(0, 0, ancho_mapa, alto_mapa))
 
-        # Actualizar cooldowns
+        # Cooldowns
         if self.daño_cooldown > 0:
             self.daño_cooldown -= 1
         if self.cooldown_disparo > 0:
@@ -139,15 +188,23 @@ class jugador:
         if self.flash_timer > 0:
             self.flash_timer -= 1
 
+        # Actualizar estado según movimiento
+        if self.vida <= 0:
+            self.estado = "morir"
+            self.muriendo = True
+        elif dx == 0 and dy == 0:
+            self.estado = "idle"
+        else:
+            self.estado = "caminar"
+
     # -------------------------------------------------------
     # UTILIDADES
     # -------------------------------------------------------
     def resetear_posicion(self):
         self.rect.x, self.rect.y = self.pos_inicial
         self.vel_x = self.vel_y = 0
-    
+
     def establecer_posicion_spawn(self, x, y):
-        """Establece una nueva posición de spawn para el jugador"""
         self.pos_inicial = (x, y)
         self.rect.x = x
         self.rect.y = y
@@ -155,13 +212,13 @@ class jugador:
         self.vel_y = 0.0
 
     # -------------------------------------------------------
-    # ATAQUE CORTO (melee con click izquierdo)
+    # ATAQUE CORTO
     # -------------------------------------------------------
     def atacar_corto(self, enemigos):
-        """Ataque cuerpo a cuerpo corto."""
-        if self.cooldown_ataque > 0:
+        if self.cooldown_ataque > 0 or self.muriendo:
             return
 
+        self.estado = "disparar"  # usa animación de disparo también para ataque corto
         rango = 45
         area = pygame.Rect(
             self.rect.centerx - rango // 2,
@@ -176,32 +233,64 @@ class jugador:
                 e.color = (255, 120, 120)
                 if e.vida <= 0:
                     enemigos.remove(e)
-        self.cooldown_ataque = 25  # medio segundo
+        self.cooldown_ataque = 25
 
     # -------------------------------------------------------
     # DIBUJO
     # -------------------------------------------------------
     def dibujar(self, ventana, camara):
+        if self.estado not in self.animaciones:
+            self.estado = "idle"
+
+        frames = self.animaciones[self.estado]
+        if not frames:
+            return
+
+        self.tiempo_anim += 1
+        if self.tiempo_anim > 14:
+            self.tiempo_anim = 0
+
+            # Si está muriendo, no ciclar animación
+            if self.estado == "morir":
+                if self.frame_index < len(frames) - 1:
+                    self.frame_index += 1
+            else:
+                self.frame_index = (self.frame_index + 1) % len(frames)
+
+        # Evitar error si el índice es mayor
+        if self.frame_index >= len(frames):
+            self.frame_index = len(frames) - 1
+
+        frame = frames[self.frame_index]
+        
+        # Escalar el frame según el zoom de la cámara
+        frame_escalado = pygame.transform.scale(
+            frame, 
+            (int(frame.get_width() * camara.zoom), 
+             int(frame.get_height() * camara.zoom))
+        )
+        
+        # Obtener el rectángulo del jugador en pantalla
         rect_pantalla = camara.aplicar(self.rect)
-
-        # Color de flash de daño
-        if self.flash_timer > 0:
-            color_actual = (255, 100, 100)
-        else:
-            color_actual = self.color
-
-        # Cuerpo del jugador
-        pygame.draw.rect(ventana, color_actual, rect_pantalla)
-        pygame.draw.rect(ventana, BLANCO, rect_pantalla, 2)
+        
+        # Alinear el sprite desde la parte inferior para que se vean los pies
+        # y centrado horizontalmente
+        frame_rect = frame_escalado.get_rect(
+            midbottom=rect_pantalla.midbottom
+        )
+        ventana.blit(frame_escalado, frame_rect)
 
     # -------------------------------------------------------
     # DAÑO Y VIDA
     # -------------------------------------------------------
     def recibir_daño(self, cantidad):
-        if self.daño_cooldown <= 0:
+        if self.daño_cooldown <= 0 and not self.muriendo:
             self.vida = max(0, self.vida - cantidad)
-            self.daño_cooldown = 120  # 2 segundos de invencibilidad - aumentado de 60
-            self.flash_timer = 20  # parpadeo más largo - aumentado de 15
+            self.daño_cooldown = 120
+            self.flash_timer = 20
+            self.estado = "daño"
             if self.sonido_daño:
                 self.sonido_daño.play()
-
+            if self.vida <= 0:
+                self.estado = "morir"
+                self.muriendo = True
