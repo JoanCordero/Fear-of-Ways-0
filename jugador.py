@@ -4,8 +4,13 @@ import math
 BLANCO = (255, 255, 255)
 
 
-def cargar_frames(ruta, ancho, alto, escala=1.0):
-    """Corta un sprite sheet en frames individuales y aplica escala."""
+def cargar_frames(ruta, ancho, alto, escala=1.0, margen=30, margen_inferior_extra=15):
+    """Corta un sprite sheet en frames individuales y aplica escala con recorte preciso.
+    
+    Args:
+        margen: Margen general en todos los lados
+        margen_inferior_extra: Margen adicional en la parte inferior para evitar artefactos
+    """
     hoja = pygame.image.load(ruta).convert_alpha()
     hoja_w, hoja_h = hoja.get_size()
     frames = []
@@ -16,16 +21,60 @@ def cargar_frames(ruta, ancho, alto, escala=1.0):
 
     for y in range(filas):
         for x in range(columnas):
-            rect = pygame.Rect(x * ancho, y * alto, ancho, alto)
-            frame = hoja.subsurface(rect)
+            # Detectar si es la fila de disparo (segunda fila, y=1, frames 5-9)
+            # Para disparo, usar márgenes más pequeños arriba y a la derecha
+            es_fila_disparo = (y == 1)
             
-            # Aplicar escala si es diferente de 1.0
-            if escala != 1.0:
-                nuevo_ancho = int(ancho * escala)
-                nuevo_alto = int(alto * escala)
-                frame = pygame.transform.scale(frame, (nuevo_ancho, nuevo_alto))
+            if es_fila_disparo:
+                # Márgenes personalizados para disparo: más espacio arriba y a la derecha
+                margen_superior = max(5, margen - 25)  # Expandir 5px más arriba para ver el pelo
+                margen_inferior = margen + margen_inferior_extra + 10  # Más recorte abajo
+                margen_izquierdo = margen  # Normal a la izquierda
+                margen_derecho = max(5, margen - 20)  # Mucho menos recorte a la derecha (mínimo 5px)
+            else:
+                # Márgenes normales para otras animaciones
+                margen_superior = margen
+                margen_inferior = margen + margen_inferior_extra
+                margen_izquierdo = margen
+                margen_derecho = margen
             
-            frames.append(frame)
+            # Calcular posición exacta del frame con márgenes personalizados
+            x_pos = x * ancho + margen_izquierdo
+            y_pos = y * alto + margen_superior
+            ancho_frame = ancho - margen_izquierdo - margen_derecho
+            alto_frame = alto - margen_superior - margen_inferior
+            
+            # Asegurar que no salimos de los límites de la hoja
+            if x_pos < 0:
+                x_pos = 0
+            if y_pos < 0:
+                y_pos = 0
+            if x_pos + ancho_frame > hoja_w:
+                ancho_frame = hoja_w - x_pos
+            if y_pos + alto_frame > hoja_h:
+                alto_frame = hoja_h - y_pos
+            
+            # Solo crear el frame si tiene tamaño válido
+            if ancho_frame > 0 and alto_frame > 0:
+                rect = pygame.Rect(x_pos, y_pos, ancho_frame, alto_frame)
+                frame = hoja.subsurface(rect).copy()  # Copiar para evitar referencias
+                
+                # Crear una superficie limpia con canal alpha para evitar artefactos
+                frame_limpio = pygame.Surface((ancho_frame, alto_frame), pygame.SRCALPHA)
+                frame_limpio.blit(frame, (0, 0))
+                frame = frame_limpio
+                
+                # Aplicar escala si es diferente de 1.0
+                if escala != 1.0:
+                    nuevo_ancho = max(1, int(ancho_frame * escala))
+                    nuevo_alto = max(1, int(alto_frame * escala))
+                    # Usar smoothscale para mejor calidad al reducir
+                    frame = pygame.transform.smoothscale(frame, (nuevo_ancho, nuevo_alto))
+                
+                frames.append(frame)
+            else:
+                # Si el frame no es válido, crear uno vacío transparente
+                frames.append(pygame.Surface((max(1, int(ancho * escala)), max(1, int(alto * escala))), pygame.SRCALPHA))
     return frames
 
 
@@ -52,6 +101,7 @@ class jugador:
         self.angulo_mira = 0.0
         self.ultima_direccion_x = 1.0
         self.ultima_direccion_y = 0.0
+        self.angulo_linterna = 0.0  # Ángulo de la linterna (hacia el mouse)
 
         # Linterna
         self.vision = float(vision)
@@ -85,16 +135,16 @@ class jugador:
         # Cargar animaciones desde el sprite sheet
         # El sprite sheet es 1080x1080
         # Estructura: 5 columnas x 3 filas = 15 frames totales
-        # Cada sprite: 200 ancho x 340 alto (ancho reducido para no capturar el sprite adyacente)
+        # Cada sprite: 216 ancho x 360 alto (1080/5 = 216 por columna, 1080/3 = 360 por fila)
         ruta = "assets/ingeniero_sheet.png"
-        frames = cargar_frames("assets/ingeniero_sheet.png", 200, 340, escala=0.18)
+        # Aumentar margen general y recorte extra en la parte inferior para evitar artefactos
+        frames = cargar_frames("assets/ingeniero_sheet.png", 216, 360, escala=0.18, margen=40, margen_inferior_extra=5)
 
         self.animaciones = {
-            "idle":     frames[0:5],    # primera fila: 5 frames
-            "caminar":  frames[0:5],    # misma animación
+            "idle":     [frames[0]],    # primera fila: solo primer frame para estar quieto
+            "caminar":  frames[1:5],    # primera fila: frames 2-5 para caminar
             "disparar": frames[5:10],   # segunda fila: 5 frames
-            "daño":     frames[10:15],  # tercera fila: 5 frames
-            "morir":    frames[10:15],  # tercera fila
+            "morir":    frames[10:15],  # tercera fila: 5 frames
         }
 
 
@@ -196,11 +246,15 @@ class jugador:
 
         # Actualizar estado según movimiento (solo si no está en una animación especial)
         if self.vida <= 0:
-            self.estado = "morir"
-            self.muriendo = True
-        elif self.estado not in ["disparar", "daño", "morir"]:
+            if self.estado != "morir":
+                self.estado = "morir"
+                self.muriendo = True
+                self.frame_index = 0
+        elif self.estado not in ["disparar", "morir"]:
             # Solo cambiar estado si no está en una acción especial
-            if dx == 0 and dy == 0:
+            # Verificar si realmente se está moviendo (velocidad significativa)
+            velocidad_total = math.hypot(self.vel_x, self.vel_y)
+            if velocidad_total < 0.3:  # Umbral más alto para evitar micro-movimientos
                 self.estado = "idle"
             else:
                 self.estado = "caminar"
@@ -228,6 +282,7 @@ class jugador:
 
         self.estado = "disparar"  # usa animación de disparo también para ataque corto
         self.frame_index = 0  # Reiniciar animación desde el principio
+        self.tiempo_anim = 0  # Resetear contador de tiempo
         rango = 45
         area = pygame.Rect(
             self.rect.centerx - rango // 2,
@@ -243,10 +298,46 @@ class jugador:
                 if e.vida <= 0:
                     enemigos.remove(e)
         self.cooldown_ataque = 25
+    
+    # -------------------------------------------------------
+    # DISPARO (nuevo método)
+    # -------------------------------------------------------
+    def iniciar_disparo(self):
+        """Inicia la animación de disparo"""
+        if self.cooldown_disparo > 0 or self.muriendo:
+            return False
+        
+        self.estado = "disparar"
+        self.frame_index = 0
+        self.tiempo_anim = 0
+        return True
 
     # -------------------------------------------------------
     # DIBUJO
     # -------------------------------------------------------
+    def actualizar_angulo_linterna(self, mouse_x, mouse_y, camara):
+        """Actualiza el ángulo de la linterna hacia la posición del mouse"""
+        # Obtener posición del jugador en pantalla
+        jugador_pantalla = camara.aplicar(self.rect)
+        px, py = jugador_pantalla.centerx, jugador_pantalla.centery
+        
+        # Calcular dirección desde el jugador al mouse
+        dx = mouse_x - px
+        dy = mouse_y - py
+        
+        # Si el mouse está muy cerca, usar la última dirección de movimiento
+        distancia_mouse = math.hypot(dx, dy)
+        if distancia_mouse < 20:
+            dx = self.ultima_direccion_x * 100
+            dy = self.ultima_direccion_y * 100
+            distancia_mouse = math.hypot(dx, dy)
+        
+        if distancia_mouse > 0:
+            self.angulo_linterna = math.atan2(dy, dx)
+        else:
+            # Si no hay movimiento, mantener el último ángulo
+            self.angulo_linterna = math.atan2(self.ultima_direccion_y, self.ultima_direccion_x)
+
     def dibujar(self, ventana, camara):
         if self.estado not in self.animaciones:
             self.estado = "idle"
@@ -256,11 +347,17 @@ class jugador:
             return
 
         self.tiempo_anim += 1
-        velocidad_anim = 16  # Velocidad normal de animación (más rápida)
         
-        # Animaciones especiales mucho más rápidas
-        if self.estado in ["disparar", "daño"]:
-            velocidad_anim = 8
+        # Velocidades de animación ajustadas para cada estado (valores más bajos = más rápido)
+        # Valores reducidos para animaciones más fluidas y responsivas
+        if self.estado == "idle":
+            velocidad_anim = 12  # Animación suave en idle
+        elif self.estado == "caminar":
+            velocidad_anim = 2  # Animación muy fluida al caminar (rápida)
+        elif self.estado == "disparar":
+            velocidad_anim = 1  # Animación extremadamente rápida para disparo
+        else:
+            velocidad_anim = 3  # Velocidad por defecto rápida
         
         if self.tiempo_anim > velocidad_anim:
             self.tiempo_anim = 0
@@ -269,8 +366,8 @@ class jugador:
             if self.estado == "morir":
                 if self.frame_index < len(frames) - 1:
                     self.frame_index += 1
-            # Si está disparando o recibiendo daño, volver a idle al terminar
-            elif self.estado in ["disparar", "daño"]:
+            # Si está disparando, volver a idle al terminar
+            elif self.estado == "disparar":
                 if self.frame_index < len(frames) - 1:
                     self.frame_index += 1
                 else:
@@ -284,18 +381,21 @@ class jugador:
         if self.frame_index >= len(frames):
             self.frame_index = len(frames) - 1
 
-        frame = frames[self.frame_index]
+        frame = frames[self.frame_index].copy()  # Copiar para evitar modificar el frame original
         
         # Voltear sprite si mira a la izquierda
         if self.mirando_izquierda:
             frame = pygame.transform.flip(frame, True, False)
         
-        # Escalar el frame según el zoom de la cámara
-        frame_escalado = pygame.transform.scale(
-            frame, 
-            (int(frame.get_width() * camara.zoom), 
-             int(frame.get_height() * camara.zoom))
-        )
+        # Efecto visual de flash cuando recibe daño (sin cambiar animación)
+        if self.flash_timer > 0 and self.flash_timer % 4 < 2:
+            # Aplicar efecto de flash rojo directamente al frame
+            frame.fill((255, 150, 150), special_flags=pygame.BLEND_RGB_ADD)
+        
+        # Escalar el frame según el zoom de la cámara usando smoothscale para mejor calidad
+        nuevo_ancho = max(1, int(frame.get_width() * camara.zoom))
+        nuevo_alto = max(1, int(frame.get_height() * camara.zoom))
+        frame_escalado = pygame.transform.smoothscale(frame, (nuevo_ancho, nuevo_alto))
         
         # Obtener el rectángulo del jugador en pantalla
         rect_pantalla = camara.aplicar(self.rect)
@@ -314,12 +414,16 @@ class jugador:
         if self.daño_cooldown <= 0 and not self.muriendo:
             self.vida = max(0, self.vida - cantidad)
             self.daño_cooldown = 120
-            self.flash_timer = 20
-            self.estado = "daño"
-            self.frame_index = 0  # Reiniciar animación desde el principio
+            self.flash_timer = 20  # Efecto visual de flash sin cambiar animación
+            # NO cambiar el estado a "daño", mantener el estado actual
+            # Detener movimiento momentáneamente al recibir daño
+            self.vel_x *= 0.3
+            self.vel_y *= 0.3
             if self.sonido_daño:
                 self.sonido_daño.play()
             if self.vida <= 0:
                 self.estado = "morir"
                 self.muriendo = True
                 self.frame_index = 0  # Reiniciar animación de muerte
+                self.vel_x = 0
+                self.vel_y = 0
