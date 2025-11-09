@@ -2,6 +2,7 @@ import pygame
 import os
 import random
 import math
+import glob
 from nivel import nivel
 from camara import camara
 from jugador import jugador
@@ -93,22 +94,34 @@ class juego:
 
         # Sonidos con mejor manejo de errores
         print("\nCargando recursos de audio...")
-        try:
-            self.sonido_disparo = pygame.mixer.Sound("audio/disparo.mp3")
-            self.sonido_disparo.set_volume(0.7)
-            print("Sonido de disparo cargado correctamente")
-        except (pygame.error, FileNotFoundError) as e:
-            self.sonido_disparo = None
-            print(f"Advertencia: No se pudo cargar audio/disparo.mp3")
-        
-        try:
-            self.sonido_golpe = pygame.mixer.Sound("audio/daño.mp3")
-            self.sonido_golpe.set_volume(0.5)
-            print("Sonido de golpe cargado correctamente")
-        except (pygame.error, FileNotFoundError) as e:
-            self.sonido_golpe = None
-            print(f"Advertencia: No se pudo cargar audio/daño.mp3")
-        
+        self.sonido_disparo = self._cargar_sonido_basico(
+            "audio/disparo.mp3",
+            "Sonido de disparo",
+            volumen_absoluto=0.7
+        )
+        self.sonido_golpe = self._cargar_sonido_basico(
+            "audio/daño.mp3",
+            "Sonido de golpe",
+            volumen_relativo=0.7
+        )
+
+        # Sonidos nuevos
+        self.sonidos_click_menu = self._cargar_variantes_click("audio", "click_menu", volumen_relativo=0.5)
+        self.sonido_corazon = self._cargar_sonido_opcional("audio", "corazon", "Sonido de corazón", volumen_relativo=0.7)
+        self.sonido_notificacion = self._cargar_sonido_opcional(
+            "audio",
+            "notificaciones_juego",
+            "Sonido de notificación",
+            volumen_relativo=0.6
+        )
+        self.sonido_pocion = self._cargar_sonido_opcional("audio", "pociones", "Sonido de pociones", volumen_relativo=0.7)
+        self.sonido_recoger_llave = self._cargar_sonido_opcional(
+            "audio",
+            "recoger_llave",
+            "Sonido de llave",
+            volumen_relativo=0.7
+        )
+
         # Usar el sonido de golpe para bonus (alternativa)
         self.sonido_bonus = self.sonido_golpe
         print("Audio inicializado\n")
@@ -548,18 +561,15 @@ class juego:
                 
                 # Advertencia cuando quedan 30 segundos
                 if self.tiempo_restante == 30 * 60:
-                    self.mensaje_temporal = "¡QUEDAN 30 SEGUNDOS!"
-                    self.mensaje_timer = 120
+                    self.mostrar_mensaje("¡QUEDAN 30 SEGUNDOS!", 120)
                 # Advertencia cuando quedan 10 segundos
                 elif self.tiempo_restante == 10 * 60:
-                    self.mensaje_temporal = "¡SOLO 10 SEGUNDOS!"
-                    self.mensaje_timer = 120
+                    self.mostrar_mensaje("¡SOLO 10 SEGUNDOS!", 120)
                     
             # Si el tiempo se acaba, spawear enemigos continuamente
             elif self.temporizador_activo and self.tiempo_restante <= 0 and not self.tiempo_agotado:
                 self.tiempo_agotado = True
-                self.mensaje_temporal = "¡TIEMPO AGOTADO! ¡ENEMIGOS INVADEN!"
-                self.mensaje_timer = 180
+                self.mostrar_mensaje("¡TIEMPO AGOTADO! ¡ENEMIGOS INVADEN!", 180)
             
             # Spawear enemigos extra cuando el tiempo se agota
             if self.tiempo_agotado:
@@ -675,8 +685,7 @@ class juego:
             if not pausado and not tutorial_activo and self.jugador.rect.colliderect(rect):
                 if tipo == "vida":
                     self.jugador.vida = min(self.jugador.vida_max, self.jugador.vida + 1)
-                    if self.sonido_bonus:
-                        self.sonido_bonus.play()
+                    self.reproducir_corazon()
                     self.nivel_actual.bonus.remove(bonus)
                 elif tipo == "energia":
                     self.jugador.energia = min(self.jugador.energia_max, self.jugador.energia + 20)
@@ -689,8 +698,7 @@ class juego:
             for llave in list(getattr(self.nivel_actual, "llaves", [])):
                 if self.jugador.rect.colliderect(llave):
                     self.nivel_actual.llaves.remove(llave)
-                    if self.sonido_bonus:
-                        self.sonido_bonus.play()
+                    self.reproducir_llave()
                     # Mensaje visual de llave recogida
                     llaves_restantes = len(self.nivel_actual.llaves)
                     if llaves_restantes == 0:
@@ -699,11 +707,12 @@ class juego:
                         tiempo_seg = int(self.tiempo_restante / 60)
                         minutos = tiempo_seg // 60
                         segundos = tiempo_seg % 60
-                        self.mensaje_temporal = f"¡SALIDA ABIERTA! TIENES {minutos}:{segundos:02d} PARA ESCAPAR"
-                        self.mensaje_timer = 180  # 3 segundos a 60 FPS
+                        self.mostrar_mensaje(
+                            f"¡SALIDA ABIERTA! TIENES {minutos}:{segundos:02d} PARA ESCAPAR",
+                            180
+                        )
                     else:
-                        self.mensaje_temporal = f"¡Llave recogida! Faltan {llaves_restantes}"
-                        self.mensaje_timer = 90  # 1.5 segundos
+                        self.mostrar_mensaje(f"¡Llave recogida! Faltan {llaves_restantes}", 90)
         
         # Proyectiles y colisiones (solo mover si no está pausado y tutorial no activo)
         for bala in list(self.proyectiles):
@@ -2411,6 +2420,7 @@ class juego:
                         if hasattr(self, "_menu_hitboxes"):
                             for rect_hit, idx in self._menu_hitboxes:
                                 if rect_hit.collidepoint(pygame.mouse.get_pos()):
+                                    self.reproducir_click_menu()
                                     if idx == 0:          # Nueva Partida
                                         self.nombre_jugador = ""
                                         self.input_activo = True
@@ -2424,9 +2434,11 @@ class juego:
                 elif self.estado == "controles":
                         if e.type == pygame.KEYDOWN:
                             if e.key == pygame.K_ESCAPE:
+                                self.reproducir_click_menu()
                                 self.estado = "menu"
                                 pygame.mouse.set_visible(True)
                             elif e.key in (pygame.K_RETURN, pygame.K_SPACE):
+                                self.reproducir_click_menu()
                                 self.estado = "jugando"
                                 pygame.mouse.set_visible(False)
                                 # Activar cronómetro cuando empieza a jugar
@@ -2435,6 +2447,7 @@ class juego:
                                     self.cronometro_frames = 0
                         elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                             if hasattr(self, "_controles_btn_rect") and self._controles_btn_rect.collidepoint(pygame.mouse.get_pos()):
+                                self.reproducir_click_menu()
                                 self.estado = "jugando"
                                 pygame.mouse.set_visible(False)
                                 # Activar cronómetro cuando empieza a jugar
@@ -2492,6 +2505,7 @@ class juego:
                     
                     if e.type == pygame.KEYDOWN:
                         if e.key in (pygame.K_ESCAPE, pygame.K_p):
+                            self.reproducir_click_menu()
                             self.estado = "jugando"
                             pygame.mouse.set_visible(False)  # Ocultar al reanudar
                         elif e.key == pygame.K_UP:
@@ -2514,9 +2528,11 @@ class juego:
                             self.actualizar_volumen_efectos()
                         elif e.key == pygame.K_RETURN:
                             if self.opcion_pausa == 0:  # Reanudar
+                                self.reproducir_click_menu()
                                 self.estado = "jugando"
                                 pygame.mouse.set_visible(False)  # Ocultar al reanudar
                             elif self.opcion_pausa == 1:  # Reiniciar nivel
+                                self.reproducir_click_menu()
                                 # Reiniciar el nivel completamente
                                 self.cargar_nivel(self.numero_nivel)
                                 # Reiniciar cronómetro
@@ -2533,6 +2549,7 @@ class juego:
                                 self.estado = "jugando"
                                 pygame.mouse.set_visible(False)  # Ocultar al reanudar
                             elif self.opcion_pausa == 2:  # Menú principal
+                                self.reproducir_click_menu()
                                 # Guardar antes de salir al menú
                                 if self.nombre_jugador:
                                     self.guardar_partida()
@@ -2545,6 +2562,7 @@ class juego:
                         if hasattr(self, "_pause_hitboxes"):
                             for rect_hit, idx in self._pause_hitboxes:
                                 if rect_hit.collidepoint(pygame.mouse.get_pos()):
+                                    self.reproducir_click_menu()
                                     if idx == 0:  # Reanudar
                                         self.estado = "jugando"
                                         pygame.mouse.set_visible(False)  # Ocultar al reanudar
@@ -2573,30 +2591,36 @@ class juego:
                                     break
                 
                 elif self.estado == "fin" and e.type == pygame.KEYDOWN and e.key == pygame.K_RETURN:
+                    self.reproducir_click_menu()
                     self.estado = "menu"
                     pygame.mouse.set_visible(True)  # Mostrar cursor en menú
-                
+
                 # PUNTUACIÓN
                 elif self.estado == "puntuacion":
                     if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                        self.reproducir_click_menu()
                         self.estado = "menu"
                     elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                         mouse_pos = pygame.mouse.get_pos()
                         # Click en pestañas
                         if hasattr(self, "_tab_campeones_rect") and self._tab_campeones_rect.collidepoint(mouse_pos):
+                            self.reproducir_click_menu()
                             self._tab_puntuacion = "campeones"
                         elif hasattr(self, "_tab_historico_rect") and self._tab_historico_rect.collidepoint(mouse_pos):
+                            self.reproducir_click_menu()
                             self._tab_puntuacion = "historico"
                 
                 # REGISTRO
                 elif self.estado == "registro":
                     if e.type == pygame.KEYDOWN:
                         if e.key == pygame.K_ESCAPE:
+                            self.reproducir_click_menu()
                             self.estado = "menu"
                             self.nombre_jugador = ""
                             self.input_activo = False
                         elif e.key == pygame.K_RETURN and len(self.nombre_jugador) > 0:
                             # Iniciar juego con el nombre registrado
+                            self.reproducir_click_menu()
                             self.input_activo = False
                             self.iniciar_juego(1)
                         elif e.key == pygame.K_BACKSPACE:
@@ -2609,12 +2633,14 @@ class juego:
                         # Click en botón continuar
                         if hasattr(self, "_registro_btn_rect") and self._registro_btn_rect.collidepoint(pygame.mouse.get_pos()):
                             if len(self.nombre_jugador) > 0:
+                                self.reproducir_click_menu()
                                 self.input_activo = False
                                 self.iniciar_juego(1)
                 
                 # CARGAR PARTIDA
                 elif self.estado == "cargar_partida":
                     if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                        self.reproducir_click_menu()
                         self.estado = "menu"
                     elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                         mouse_pos = pygame.mouse.get_pos()
@@ -2625,11 +2651,11 @@ class juego:
                             for rect_hit, nombre in self._borrar_hitboxes:
                                 if rect_hit.collidepoint(mouse_pos):
                                     if self.borrar_partida(nombre):
-                                        self.mensaje_temporal = f"Partida '{nombre}' borrada"
-                                        self.mensaje_timer = 120
+                                        self.reproducir_click_menu()
+                                        self.mostrar_mensaje(f"Partida '{nombre}' borrada", 120)
                                     else:
-                                        self.mensaje_temporal = "Error al borrar la partida"
-                                        self.mensaje_timer = 120
+                                        self.reproducir_click_menu()
+                                        self.mostrar_mensaje("Error al borrar la partida", 120)
                                     borrado = True
                                     break
                         
@@ -2638,11 +2664,12 @@ class juego:
                             for rect_hit, nombre in self._cargar_hitboxes:
                                 if rect_hit.collidepoint(mouse_pos):
                                     if self.cargar_partida(nombre):
+                                        self.reproducir_click_menu()
                                         self.estado = "jugando"
                                         pygame.mouse.set_visible(False)
                                     else:
-                                        self.mensaje_temporal = "Error al cargar la partida"
-                                        self.mensaje_timer = 120
+                                        self.reproducir_click_menu()
+                                        self.mostrar_mensaje("Error al cargar la partida", 120)
                                     break
 
             if self.estado == "menu":
@@ -2732,13 +2759,98 @@ class juego:
             )
         
         self.jugador.cooldown_disparo = 20
-        
+
         # Reproducir sonido de disparo
         if self.sonido_disparo:
             try:
                 self.sonido_disparo.play()
             except Exception as e:
                 print(f"Error al reproducir sonido: {e}")
+
+    def _cargar_sonido_basico(self, ruta, descripcion, volumen_absoluto=None, volumen_relativo=None):
+        try:
+            sonido = pygame.mixer.Sound(ruta)
+            if volumen_absoluto is not None:
+                sonido.set_volume(volumen_absoluto)
+            elif volumen_relativo is not None:
+                sonido.set_volume(self.volumen_efectos * volumen_relativo)
+            print(f"{descripcion} cargado correctamente")
+            return sonido
+        except (pygame.error, FileNotFoundError):
+            print(f"Advertencia: No se pudo cargar {ruta} ({descripcion})")
+            return None
+
+    def _cargar_sonido_opcional(self, carpeta, nombre_base, descripcion, volumen_relativo=1.0):
+        ruta = self._resolver_archivo_audio(carpeta, nombre_base)
+        if ruta is None:
+            print(f"Advertencia: No se encontraron archivos para {descripcion}")
+            return None
+        try:
+            sonido = pygame.mixer.Sound(ruta)
+            sonido.set_volume(self.volumen_efectos * volumen_relativo)
+            print(f"{descripcion} cargado desde {ruta}")
+            return sonido
+        except (pygame.error, FileNotFoundError):
+            print(f"Advertencia: No se pudo cargar {ruta} ({descripcion})")
+            return None
+
+    def _cargar_variantes_click(self, carpeta, prefijo, volumen_relativo=1.0):
+        patrones = [f"{prefijo}*.mp3", f"{prefijo}*.wav", f"{prefijo}*.ogg"]
+        rutas = []
+        for patron in patrones:
+            rutas.extend(sorted(glob.glob(os.path.join(carpeta, patron))))
+
+        sonidos = []
+        if not rutas:
+            print(f"Advertencia: No se encontraron variantes para {prefijo}")
+            return sonidos
+
+        for ruta in rutas:
+            try:
+                sonido = pygame.mixer.Sound(ruta)
+                sonido.set_volume(self.volumen_efectos * volumen_relativo)
+                sonidos.append(sonido)
+                print(f"Sonido de menú cargado: {ruta}")
+            except (pygame.error, FileNotFoundError):
+                print(f"Advertencia: No se pudo cargar sonido de menú {ruta}")
+        return sonidos
+
+    def _resolver_archivo_audio(self, carpeta, nombre_base):
+        extensiones = [".mp3", ".wav", ".ogg"]
+        for ext in extensiones:
+            ruta = os.path.join(carpeta, f"{nombre_base}{ext}")
+            if os.path.exists(ruta):
+                return ruta
+        return None
+
+    def _reproducir_sonido(self, sonido):
+        if sonido:
+            try:
+                sonido.play()
+            except Exception as e:
+                print(f"Error al reproducir sonido: {e}")
+
+    def reproducir_click_menu(self):
+        if self.sonidos_click_menu:
+            sonido = random.choice(self.sonidos_click_menu)
+            self._reproducir_sonido(sonido)
+
+    def reproducir_corazon(self):
+        self._reproducir_sonido(self.sonido_corazon)
+
+    def reproducir_notificacion(self):
+        self._reproducir_sonido(self.sonido_notificacion)
+
+    def reproducir_pocion(self):
+        self._reproducir_sonido(self.sonido_pocion)
+
+    def reproducir_llave(self):
+        self._reproducir_sonido(self.sonido_recoger_llave)
+
+    def mostrar_mensaje(self, texto, duracion):
+        self.mensaje_temporal = texto
+        self.mensaje_timer = duracion
+        self.reproducir_notificacion()
     
     # -------------------------------------------------------
     # ATAQUE CORTO (melee)
@@ -2771,39 +2883,33 @@ class juego:
             self.desactivar_powerup()
         
         self.powerup_activo = tipo
-        
+        self.reproducir_pocion()
+
         if tipo == "vision_clara":
             # Ver todo claro por 5 segundos
             self.vision_normal = self.jugador.vision
             self.jugador.vision = 9999  # Visión infinita
             self.powerup_duracion = 5 * 60  # 5 segundos a 60 FPS
-            self.mensaje_temporal = "👁 ¡VISIÓN CLARA ACTIVADA! (5s)"
-            self.mensaje_timer = 120
-            
+            self.mostrar_mensaje("👁 ¡VISIÓN CLARA ACTIVADA! (5s)", 120)
+
         elif tipo == "disparo_doble":
             # Disparar doble por 30 segundos
             self.disparo_doble = True
             self.powerup_duracion = 30 * 60  # 30 segundos
-            self.mensaje_temporal = "⚡ ¡DISPARO DOBLE ACTIVADO! (30s)"
-            self.mensaje_timer = 120
-            
+            self.mostrar_mensaje("⚡ ¡DISPARO DOBLE ACTIVADO! (30s)", 120)
+
         elif tipo == "super_velocidad":
             # Super rápido por 10 segundos
             self.velocidad_normal = self.jugador.velocidad_base
             self.jugador.velocidad_base *= 3.5  # Velocidad aumentada a 3.5x
             self.powerup_duracion = 10 * 60  # 10 segundos
-            self.mensaje_temporal = "⚡ ¡SUPER VELOCIDAD ACTIVADA! (10s)"
-            self.mensaje_timer = 120
-            
+            self.mostrar_mensaje("⚡ ¡SUPER VELOCIDAD ACTIVADA! (10s)", 120)
+
         elif tipo == "escudo":
             # Escudo por 30 segundos
             self.escudo_activo = True
             self.powerup_duracion = 30 * 60  # 30 segundos
-            self.mensaje_temporal = "🛡 ¡ESCUDO ACTIVADO! (30s)"
-            self.mensaje_timer = 120
-        
-        if self.sonido_bonus:
-            self.sonido_bonus.play()
+            self.mostrar_mensaje("🛡 ¡ESCUDO ACTIVADO! (30s)", 120)
     
     def desactivar_powerup(self, mostrar_mensaje=True):
         """Desactiva el power-up actual y restaura los valores"""
@@ -2821,8 +2927,7 @@ class juego:
         
         # Solo mostrar mensaje si se especifica
         if mostrar_mensaje:
-            self.mensaje_temporal = "⏰ Power-up terminado"
-            self.mensaje_timer = 60
+            self.mostrar_mensaje("⏰ Power-up terminado", 60)
 
     # -------------------------------------------------------
     # SPAWN DE ENEMIGOS EXTRAS
@@ -2932,8 +3037,7 @@ class juego:
         
         # Mostrar mensaje si se spawnearon enemigos
         if enemigos_spawneados > 0:
-            self.mensaje_temporal = f"⚠️ ¡{enemigos_spawneados} nuevos enemigos han aparecido! ⚠️"
-            self.mensaje_timer = 90  # 1.5 segundos
+            self.mostrar_mensaje(f"⚠️ ¡{enemigos_spawneados} nuevos enemigos han aparecido! ⚠️", 90)
 
     # -------------------------------------------------------
     # GUARDADO DE RESULTADOS
@@ -2993,6 +3097,16 @@ class juego:
             self.sonido_golpe.set_volume(self.volumen_efectos * 0.7)
         if self.sonido_bonus:
             self.sonido_bonus.set_volume(self.volumen_efectos * 0.7)
+        for sonido in getattr(self, "sonidos_click_menu", []):
+            sonido.set_volume(self.volumen_efectos * 0.5)
+        if self.sonido_corazon:
+            self.sonido_corazon.set_volume(self.volumen_efectos * 0.7)
+        if self.sonido_notificacion:
+            self.sonido_notificacion.set_volume(self.volumen_efectos * 0.6)
+        if self.sonido_pocion:
+            self.sonido_pocion.set_volume(self.volumen_efectos * 0.7)
+        if self.sonido_recoger_llave:
+            self.sonido_recoger_llave.set_volume(self.volumen_efectos * 0.7)
     
     def guardar_resultado(self):
         with open("resultados.txt", "a", encoding="utf-8") as f:

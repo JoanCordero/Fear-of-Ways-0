@@ -1,5 +1,5 @@
 import pygame
-import os
+
 
 
 class salida:
@@ -35,6 +35,11 @@ class salida:
         ancho_escalado = max(1, int(35 * camara.zoom))
         alto_escalado = max(1, int(50 * camara.zoom))
 
+        superficie = pygame.Surface((ancho_escalado, alto_escalado), pygame.SRCALPHA)
+        color_fondo = self.color_bloqueada if bloqueada else self.color_abierta
+        pygame.draw.rect(superficie, (*color_fondo, 220), superficie.get_rect(), border_radius=6)
+        pygame.draw.rect(superficie, (255, 255, 255, 180), superficie.get_rect(), 3, border_radius=6)
+        ventana.blit(superficie, rect_pantalla.topleft)
         # Usar imagen si está disponible, sino fallback a rectángulo
         img_actual = self.img_cerrada if bloqueada else self.img_abierta
         
