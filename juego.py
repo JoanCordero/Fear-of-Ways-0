@@ -119,6 +119,20 @@ class juego:
         except Exception:
             self.hud_texture = None
 
+        # Cargar icono del corazón para bonus de vida en el mapa
+        try:
+            img = pygame.image.load(os.path.join(self._dir, 'heart.png')).convert_alpha()
+            self.heart_bonus_img = pygame.transform.scale(img, (15, 15))
+        except Exception:
+            self.heart_bonus_img = None
+
+        # Cargar icono del rayo para bonus de energía en el mapa
+        try:
+            img = pygame.image.load(os.path.join(self._dir, 'lightning.png')).convert_alpha()
+            self.lightning_bonus_img = pygame.transform.scale(img, (15, 15))
+        except Exception:
+            self.lightning_bonus_img = None
+
         # Color de la barra de energía (más visible y coherente con la estética)
         self.energy_bar_color = (80, 150, 220)
 
@@ -302,12 +316,8 @@ class juego:
             tipo = random.choices(["veloz", "acechador", "bruto"], [0.4, 0.35, 0.25])[0]
             self.enemigos.append(enemigo(x, y, random.randint(2, 3), tipo=tipo))
 
-        # Generar más bonus para compensar la dificultad
-        self.nivel_actual.bonus = []
-        for _ in range(random.randint(3, 6)):  # Aumentado de (2,4) a (3,6)
-            bx, by = random.randint(100, self.nivel_actual.ancho - 100), random.randint(100, self.nivel_actual.alto - 100)
-            tipo = random.choice(["vida", "vida", "arma", "energia"])  # Más probabilidad de vida
-            self.nivel_actual.bonus.append({"rect": pygame.Rect(bx, by, 25, 25), "tipo": tipo})
+        # Generar bonus según el nivel
+        self.generar_bonus_nivel(numero)
 
         # Ajuste de dificultad progresiva MÁS SUAVE
         dificultad = 1 + (numero - 1) * 0.15  # Reducido de 0.25 a 0.15
@@ -345,6 +355,57 @@ class juego:
         else:
             self.intervalo_spawn = 20 * 60
             self.cantidad_spawn = 3
+
+    # -------------------------------------------------------
+    # GENERACIÓN DE BONUS POR NIVEL
+    # -------------------------------------------------------
+    def posicion_valida_bonus(self, x, y, tamaño):
+        """Verifica que una posición no colisione con muros"""
+        test_rect = pygame.Rect(x, y, tamaño, tamaño)
+        for muro in self.nivel_actual.muros:
+            if test_rect.colliderect(muro.rect):
+                return False
+        return True
+    
+    def generar_bonus_nivel(self, numero_nivel):
+        """Genera bonus de forma controlada según el nivel"""
+        self.nivel_actual.bonus = []
+        
+        # Determinar cantidad máxima de corazones según el nivel
+        if numero_nivel == 1:
+            max_corazones = 3
+        elif numero_nivel == 2:
+            max_corazones = 2
+        elif numero_nivel == 3:
+            max_corazones = 1
+        else:
+            max_corazones = 2  # Por defecto
+        
+        # Generar corazones de vida (cantidad aleatoria hasta el máximo)
+        num_corazones = random.randint(1, max_corazones)
+        intentos_max = 50  # Máximo de intentos para encontrar una posición válida
+        
+        for _ in range(num_corazones):
+            for intento in range(intentos_max):
+                bx = random.randint(100, self.nivel_actual.ancho - 100)
+                by = random.randint(100, self.nivel_actual.alto - 100)
+                if self.posicion_valida_bonus(bx, by, 15):
+                    self.nivel_actual.bonus.append({"rect": pygame.Rect(bx, by, 15, 15), "tipo": "vida"})
+                    break
+        
+        # Generar otros bonus (arma y energía) - cantidad fija
+        num_otros_bonus = random.randint(2, 4)
+        for _ in range(num_otros_bonus):
+            tipo = random.choice(["arma", "energia"])
+            # Energía usa el mismo tamaño que los corazones (15x15)
+            tamaño = 15 if tipo == "energia" else 25
+            
+            for intento in range(intentos_max):
+                bx = random.randint(100, self.nivel_actual.ancho - 100)
+                by = random.randint(100, self.nivel_actual.alto - 100)
+                if self.posicion_valida_bonus(bx, by, tamaño):
+                    self.nivel_actual.bonus.append({"rect": pygame.Rect(bx, by, tamaño, tamaño), "tipo": tipo})
+                    break
 
     # -------------------------------------------------------
     # BUCLE PRINCIPAL DE JUEGO
@@ -419,10 +480,31 @@ class juego:
         for bonus in list(getattr(self.nivel_actual, "bonus", [])):
             rect = bonus["rect"]
             tipo = bonus["tipo"]
-            color = (255, 215, 0) if tipo == "arma" else (0, 255, 120) if tipo == "vida" else (80, 200, 255)
             # Aplicar transformación de cámara para que se muevan con el mundo
             rect_pantalla = self.camara.aplicar(rect)
-            pygame.draw.rect(area_juego, color, rect_pantalla)
+            
+            # Dibujar según el tipo de bonus
+            if tipo == "vida" and self.heart_bonus_img:
+                # Usar imagen del corazón para vida
+                heart_escalado = pygame.transform.scale(
+                    self.heart_bonus_img, 
+                    (int(rect_pantalla.width * self.camara.zoom), 
+                     int(rect_pantalla.height * self.camara.zoom))
+                )
+                area_juego.blit(heart_escalado, rect_pantalla)
+            elif tipo == "energia" and self.lightning_bonus_img:
+                # Usar imagen del rayo para energía
+                lightning_escalado = pygame.transform.scale(
+                    self.lightning_bonus_img, 
+                    (int(rect_pantalla.width * self.camara.zoom), 
+                     int(rect_pantalla.height * self.camara.zoom))
+                )
+                area_juego.blit(lightning_escalado, rect_pantalla)
+            else:
+                # Dibujar cuadrado de color solo para arma
+                color = (255, 215, 0)
+                pygame.draw.rect(area_juego, color, rect_pantalla)
+            
             if not pausado and self.jugador.rect.colliderect(rect):
                 if tipo == "vida":
                     self.jugador.vida = min(self.jugador.vida_max, self.jugador.vida + 1)
