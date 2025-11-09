@@ -386,6 +386,12 @@ class juego:
         self.camara = camara(self.nivel_actual.ancho, self.nivel_actual.alto)
         self.enemigos.clear()
         self.proyectiles.clear()
+        
+        # Resetear el estado de todas las puertas (cerrarlas)
+        if hasattr(self.nivel_actual, '_puertas_por_id'):
+            for id_puerta, puertas in self.nivel_actual._puertas_por_id.items():
+                for puerta in puertas:
+                    puerta.abierta = False
 
         # Generar enemigos con diversidad - REDUCIDOS Y BALANCEADOS
         apariciones = list(self.nivel_actual.spawn_enemigos)
@@ -2144,12 +2150,10 @@ class juego:
             # PASO 3.5: Restaurar enemigos guardados (reemplazar los generados)
             if enemigos_data:
                 self.enemigos = self._deserializar_enemigos(enemigos_data)
-                print(f"Enemigos restaurados: {len(self.enemigos)} enemigos con posiciones guardadas")
             
             # PASO 3.6: Restaurar bonus guardados (reemplazar los generados)
             if bonus_data:
                 self.nivel_actual.bonus = self._deserializar_bonus(bonus_data)
-                print(f"Bonus restaurados: {len(self.nivel_actual.bonus)} items (corazones, rayos, power-ups)")
             
             # PASO 4: RESTAURAR INMEDIATAMENTE todos los valores guardados
             # Restaurar datos básicos
