@@ -2141,12 +2141,10 @@ class juego:
             # PASO 3.5: Restaurar enemigos guardados (reemplazar los generados)
             if enemigos_data:
                 self.enemigos = self._deserializar_enemigos(enemigos_data)
-                print(f"Enemigos restaurados: {len(self.enemigos)} enemigos con posiciones guardadas")
             
             # PASO 3.6: Restaurar bonus guardados (reemplazar los generados)
             if bonus_data:
                 self.nivel_actual.bonus = self._deserializar_bonus(bonus_data)
-                print(f"Bonus restaurados: {len(self.nivel_actual.bonus)} items (corazones, rayos, power-ups)")
             
             # PASO 4: RESTAURAR INMEDIATAMENTE todos los valores guardados
             # Restaurar datos básicos
