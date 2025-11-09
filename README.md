@@ -15,7 +15,7 @@
 - 👤 **3 Personajes Jugables**: Cada uno con estadísticas y habilidades únicas
 - 🤖 **IA de Enemigos Avanzada**: 3 tipos de enemigos con comportamientos diferentes
 - 💡 **Sistema de Iluminación Dinámica**: Linterna cónica que limita la visibilidad
-- 🚪 **Mecánicas de Puzzle**: Sistema de llaves, puertas y palancas
+- 🧭 **Exploración Estratégica**: Laberintos con rutas alternativas y secretos
 - ⏱️ **Temporizador de Escape**: Presión temporal tras recolectar todas las llaves
 - 🎯 **Dificultad Progresiva**: Cada nivel aumenta el desafío
 - 🎨 **Animaciones Personalizadas**: Sprites animados para todas las acciones
@@ -82,7 +82,6 @@ Escapa de las 3 mazmorras recolectando todas las llaves y llegando a la salida a
 - **Mouse**: Apuntar linterna y dirección de ataque
 
 #### Interacción
-- **E**: Activar palancas (abrir/cerrar puertas)
 - **P / ESC**: Pausar juego
 
 ### Mecánicas del Juego
@@ -105,10 +104,18 @@ Escapa de las 3 mazmorras recolectando todas las llaves y llegando a la salida a
   - **Disparar**: Ataque a distancia
 - La energía se regenera automáticamente cuando no se usa
 
-#### Zonas Seguras (Escondites)
-- Áreas azules semitransparentes
-- Los enemigos no pueden detectarte dentro
-- Úsalas para descansar y planear tu estrategia
+#### Consejos de Supervivencia
+- Muévete con la linterna encendida para detectar enemigos a distancia
+- Ahorra energía para sprintar en situaciones de peligro
+- Escucha los efectos de sonido para anticipar amenazas
+
+---
+
+## 🛠️ Solución de Problemas
+
+- **"Sistema de audio no disponible"**: En entornos sin dispositivo de audio (como servidores o contenedores), Pygame no puede inicializar el mezclador. El juego continuará ejecutándose, pero los efectos de sonido no estarán disponibles.
+- **Advertencias al cargar archivos de sonido**: Si ves mensajes como `Advertencia: No se pudo cargar audio/disparo.mp3`, significa que el mezclador no se inicializó correctamente. Para solucionarlo, ejecuta el juego en un entorno con salida de audio o configura un driver de audio virtual.
+- **El juego se cierra al presionar `Ctrl+C`**: Esto es normal en la versión de escritorio; el mensaje `Juego interrumpido por el usuario` indica que la salida fue controlada.
 
 ---
 
@@ -166,19 +173,19 @@ Escapa de las 3 mazmorras recolectando todas las llaves y llegando a la salida a
 
 ### Nivel 1: Las Catacumbas
 - **Diseño**: Laberinto procedural con habitaciones tipo cueva
-- **Mecánicas**: Sistema de llaves y una puerta con palanca
+- **Mecánicas**: Búsqueda de llaves y rutas alternas
 - **Dificultad**: Introducción, enemigos moderados
 - **Llaves**: 3-4 llaves requeridas
 
 ### Nivel 2: La Espiral Descendente
 - **Diseño**: Laberinto en espiral hacia el centro
-- **Mecánicas**: Múltiples puertas y palancas
+- **Mecánicas**: Secciones estrechas y emboscadas
 - **Dificultad**: Intermedia, más enemigos y spawn más rápido
 - **Llaves**: Distribuidas estratégicamente
 
 ### Nivel 3: El Abismo Profundo
 - **Diseño**: Laberinto caótico con múltiples rutas
-- **Mecánicas**: Sistema complejo de puertas
+- **Mecánicas**: Enemigos agresivos y gestión del tiempo
 - **Dificultad**: Alta, spawn muy rápido y tiempo limitado
 - **Llaves**: Búsqueda desafiante
 
@@ -210,7 +217,6 @@ Escapa de las 3 mazmorras recolectando todas las llaves y llegando a la salida a
 - `menu_background.png`: Fondo del menú
 - `hud_bar_texture.png`: Textura del HUD
 - `posion.png`: Icono de poción
-- `puerta.png` / `puerta_abierta.png`: Sprites de puertas
 
 ### Assets de Audio (en carpeta `audio/`)
 - `musica_fondo.mp3`: Música ambiente
@@ -224,16 +230,16 @@ Escapa de las 3 mazmorras recolectando todas las llaves y llegando a la salida a
 ### Para Principiantes
 1. 🗝️ **Explora sistemáticamente**: Cubre todo el mapa metódicamente
 2. 💡 **Usa la linterna**: Apunta hacia donde quieres ir
-3. 🛡️ **Zonas seguras**: Úsalas cuando estés rodeado
+3. 🛡️ **Controla la distancia**: Mantén a los enemigos al borde de la luz de la linterna
 4. ⚡ **Gestiona la energía**: No uses sprint constantemente
 5. 🎯 **Prioriza objetivos**: Llaves primero, enemigos si es necesario
 
 ### Estrategias Avanzadas
 1. 🏃 **Kiting**: Atrae enemigos y elimínalos uno por uno
-2. 🚪 **Usa las puertas**: Cierralas para separar grupos de enemigos
+2. 🔦 **Gestiona la iluminación**: Alterna la linterna para confundir a los enemigos
 3. ⏱️ **Gestión del tiempo**: Memoriza rutas para el escape final
 4. 🎯 **Disparo selectivo**: Guarda energía para situaciones críticas
-5. 👻 **Sigilo**: Evita combates innecesarios usando escondites
+5. 👂 **Presta atención al sonido**: Reconoce a cada enemigo por su audio característico
 
 ---
 
@@ -247,7 +253,7 @@ Fear of Ways 0/
 ├── enemigo.py             # IA y comportamiento de enemigos
 ├── nivel.py               # Generación de niveles
 ├── camara.py              # Sistema de cámara con zoom
-├── pared.py               # Muros y puertas
+├── pared.py               # Muros del laberinto
 ├── proyectil.py           # Proyectiles
 ├── salida.py              # Salidas de niveles
 ├── images/                # Recursos gráficos
@@ -260,8 +266,6 @@ Fear of Ways 0/
 │   ├── menu_background.png
 │   ├── hud_bar_texture.png
 │   ├── posion.png
-│   ├── puerta.png
-│   └── puerta_abierta.png
 ├── audio/                 # Archivos de audio
 │   ├── musica_fondo.mp3
 │   ├── disparo.mp3
