@@ -39,6 +39,7 @@ class juego:
         self.volumen_efectos = 0.7  # Volumen de efectos (0.0 a 1.0)
         self.mostrar_tutorial = True  # Mostrar tutorial en el primer nivel
         self.tutorial_mostrado = False  # Controlar si ya se mostró
+        self.menu_index = 0  # Índice de selección en el menú
 
         # Configuración visual
         self.altura_header = 0.10
@@ -73,26 +74,26 @@ class juego:
         self.escudo_activo = False  # Si está activo el escudo
 
         # Sonidos con mejor manejo de errores
-        print("\n🔊 Cargando recursos de audio...")
+        print("\nCargando recursos de audio...")
         try:
             self.sonido_disparo = pygame.mixer.Sound("audio/disparo.mp3")
             self.sonido_disparo.set_volume(0.7)
-            print("  ✓ Sonido de disparo cargado correctamente")
+            print("Sonido de disparo cargado correctamente")
         except (pygame.error, FileNotFoundError) as e:
             self.sonido_disparo = None
-            print(f"  ⚠ Advertencia: No se pudo cargar audio/disparo.mp3")
+            print(f"Advertencia: No se pudo cargar audio/disparo.mp3")
         
         try:
             self.sonido_golpe = pygame.mixer.Sound("audio/daño.mp3")
             self.sonido_golpe.set_volume(0.5)
-            print("  ✓ Sonido de golpe cargado correctamente")
+            print("Sonido de golpe cargado correctamente")
         except (pygame.error, FileNotFoundError) as e:
             self.sonido_golpe = None
-            print(f"  ⚠ Advertencia: No se pudo cargar audio/daño.mp3")
+            print(f"Advertencia: No se pudo cargar audio/daño.mp3")
         
         # Usar el sonido de golpe para bonus (alternativa)
         self.sonido_bonus = self.sonido_golpe
-        print("  ✓ Audio inicializado\n")
+        print("Audio inicializado\n")
 
         # Carga de recursos gráficos para HUD y menú
         # Almacenamos el directorio actual para localizar imágenes
@@ -104,34 +105,34 @@ class juego:
         icon_size = 28
 
         # Cargar iconos del HUD con manejo de errores mejorado
-        print("🎨 Cargando recursos gráficos...")
+        print("Cargando recursos gráficos...")
         
         # Cargar icono del corazón (vida)
         try:
             img = pygame.image.load(os.path.join(self._dir, 'images', 'heart.png')).convert_alpha()
             self.heart_img = pygame.transform.smoothscale(img, (icon_size, icon_size))
-            print("  ✓ Icono de corazón cargado")
+            print("Icono de corazón cargado")
         except (pygame.error, FileNotFoundError):
             self.heart_img = None
-            print("  ⚠ Advertencia: images/heart.png no encontrado, se usará fallback")
+            print("Advertencia: images/heart.png no encontrado, se usará fallback")
 
         # Cargar icono de la llave
         try:
             img = pygame.image.load(os.path.join(self._dir, 'images', 'key_icon.png')).convert_alpha()
             self.key_img = pygame.transform.smoothscale(img, (icon_size, icon_size))
-            print("  ✓ Icono de llave cargado")
+            print("Icono de llave cargado")
         except (pygame.error, FileNotFoundError):
             self.key_img = None
-            print("  ⚠ Advertencia: images/key_icon.png no encontrado, se usará fallback")
+            print(" Advertencia: images/key_icon.png no encontrado, se usará fallback")
 
         # Cargar icono del rayo
         try:
             img = pygame.image.load(os.path.join(self._dir, 'images', 'lightning.png')).convert_alpha()
             self.lightning_img = pygame.transform.smoothscale(img, (icon_size, icon_size))
-            print("  ✓ Icono de rayo cargado")
+            print("Icono de rayo cargado")
         except (pygame.error, FileNotFoundError):
             self.lightning_img = None
-            print("  ⚠ Advertencia: images/lightning.png no encontrado, se usará fallback")
+            print("Advertencia: images/lightning.png no encontrado, se usará fallback")
 
         # No usamos un marco externo para el menú, así que desactivamos cualquier intento de cargar menu_frame_img
         self.menu_frame_img = None
@@ -140,39 +141,39 @@ class juego:
         try:
             tex = pygame.image.load(os.path.join(self._dir, 'images', 'hud_bar_texture.png')).convert()
             self.hud_texture = tex
-            print("  ✓ Textura de HUD cargada")
+            print("Textura de HUD cargada")
         except (pygame.error, FileNotFoundError):
             self.hud_texture = None
-            print("  ⚠ Advertencia: images/hud_bar_texture.png no encontrado, se usará color sólido")
+            print("Advertencia: images/hud_bar_texture.png no encontrado, se usará color sólido")
 
         # Cargar icono del corazón para bonus de vida en el mapa
         try:
             img = pygame.image.load(os.path.join(self._dir, 'images', 'heart.png')).convert_alpha()
             self.heart_bonus_img = pygame.transform.scale(img, (15, 15))
-            print("  ✓ Icono de bonus de vida cargado")
+            print("Icono de bonus de vida cargado")
         except (pygame.error, FileNotFoundError):
             self.heart_bonus_img = None
-            print("  ⚠ Advertencia: Bonus de vida usará fallback")
+            print("Advertencia: Bonus de vida usará fallback")
 
         # Cargar icono del rayo para bonus de energía en el mapa
         try:
             img = pygame.image.load(os.path.join(self._dir, 'images', 'lightning.png')).convert_alpha()
             self.lightning_bonus_img = pygame.transform.scale(img, (15, 15))
-            print("  ✓ Icono de bonus de energía cargado")
+            print("Icono de bonus de energía cargado")
         except (pygame.error, FileNotFoundError):
             self.lightning_bonus_img = None
-            print("  ⚠ Advertencia: Bonus de energía usará fallback")
+            print("Advertencia: Bonus de energía usará fallback")
         
         # Cargar icono de poción para power-ups
         try:
             img = pygame.image.load(os.path.join(self._dir, 'images', 'posion.png')).convert_alpha()
             self.posion_img = pygame.transform.scale(img, (15, 15))
-            print("  ✓ Icono de poción cargado")
+            print("Icono de poción cargado")
         except (pygame.error, FileNotFoundError):
             self.posion_img = None
-            print("  ⚠ Advertencia: images/posion.png no encontrado, se usará fallback")
+            print(" Advertencia: images/posion.png no encontrado, se usará fallback")
         
-        print("  ✓ Recursos gráficos inicializados\n")
+        print("Recursos gráficos inicializados\n")
 
         # Color de la barra de energía (más visible y coherente con la estética)
         self.energy_bar_color = (80, 150, 220)
@@ -189,22 +190,18 @@ class juego:
         # Intenta usar una fuente de estilo pixelado (monoespaciada) si está disponible en el sistema. Esto da
         # un aire retro a los menús y al HUD. Si no se encuentra, se mantiene la fuente predeterminada.
         try:
-            pixel_candidates = ['LiberationMono-Bold', 'Liberation Mono', 'Courier New']
-            pixel_font = None
-            for name in pixel_candidates:
-                found = pygame.font.match_font(name)
-                if found:
-                    pixel_font = found
+            candidates_title = ["PressStart2P", "Press Start 2P", "VT323", "Pixelify Sans", "Courier New", "Liberation Mono"]
+            found_title = None
+            for name in candidates_title:
+                fp = pygame.font.match_font(name)
+                if fp:
+                    found_title = fp
                     break
-            # Si encontramos una, reemplazamos font_path por la pixelada
-            if pixel_font:
-                self.font_path = pixel_font
+            self.font_path_title = found_title or self.font_path
         except Exception:
-            pass
+            self.font_path_title = self.font_path
 
-    # -------------------------------------------------------
     # MENÚ PRINCIPAL
-    # -------------------------------------------------------
     def menu(self):
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
@@ -228,103 +225,63 @@ class juego:
         else:
             pantalla.fill((10, 10, 20))
 
-        # Ya no dibujamos un marco ni un cuadro; el fondo se muestra completamente.
-        # Título y subtítulo del menú. Se posicionan en la parte superior de la pantalla.
-        title_size = int(alto * 0.09)
-        self.dibujar_texto("Fear of Ways", title_size, BLANCO, ancho // 2, int(alto * 0.18))
-        subtitle_size = int(alto * 0.035)
-        self.dibujar_texto("Explora las mazmorras", subtitle_size, (210, 200, 190), ancho // 2, int(alto * 0.26))
-
-        # Definición de las opciones del menú. Se eliminan los dos puntos y los puntos finales
-        # para lograr un aspecto más limpio. Estas cadenas pueden ser adaptadas según el juego.
-        opciones = [
-            "Selecciona tu personaje",
-            "1 Explorador",
-            "2 Cazador",
-            "3 Ingeniero",
-        ]
-
-        # Obtener posición del mouse para hover
-        mx, my = pygame.mouse.get_pos()
-        
-        # Calculamos el área vertical donde se dibujarán las opciones. Ajustamos el rango
-        # para que el texto quede más cerca del centro de la pantalla y armonice con el fondo.
-        area_y_start = int(alto * 0.45)
-        area_y_end = int(alto * 0.72)
-        area_height = area_y_end - area_y_start
-        num_lines = len(opciones)
-        
-        # Determinar el tamaño base de la fuente en función del espacio disponible.
-        base_size = int(area_height / (num_lines + 2))
-        spacing = int(alto * 0.09)  # Espaciado más amplio
-        
-        # Dibujar el título "Selecciona tu personaje" con estilo especial
-        title_opciones = int(base_size * 1.1)
+        # TÍTULO 
+        title_size = int(alto * 0.095)
         try:
-            font_title = pygame.font.Font(self.font_path, title_opciones)
+            font_title = pygame.font.Font(self.font_path_title, title_size)
         except Exception:
-            font_title = pygame.font.Font(None, title_opciones)
-        
-        surf_title = font_title.render(opciones[0], True, (255, 215, 100))
-        x_title = ancho // 2 - surf_title.get_width() // 2
-        y_title = area_y_start
-        pantalla.blit(surf_title, (x_title, y_title))
-        
-        # Dibujar línea decorativa debajo del título
-        line_y = y_title + surf_title.get_height() + 10
-        line_start = ancho // 2 - 150
-        line_end = ancho // 2 + 150
-        pygame.draw.line(pantalla, (255, 215, 100), (line_start, line_y), (line_end, line_y), 2)
-        
-        # Dibujar opciones de personaje con hover mejorado
-        y_opciones_start = line_y + int(alto * 0.06)
-        
-        for i in range(1, len(opciones)):
-            text = opciones[i]
-            y_pos = y_opciones_start + (i - 1) * spacing
-            
-            # Tamaño base de la fuente
-            size = int(base_size * 1.2)
-            
-            try:
-                font = pygame.font.Font(self.font_path, size)
-            except Exception:
-                font = pygame.font.Font(None, size)
-            
-            # Renderizar texto para obtener dimensiones
-            surf_temp = font.render(text, True, (235, 225, 210))
-            x_base = ancho // 2 - surf_temp.get_width() // 2
-            
-            # Área expandida para detección de hover (más generosa)
-            padding = 20
-            rect_opcion = pygame.Rect(x_base - padding, y_pos - padding, 
-                                     surf_temp.get_width() + padding * 2, 
-                                     surf_temp.get_height() + padding * 2)
-            is_hover = rect_opcion.collidepoint(mx, my)
-            
-            if is_hover:
-                # Efecto de hover más sutil: solo cambio de color y tamaño ligero
-                size_hover = int(size * 1.05)  # Crecimiento más sutil (5% en vez de 15%)
-                try:
-                    font_hover = pygame.font.Font(self.font_path, size_hover)
-                except Exception:
-                    font_hover = pygame.font.Font(None, size_hover)
-                
-                # Texto resaltado en amarillo sin efectos exagerados
-                surf_main = font_hover.render(text, True, (255, 230, 100))
-                x_text = ancho // 2 - surf_main.get_width() // 2
-                pantalla.blit(surf_main, (x_text, y_pos))
-                
-            else:
-                # Estado normal: color beige suave
-                surf = font.render(text, True, (210, 200, 190))
-                x = ancho // 2 - surf.get_width() // 2
-                pantalla.blit(surf, (x, y_pos))
+            font_title = pygame.font.Font(None, title_size)
 
-        # Mensaje para salir del menú al pie de la pantalla
-        exit_size = int(alto * 0.028)
-        self.dibujar_texto("ESC para salir", exit_size, (180, 180, 190), ancho // 2, int(alto * 0.92))
+        titulo = "Fear of Ways"
+        base = font_title.render(titulo, True, (240, 235, 220))
+        # contorno suave
+        for dx, dy in ((-2,0),(2,0),(0,-2),(0,2)):
+            sombra = font_title.render(titulo, True, (20, 20, 25))
+            pantalla.blit(sombra, (ancho//2 - base.get_width()//2 + dx, int(alto*0.16) + dy))
+        pantalla.blit(base, (ancho//2 - base.get_width()//2, int(alto*0.16)))
 
+        # OPCIONES
+        opciones = ["Jugar", "Nueva Partida", "Cargar Partida"]
+
+        # Subimos el bloque un poco: antes 0.45–0.72, ahora 0.40–0.67
+        area_y_start = int(alto * 0.40)
+        area_y_end   = int(alto * 0.67)
+        area_height  = area_y_end - area_y_start
+
+        try:
+            font_menu = pygame.font.Font(self.font_path, max(16, int(area_height / 6)))
+        except Exception:
+            font_menu = pygame.font.Font(None, max(16, int(area_height / 6)))
+
+        surfaces = [font_menu.render(txt, True, (235, 225, 210)) for txt in opciones]
+        heights  = [s.get_height() for s in surfaces]
+        spacing  = int(area_height * 0.12)
+        total_h  = sum(heights) + spacing * (len(opciones) - 1)
+        y_current = area_y_start + (area_height - total_h) // 2
+
+        mouse_pos = pygame.mouse.get_pos()
+        self._menu_hitboxes = []
+
+        for i, surf in enumerate(surfaces):
+            x = ancho // 2 - surf.get_width() // 2
+            y = y_current
+
+            rect_hit = pygame.Rect(x - 18, y - 8, surf.get_width() + 36, surf.get_height() + 16)
+            self._menu_hitboxes.append((rect_hit, i))
+
+            hovering = rect_hit.collidepoint(mouse_pos)
+            if hovering:
+                overlay = pygame.Surface((rect_hit.width, rect_hit.height), pygame.SRCALPHA)
+                overlay.fill((0, 0, 0, 90))
+                pantalla.blit(overlay, rect_hit.topleft)
+                pygame.draw.rect(pantalla, (210, 200, 180), rect_hit, 1, border_radius=8)
+
+            pantalla.blit(surf, (x, y))
+            y_current += surf.get_height() + spacing
+
+        # Pie
+        hint_size = int(alto * 0.03)
+        self.dibujar_texto("ESC para salir", hint_size, (190, 190, 200), ancho // 2, int(alto * 0.90))
     # -------------------------------------------------------
     # INICIO Y CARGA DE JUEGO
     # -------------------------------------------------------
@@ -343,8 +300,9 @@ class juego:
         self.numero_nivel = 1
         self.cargar_nivel(self.numero_nivel)
         self.resultado = ""
-        self.estado = "jugando"
-        pygame.mouse.set_visible(False)  # Ocultar cursor durante el juego
+        self.estado = "controles"
+        pygame.mouse.set_visible(True)   # mostramos el mouse en la pantalla de controles
+
 
     def activar_temporizador(self):
         """Activa el temporizador según el nivel actual"""
@@ -435,9 +393,7 @@ class juego:
             self.intervalo_spawn = 20 * 60
             self.cantidad_spawn = 3
 
-    # -------------------------------------------------------
     # GENERACIÓN DE BONUS POR NIVEL
-    # -------------------------------------------------------
     def posicion_valida_bonus(self, x, y, tamaño):
         """Verifica que una posición no colisione con muros"""
         test_rect = pygame.Rect(x, y, tamaño, tamaño)
@@ -513,9 +469,7 @@ class juego:
                     self.nivel_actual.bonus.append({"rect": pygame.Rect(bx, by, 15, 15), "tipo": "energia"})
                     break
 
-    # -------------------------------------------------------
     # BUCLE PRINCIPAL DE JUEGO
-    # -------------------------------------------------------
     def jugar(self, pausado=False):
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
@@ -539,17 +493,17 @@ class juego:
                 
                 # Advertencia cuando quedan 30 segundos
                 if self.tiempo_restante == 30 * 60:
-                    self.mensaje_temporal = "⚠️ ¡QUEDAN 30 SEGUNDOS! ⚠️"
+                    self.mensaje_temporal = "¡QUEDAN 30 SEGUNDOS!"
                     self.mensaje_timer = 120
                 # Advertencia cuando quedan 10 segundos
                 elif self.tiempo_restante == 10 * 60:
-                    self.mensaje_temporal = "⚠️ ¡SOLO 10 SEGUNDOS! ⚠️"
+                    self.mensaje_temporal = "¡SOLO 10 SEGUNDOS!"
                     self.mensaje_timer = 120
                     
             # Si el tiempo se acaba, spawear enemigos continuamente
             elif self.temporizador_activo and self.tiempo_restante <= 0 and not self.tiempo_agotado:
                 self.tiempo_agotado = True
-                self.mensaje_temporal = "💀 ¡TIEMPO AGOTADO! ¡ENEMIGOS INVADEN! 💀"
+                self.mensaje_temporal = "¡TIEMPO AGOTADO! ¡ENEMIGOS INVADEN!"
                 self.mensaje_timer = 180
             
             # Spawear enemigos extra cuando el tiempo se agota
@@ -1252,78 +1206,145 @@ class juego:
     def menu_pausa(self):
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
-        
-        # Oscurecer la pantalla
-        overlay = pygame.Surface((ancho, alto))
-        overlay.set_alpha(180)
-        overlay.fill(NEGRO)
+
+        # Capa oscura
+        overlay = pygame.Surface((ancho, alto), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
         pantalla.blit(overlay, (0, 0))
-        
-        # Título
-        self.dibujar_texto("PAUSA", int(alto * 0.1), AMARILLO, ancho // 2, alto * 0.15)
-        
-        # Estadísticas de la partida actual
-        stats_y = alto * 0.28
-        self.dibujar_texto(f"Puntos: {self.puntos}", int(alto * 0.035), BLANCO, ancho // 2, stats_y)
-        self.dibujar_texto(f"Enemigos Derrotados: {self.enemigos_derrotados}", int(alto * 0.035), BLANCO, ancho // 2, stats_y + alto * 0.05)
-        self.dibujar_texto(f"Nivel: {self.numero_nivel}/3", int(alto * 0.035), BLANCO, ancho // 2, stats_y + alto * 0.1)
-        
-        # Obtener posición del mouse para hover
-        mx, my = pygame.mouse.get_pos()
-        
-        # Opciones del menú
+
+        # Título de pausa (misma fuente del título)
+        title_size = int(alto * 0.075)
+        try:
+            font_title = pygame.font.Font(self.font_path_title, title_size)
+        except Exception:
+            font_title = pygame.font.Font(None, title_size)
+
+        titulo = "PAUSA"
+        base = font_title.render(titulo, True, (240, 235, 220))
+        for dx, dy in ((-2,0),(2,0),(0,-2),(0,2)):
+            sombra = font_title.render(titulo, True, (20, 20, 25))
+            pantalla.blit(sombra, (ancho//2 - base.get_width()//2 + dx, int(alto*0.22) + dy))
+        pantalla.blit(base, (ancho//2 - base.get_width()//2, int(alto*0.22)))
+
+        # Opciones con el mismo estilo de botones del menú principal
         opciones = ["Reanudar", "Reiniciar Nivel", "Menú Principal"]
-        y_inicial = alto * 0.5
-        espaciado = alto * 0.08
+
+        area_y_start = int(alto * 0.40)
+        area_y_end   = int(alto * 0.67)
+        area_height  = area_y_end - area_y_start
+
+        try:
+            font_menu = pygame.font.Font(self.font_path, max(16, int(area_height / 6)))
+        except Exception:
+            font_menu = pygame.font.Font(None, max(16, int(area_height / 6)))
+
+        surfaces = [font_menu.render(txt, True, (235, 225, 210)) for txt in opciones]
+        heights  = [s.get_height() for s in surfaces]
+        spacing  = int(area_height * 0.12)
+        total_h  = sum(heights) + spacing * (len(opciones) - 1)
+        y_current = area_y_start + (area_height - total_h) // 2
+
+        mouse_pos = pygame.mouse.get_pos()
+        self._pause_hitboxes = []
+
+        for i, surf in enumerate(surfaces):
+            x = ancho // 2 - surf.get_width() // 2
+            y = y_current
+
+            rect_hit = pygame.Rect(x - 18, y - 8, surf.get_width() + 36, surf.get_height() + 16)
+            self._pause_hitboxes.append((rect_hit, i))
+
+            hovering = rect_hit.collidepoint(mouse_pos)
+            if hovering:
+                overlay_btn = pygame.Surface((rect_hit.width, rect_hit.height), pygame.SRCALPHA)
+                overlay_btn.fill((0, 0, 0, 90))
+                pantalla.blit(overlay_btn, rect_hit.topleft)
+                pygame.draw.rect(pantalla, (210, 200, 180), rect_hit, 1, border_radius=8)
+
+            pantalla.blit(surf, (x, y))
+            y_current += surf.get_height() + spacing
+
+        # Pie
+        hint_size = int(alto * 0.03)
+        self.dibujar_texto("ESC para reanudar", hint_size, (190, 190, 200), ancho // 2, int(alto * 0.90))
         
-        for i, opcion in enumerate(opciones):
-            y_opcion = y_inicial + i * espaciado
-            
-            # Verificar si el mouse está sobre esta opción
-            tam = int(alto * 0.05) if i == self.opcion_pausa else int(alto * 0.045)
+    def controles(self):
+        pantalla = pygame.display.get_surface()
+        ancho, alto = pantalla.get_size()
+
+        # Fondo (como el menú)
+        fondo_path = os.path.join(self._dir, 'menu_background.png')
+        if os.path.isfile(fondo_path):
             try:
-                font = pygame.font.Font(self.font_path, tam)
+                bg = pygame.image.load(fondo_path).convert()
+                bg = pygame.transform.scale(bg, (ancho, alto))
+                pantalla.blit(bg, (0, 0))
             except Exception:
-                font = pygame.font.Font(None, tam)
-            
-            text_surface = font.render(f"  {opcion}", True, BLANCO)
-            text_rect = text_surface.get_rect(center=(ancho // 2, y_opcion))
-            is_hover = text_rect.collidepoint(mx, my)
-            
-            # Determinar color y tamaño según selección con teclado o hover con mouse
-            if is_hover:
-                color = AMARILLO
-                tam = int(alto * 0.05)
-            elif i == self.opcion_pausa:
-                color = BLANCO
-                tam = int(alto * 0.05)
-            else:
-                color = GRIS
-                tam = int(alto * 0.045)
-            
-            prefijo = "> " if i == self.opcion_pausa else "  "
-            self.dibujar_texto(f"{prefijo}{opcion}", tam, color, ancho // 2, y_opcion)
-        
-        # Controles de volumen
-        vol_y = alto * 0.75
-        self.dibujar_texto("VOLUMEN", int(alto * 0.04), AMARILLO, ancho // 2, vol_y)
-        
-        # Barra de volumen música
-        vol_musica_porcentaje = int(self.volumen_musica * 100)
-        self.dibujar_texto(f"Música: {vol_musica_porcentaje}%", int(alto * 0.03), BLANCO, 
-                          ancho // 2 - int(ancho * 0.15), vol_y + alto * 0.05)
-        
-        # Barra de volumen efectos
-        vol_efectos_porcentaje = int(self.volumen_efectos * 100)
-        self.dibujar_texto(f"Efectos: {vol_efectos_porcentaje}%", int(alto * 0.03), BLANCO, 
-                          ancho // 2 + int(ancho * 0.15), vol_y + alto * 0.05)
-        
-        # Controles
-        self.dibujar_texto("↑↓ para navegar | ENTER para seleccionar | P/ESC para reanudar", 
-                          int(alto * 0.025), GRIS, ancho // 2, alto * 0.88)
-        self.dibujar_texto("←→ para ajustar volumen de música | [ ] para ajustar efectos", 
-                          int(alto * 0.025), GRIS, ancho // 2, alto * 0.92)
-    
+                pantalla.fill((10, 10, 20))
+        else:
+            pantalla.fill((10, 10, 20))
+
+        # Título con la fuente de título
+        title_size = int(alto * 0.085)
+        try:
+            font_title = pygame.font.Font(self.font_path_title, title_size)
+        except Exception:
+            font_title = pygame.font.Font(None, title_size)
+
+        titulo = "Controles Básicos"
+        base = font_title.render(titulo, True, (240, 235, 220))
+        # Sombra/contorno sutil
+        for dx, dy in ((-2,0),(2,0),(0,-2),(0,2)):
+            sombra = font_title.render(titulo, True, (20, 20, 25))
+            pantalla.blit(sombra, (ancho//2 - base.get_width()//2 + dx, int(alto*0.18) + dy))
+        pantalla.blit(base, (ancho//2 - base.get_width()//2, int(alto*0.18)))
+
+        # Texto de controles (misma fuente del menú)
+        try:
+            font_body = pygame.font.Font(self.font_path, int(alto * 0.035))
+        except Exception:
+            font_body = pygame.font.Font(None, int(alto * 0.035))
+
+        lineas = [
+            "Movimiento: W / A / S / D",
+            "Ataque cuerpo a cuerpo: Click Izquierdo",
+            "Disparo: Click Derecho o Barra Espaciadora",
+            "Palancas / Interacción: E",
+            "Pausa: ESC o P",
+        ]
+        y = int(alto * 0.34)
+        for texto in lineas:
+            surf = font_body.render(texto, True, (235, 225, 210))
+            pantalla.blit(surf, (ancho//2 - surf.get_width()//2, y))
+            y += int(surf.get_height() * 1.4)
+
+        # Botón “Continuar” (mismo estilo de botones del menú)
+        try:
+            font_btn = pygame.font.Font(self.font_path, int(alto * 0.04))
+        except Exception:
+            font_btn = pygame.font.Font(None, int(alto * 0.04))
+
+        btn_surf = font_btn.render("Continuar", True, (235, 225, 210))
+        btn_w, btn_h = btn_surf.get_width() + 36, btn_surf.get_height() + 16
+        btn_x = ancho//2 - btn_w//2
+        btn_y = int(alto * 0.78)
+
+        self._controles_btn_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
+
+        hovering = self._controles_btn_rect.collidepoint(pygame.mouse.get_pos())
+        if hovering:
+            overlay = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 90))
+            pantalla.blit(overlay, (btn_x, btn_y))
+            pygame.draw.rect(pantalla, (210, 200, 180), self._controles_btn_rect, 1, border_radius=8)
+
+        # Texto del botón
+        pantalla.blit(btn_surf, (ancho//2 - btn_surf.get_width()//2, btn_y + (btn_h - btn_surf.get_height())//2))
+
+        # Pie: solo ESC para salir al menú
+        hint_size = int(alto * 0.03)
+        self.dibujar_texto("ESC para volver al menú", hint_size, (190, 190, 200), ancho // 2, int(alto * 0.92))
+
     # -------------------------------------------------------
     # TRANSICIÓN Y FINAL
     # -------------------------------------------------------
@@ -1433,42 +1454,51 @@ class juego:
                 if e.type == pygame.QUIT:
                     pygame.quit(); return
                 if self.estado == "menu":
-                    if e.type == pygame.KEYDOWN:
-                        if e.key == pygame.K_ESCAPE:
-                            pygame.quit(); return
-                        if e.key in (pygame.K_1, pygame.K_2, pygame.K_3):
-                            self.iniciar_juego(int(e.key - pygame.K_0))
-                    # Soporte de mouse en el menú principal
+                    if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                        pygame.quit(); return
                     elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
-                        mx, my = pygame.mouse.get_pos()
-                        pantalla = pygame.display.get_surface()
-                        ancho, alto = pantalla.get_size()
-                        
-                        # Verificar clicks en las opciones de personaje
-                        # Áreas aproximadas donde aparecen las opciones
-                        area_y_start = int(alto * 0.45)
-                        area_y_end = int(alto * 0.70)
-                        
-                        # Opción 1 - Explorador
-                        if area_y_start + int(alto * 0.08) < my < area_y_start + int(alto * 0.16):
-                            self.iniciar_juego(1)
-                        # Opción 2 - Cazador
-                        elif area_y_start + int(alto * 0.16) < my < area_y_start + int(alto * 0.24):
-                            self.iniciar_juego(2)
-                        # Opción 3 - Ingeniero
-                        elif area_y_start + int(alto * 0.24) < my < area_y_start + int(alto * 0.32):
-                            self.iniciar_juego(3)
+                        if hasattr(self, "_menu_hitboxes"):
+                            for rect_hit, idx in self._menu_hitboxes:
+                                if rect_hit.collidepoint(pygame.mouse.get_pos()):
+                                    if idx == 0:          # Jugar
+                                        self.iniciar_juego(1)
+                                    elif idx == 1:        # Nueva Partida
+                                        self.iniciar_juego(1)
+                                    elif idx == 2:        # Cargar Partida
+                                        self.mensaje_temporal = "Cargar Partida no disponible aún"
+                                        self.mensaje_timer = 120
+                                    break
+                
+                elif self.estado == "controles":
+                        if e.type == pygame.KEYDOWN:
+                            if e.key == pygame.K_ESCAPE:
+                                self.estado = "menu"
+                                pygame.mouse.set_visible(True)
+                            elif e.key in (pygame.K_RETURN, pygame.K_SPACE):
+                                self.estado = "jugando"
+                                pygame.mouse.set_visible(False)
+                        elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                            if hasattr(self, "_controles_btn_rect") and self._controles_btn_rect.collidepoint(pygame.mouse.get_pos()):
+                                self.estado = "jugando"
+                                pygame.mouse.set_visible(False)
 
-                elif self.estado == "jugando":
-                    # Cerrar tutorial con ENTER
-                    if e.type == pygame.KEYDOWN and e.key == pygame.K_RETURN and not self.tutorial_mostrado:
-                        self.tutorial_mostrado = True
-                    
-                    # Solo permitir pausar si el tutorial ya fue cerrado
-                    elif e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_p):
-                        if self.tutorial_mostrado or self.numero_nivel > 1:
-                            self.estado = "pausado"
-                            self.opcion_pausa = 0
+                # PAUSA 
+                elif self.estado == "pausado":
+                    if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                        self.estado = "jugando"
+                    elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                        if hasattr(self, "_pause_hitboxes"):
+                            for rect_hit, idx in self._pause_hitboxes:
+                                if rect_hit.collidepoint(pygame.mouse.get_pos()):
+                                    if idx == 0:      # Reanudar
+                                        self.estado = "jugando"
+                                    elif idx == 1:    # Reiniciar
+                                        self.cargar_nivel(self.numero_nivel)
+                                        self.estado = "jugando"
+                                    elif idx == 2:    # Menú principal
+                                        self.estado = "menu"
+                                        pygame.mouse.set_visible(True)
+                                    break
 
                     # Ataque a distancia (click derecho o tecla ESPACIO) - solo si el tutorial fue cerrado
                     elif ((e.type == pygame.MOUSEBUTTONDOWN and e.button == 3) or \
@@ -1602,6 +1632,8 @@ class juego:
 
             if self.estado == "menu":
                 self.menu()
+            elif self.estado == "controles":
+                self.controles()
             elif self.estado == "jugando":
                 self.jugar(pausado=False)
             elif self.estado == "pausado":
