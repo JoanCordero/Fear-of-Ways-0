@@ -236,7 +236,7 @@ class enemigo:
     # --------------------------------------------------------
     # MOVIMIENTO CON INERCIA Y DETECCIÓN
     # --------------------------------------------------------
-    def mover(self, muros, ancho, alto, jugador, escondites):
+    def mover(self, muros, ancho, alto, jugador):
         self.reducir_recargas()
 
         dx = jugador.rect.centerx - self.rect.centerx

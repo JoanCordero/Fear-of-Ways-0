@@ -1,6 +1,5 @@
 import pygame
 import random
-import os
 from pared import pared
 from salida import salida
 
@@ -12,7 +11,7 @@ ICONO_LLAVE = None
 TEXTURA_SUELO = None  # Valor inicial, será reemplazado
 
 class nivel:
-    """Define un nivel con su laberinto, enemigos, salida y escondites"""
+    """Define un nivel con su laberinto, enemigos y salida"""
     def __init__(self, numero, semilla=None):
         # identificación del nivel
         self.numero = numero
@@ -32,19 +31,17 @@ class nivel:
         self.muros = []
         self.salida = None
         self.spawn_enemigos = []
-        self.escondites = []  # zonas seguras donde el jugador puede ocultarse
 
         # dimensiones generales del mapa (más grandes que la pantalla)
         self.ancho = 2000
         self.alto = 1500
 
-        # generar estructura del nivel y escondites
+        # generar estructura del nivel
         self.crear_nivel()
         # una vez creado el nivel, pre-renderizar el suelo a una superficie grande
         # Esto evita artefactos de bordes y garantiza que el suelo cubra todo el laberinto.
         self._crear_surface_suelo()
-        self.generar_escondites_random(cantidad=random.randint(3, 5))
-        
+
         # Restaurar random a estado no determinista después de generar
         random.seed()
 
@@ -59,7 +56,7 @@ class nivel:
 
     def crear_nivel_1(self):
         """Nivel 1: Genera un laberinto procedural con habitaciones estilo cueva,
-        llaves repartidas, una puerta controlada por palanca y spawns distribuidos.
+        llaves repartidas y spawns distribuidos.
 
         Este método reemplaza el diseño estático anterior por un algoritmo basado
         en celdas conectadas. Se construye una grilla (cols × filas) donde cada
@@ -127,20 +124,6 @@ class nivel:
             rx = 20 + cx * tam + tam // 2 - 10
             ry = 20 + cy * tam + tam // 2 - 10
             self.llaves.append(pygame.Rect(rx, ry, 20, 20))
-
-        # prepara puertas y palancas
-        self.palancas = []
-        self._puertas_por_id = {}
-        # elige un cuello de botella en el grafo y coloca una puerta entre esas dos celdas
-        cuello = self._elige_cuello_bottleneck(celdas, cols, filas)
-        if cuello:
-            a, b = cuello
-            self._colocar_puerta_entre(a, b, tam, esp, puerta_id="A1")
-            # coloca la palanca en la celda más lejana desde b
-            px, py = self._celda_mas_lejana_desde(b, celdas, cols, filas)
-            prx = 20 + px * tam + tam // 2 - 12
-            pry = 20 + py * tam + tam // 2 - 12
-            self.palancas.append(pygame.Rect(prx, pry, 24, 24))
 
     def crear_nivel_2(self):
         """Nivel 2: laberinto con forma de espiral hacia el centro"""
@@ -236,44 +219,6 @@ class nivel:
             (1100, 850), (1250, 350), (1600, 350), (1450, 950),
             (1300, 1250), (1750, 1200)
         ]
-
-    def generar_escondites_random(self, cantidad=3, tam=(140, 100), margen=30, intentos_max=400):
-        """Crea zonas seguras aleatorias evitando muros, salida y spawns"""
-        w, h = tam
-        self.escondites = []
-        muros_rects = [m.rect for m in self.muros]
-        salida_rect = self.salida.rect if self.salida else None
-
-        # verifica si choca con muros
-        def choca_con_muros(r):
-            inflados = [m.inflate(margen * 2, margen * 2) for m in muros_rects]
-            return any(r.colliderect(mr) for mr in inflados)
-
-        # evita cercanía a los puntos de spawn
-        def cerca_de_spawns(r, radio=120):
-            for sx, sy in self.spawn_enemigos:
-                area_spawn = pygame.Rect(sx - radio, sy - radio, radio * 2, radio * 2)
-                if r.colliderect(area_spawn):
-                    return True
-            return False
-
-        intentos = 0
-        while len(self.escondites) < cantidad and intentos < intentos_max:
-            intentos += 1
-            x = random.randint(20, self.ancho - w - 20)
-            y = random.randint(20, self.alto - h - 20)
-            zona = pygame.Rect(x, y, w, h)
-
-            if choca_con_muros(zona):
-                continue
-            if salida_rect and zona.inflate(40, 40).colliderect(salida_rect):
-                continue
-            if any(zona.inflate(20, 20).colliderect(e) for e in self.escondites):
-                continue
-            if cerca_de_spawns(zona, radio=140):
-                continue
-
-            self.escondites.append(zona)
 
     def obtener_spawn_jugador_seguro(self, tamaño_jugador=30):
         """Encuentra una posición inicial válida para el jugador.
@@ -412,14 +357,6 @@ class nivel:
         for muro in self.muros:
             muro.dibujar(ventana, camara)
 
-        # dibuja zonas seguras semitransparentes
-        for r in self.escondites:
-            rp = camara.aplicar(r)
-            zona = pygame.Surface((rp.w, rp.h), pygame.SRCALPHA)
-            zona.fill((30, 120, 180, 90))
-            pygame.draw.rect(zona, (220, 240, 255, 140), zona.get_rect(), 2)
-            ventana.blit(zona, (rp.x, rp.y))
-
         # dibuja salida
         # la salida se colorea diferente si aún hay llaves pendientes
         bloqueada = False
@@ -443,12 +380,6 @@ class nivel:
                 # Fallback: rectángulo visible
                 pygame.draw.rect(ventana, (240, 220, 40), rp)
                 pygame.draw.rect(ventana, (255, 255, 120), rp, 2)
-
-        # dibuja palancas
-        for r in getattr(self, "palancas", []):
-            rp = camara.aplicar(r)
-            pygame.draw.rect(ventana, (60, 140, 255), rp)
-            pygame.draw.rect(ventana, (180, 220, 255), rp, 2)
 
     def _crear_surface_suelo(self):
         """Pre-renderiza el suelo en una superficie del tamaño del mapa.
@@ -541,8 +472,8 @@ class nivel:
     def _romper_paredes_aleatorias(self, paredes, cols, filas, cantidad, tam, esp):
         """Elimina `cantidad` de muros de la lista de muros para crear rutas alternativas.
 
-        Solo considera muros que no son puertas. Se basa en las posiciones de
-        `self.muros` para identificar el rectángulo asociado a la pared.
+        Se basa en las posiciones de `self.muros` para identificar el rectángulo
+        asociado a la pared dentro del mapa generado.
         """
         paredes_lista = list(paredes)
         random.shuffle(paredes_lista)
@@ -560,9 +491,9 @@ class nivel:
                 rx = 20 + (min(x, nx) + 1) * tam - esp // 2
                 ry = 20 + y * tam
                 w, h = esp, tam
-            # busca ese muro en la lista y lo elimina si no es puerta
+            # busca ese muro en la lista y lo elimina
             for m in list(self.muros):
-                if m.rect.x == rx and m.rect.y == ry and m.rect.w == w and m.rect.h == h and not getattr(m, "puerta", False):
+                if m.rect.x == rx and m.rect.y == ry and m.rect.w == w and m.rect.h == h:
                     self.muros.remove(m)
                     rotas += 1
                     break
@@ -602,37 +533,6 @@ class nivel:
             py = 20 + cy * tam + tam // 2
             pts.append((px, py))
         return pts
-
-    def _elige_cuello_bottleneck(self, celdas, cols, filas):
-        """Selecciona un par de celdas conectadas que forman un cuello de botella.
-
-        Busca aristas entre celdas cuyo grado combinado sea alto (es decir, están
-        en una intersección concurrida), de modo que bloquearlas tenga un
-        impacto notable en la navegación.
-        """
-        candidatos = []
-        for (x, y), vs in celdas.items():
-            for (nx, ny) in vs:
-                if (x, y) < (nx, ny):
-                    grado = len(vs) + len(celdas.get((nx, ny), []))
-                    if grado >= 5:
-                        candidatos.append(((x, y), (nx, ny)))
-        return random.choice(candidatos) if candidatos else None
-
-    def _colocar_puerta_entre(self, a, b, tam, esp, puerta_id="A1"):
-        """Coloca una puerta entre dos celdas adyacentes y la registra por id."""
-        (x, y), (nx, ny) = a, b
-        if x == nx:
-            rx = 20 + x * tam
-            ry = 20 + (min(y, ny) + 1) * tam - esp // 2
-            w, h = tam, esp
-        else:
-            rx = 20 + (min(x, nx) + 1) * tam - esp // 2
-            ry = 20 + y * tam
-            w, h = esp, tam
-        p = pared(rx, ry, w, h, puerta=True, abierta=False, id_puerta=puerta_id)
-        self.muros.append(p)
-        self._puertas_por_id.setdefault(puerta_id, []).append(p)
 
     def _crear_habitaciones(self, celdas, paredes, cols, filas, num_habitaciones=4):
         """Genera habitaciones de 3×3 celdas uniendo completamente sus paredes.
