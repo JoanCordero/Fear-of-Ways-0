@@ -581,7 +581,7 @@ class juego:
         self.nivel_actual.dibujar(area_juego, self.camara)
         for enemigo_actual in list(self.enemigos):
             if not pausado and not tutorial_activo:
-                enemigo_actual.mover(muros_bloq, self.nivel_actual.ancho, self.nivel_actual.alto, self.jugador, self.nivel_actual.escondites)
+                enemigo_actual.mover(muros_bloq, self.nivel_actual.ancho, self.nivel_actual.alto, self.jugador)
             enemigo_actual.dibujar(area_juego, self.camara)
 
             # Los enemigos ya NO dañan por contacto directo
@@ -699,28 +699,6 @@ class juego:
                         self.mensaje_temporal = f"¡Llave recogida! Faltan {llaves_restantes}"
                         self.mensaje_timer = 90  # 1.5 segundos
         
-        # Interactuar con palancas (presionar E cerca de una palanca)
-        if not pausado and not tutorial_activo:
-            teclas = pygame.key.get_pressed()
-            if teclas[pygame.K_e]:
-                for i, palanca_rect in enumerate(getattr(self.nivel_actual, "palancas", [])):
-                    # Verificar si el jugador está cerca de la palanca
-                    if self.jugador.rect.inflate(40, 40).colliderect(palanca_rect):
-                        # Activar/desactivar la puerta correspondiente
-                        id_puerta = self.obtener_id_puerta_por_indice(i)
-                        if id_puerta and id_puerta in self.nivel_actual._puertas_por_id:
-                            puertas = self.nivel_actual._puertas_por_id[id_puerta]
-                            for puerta in puertas:
-                                puerta.abierta = not puerta.abierta
-                                # No necesitamos establecer bloquea, es una propiedad calculada automáticamente
-                            
-                            estado = "abierta" if puertas[0].abierta else "cerrada"
-                            self.mensaje_temporal = f"¡Puerta {estado}!"
-                            self.mensaje_timer = 60
-                            if self.sonido_bonus:
-                                self.sonido_bonus.play()
-                            break
-
         # Proyectiles y colisiones (solo mover si no está pausado y tutorial no activo)
         for bala in list(self.proyectiles):
             if not pausado and not tutorial_activo:
@@ -774,7 +752,7 @@ class juego:
             # Texto del mensaje
             self.dibujar_texto(self.mensaje_temporal, int(alto * 0.05), color_msg, ancho // 2, msg_y + int(alto * 0.05))
         
-        # Verificar proximidad a la puerta de salida y mostrar mensaje (solo si no está pausado y tutorial no activo)
+        # Verificar proximidad a la salida y mostrar mensaje (solo si no está pausado y tutorial no activo)
         if not pausado and not tutorial_activo and self.nivel_actual.salida:
             llaves_restantes = len(getattr(self.nivel_actual, "llaves", []))
             cerca, mensaje = self.nivel_actual.salida.verificar_proximidad_jugador(
@@ -784,16 +762,6 @@ class juego:
                 indicador_y = int(alto * 0.15)
                 color_texto = (255, 100, 100) if llaves_restantes > 0 else (100, 255, 100)
                 self.dibujar_texto(mensaje, int(alto * 0.04), color_texto, ancho // 2, indicador_y)
-        
-        # Indicador de interacción con palancas (solo si no está pausado y tutorial no activo)
-        if not pausado and not tutorial_activo:
-            for palanca_rect in getattr(self.nivel_actual, "palancas", []):
-                if self.jugador.rect.inflate(40, 40).colliderect(palanca_rect):
-                    # Mostrar indicador de "Presiona E"
-                    indicador_y = int(alto * 0.15)
-                    self.dibujar_texto("[E] para activar palanca", int(alto * 0.04), 
-                                      (255, 255, 100), ancho // 2, indicador_y)
-                    break
         
         # Dibujar mira personalizada (solo si no está pausado y tutorial no activo)
         if not pausado and not tutorial_activo:
@@ -2990,10 +2958,10 @@ class juego:
         ]
         
         controles_der = [
-            "E - Activar palancas",
             "P/ESC - Pausar",
             "",
-            "Recoge llaves para escapar"
+            "Recoge llaves para escapar",
+            ""
         ]
         
         # Columna izquierda
@@ -3021,18 +2989,6 @@ class juego:
             self.sonido_golpe.set_volume(self.volumen_efectos * 0.7)
         if self.sonido_bonus:
             self.sonido_bonus.set_volume(self.volumen_efectos * 0.7)
-    
-    def obtener_id_puerta_por_indice(self, indice):
-        """Devuelve el ID de la puerta correspondiente al índice de la palanca según el nivel"""
-        if self.numero_nivel == 1:
-            return "A1" if indice == 0 else None
-        elif self.numero_nivel == 2:
-            mapeo = {0: "N2_P1", 1: "N2_P2", 2: "N2_P3"}
-            return mapeo.get(indice)
-        elif self.numero_nivel == 3:
-            mapeo = {0: "N3_P1", 1: "N3_P2", 2: "N3_P3", 3: "N3_P4", 4: "N3_P5"}
-            return mapeo.get(indice)
-        return None
     
     def guardar_resultado(self):
         with open("resultados.txt", "a", encoding="utf-8") as f:
