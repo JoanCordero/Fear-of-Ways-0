@@ -7,7 +7,12 @@ class salida:
 
     def __init__(self, x: int, y: int):
         # La salida ahora es del tamaño del jugador (35x50 píxeles)
-        self.rect = pygame.Rect(x, y, 35, 50)
+        # y se posiciona usando coordenadas centradas para coincidir con
+        # la celda objetivo del laberinto.
+        self._ancho_base, self._alto_base = 35, 50
+        ancho, alto = self._ancho_base, self._alto_base
+        self.rect = pygame.Rect(0, 0, ancho, alto)
+        self.rect.center = (x, y)
         self.color_bloqueada = (100, 40, 40)
         self.color_abierta = (40, 160, 80)
 
@@ -26,8 +31,8 @@ class salida:
         rect_pantalla = camara.aplicar(self.rect)
 
         # Escalar según el zoom de la cámara
-        ancho_escalado = max(1, int(35 * camara.zoom))
-        alto_escalado = max(1, int(50 * camara.zoom))
+        ancho_escalado = max(1, int(self._ancho_base * camara.zoom))
+        alto_escalado = max(1, int(self._alto_base * camara.zoom))
 
         textura = self._textura_bloqueada if bloqueada else self._textura_abierta
 

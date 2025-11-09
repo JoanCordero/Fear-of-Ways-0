@@ -121,9 +121,14 @@ class juego:
             "Sonido de llave",
             volumen_relativo=0.7
         )
+        self.sonido_rayo = self._cargar_sonido_opcional(
+            "audio",
+            "rayo",
+            "Sonido de rayo",
+            volumen_relativo=0.7
+        )
 
-        # Usar el sonido de golpe para bonus (alternativa)
-        self.sonido_bonus = self.sonido_golpe
+        # Usar el sonido de golpe como respaldo cuando falte algún efecto puntual
         print("Audio inicializado\n")
 
         # Carga de recursos gráficos para HUD y menú
@@ -689,8 +694,7 @@ class juego:
                     self.nivel_actual.bonus.remove(bonus)
                 elif tipo == "energia":
                     self.jugador.energia = min(self.jugador.energia_max, self.jugador.energia + 20)
-                    if self.sonido_bonus:
-                        self.sonido_bonus.play()
+                    self.reproducir_rayo()
                     self.nivel_actual.bonus.remove(bonus)
         
         # Recoger llaves (solo si no está pausado y tutorial no activo)
@@ -2847,6 +2851,12 @@ class juego:
     def reproducir_llave(self):
         self._reproducir_sonido(self.sonido_recoger_llave)
 
+    def reproducir_rayo(self):
+        if self.sonido_rayo:
+            self._reproducir_sonido(self.sonido_rayo)
+        else:
+            self._reproducir_sonido(self.sonido_golpe)
+
     def mostrar_mensaje(self, texto, duracion):
         self.mensaje_temporal = texto
         self.mensaje_timer = duracion
@@ -3095,8 +3105,6 @@ class juego:
             self.sonido_disparo.set_volume(self.volumen_efectos)
         if self.sonido_golpe:
             self.sonido_golpe.set_volume(self.volumen_efectos * 0.7)
-        if self.sonido_bonus:
-            self.sonido_bonus.set_volume(self.volumen_efectos * 0.7)
         for sonido in getattr(self, "sonidos_click_menu", []):
             sonido.set_volume(self.volumen_efectos * 0.5)
         if self.sonido_corazon:
@@ -3107,6 +3115,8 @@ class juego:
             self.sonido_pocion.set_volume(self.volumen_efectos * 0.7)
         if self.sonido_recoger_llave:
             self.sonido_recoger_llave.set_volume(self.volumen_efectos * 0.7)
+        if self.sonido_rayo:
+            self.sonido_rayo.set_volume(self.volumen_efectos * 0.7)
     
     def guardar_resultado(self):
         with open("resultados.txt", "a", encoding="utf-8") as f:
