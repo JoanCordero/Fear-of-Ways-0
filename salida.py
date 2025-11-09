@@ -70,3 +70,16 @@ class salida:
                 return (True, "¡Salida libre! Presiona para avanzar")
 
         return (False, "")
+
+    def _cargar_textura(self, nombre_principal: str, fallback: str | None = None):
+        """Intenta cargar y escalar una textura opcional para la salida."""
+
+        for nombre in filter(None, (nombre_principal, fallback)):
+            ruta = os.path.join(self._asset_dir, nombre)
+            if os.path.exists(ruta):
+                try:
+                    return pygame.image.load(ruta).convert_alpha()
+                except pygame.error:
+                    continue
+
+        return None
