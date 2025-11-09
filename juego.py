@@ -373,6 +373,12 @@ class juego:
         self.camara = camara(self.nivel_actual.ancho, self.nivel_actual.alto)
         self.enemigos.clear()
         self.proyectiles.clear()
+        
+        # Resetear el estado de todas las puertas (cerrarlas)
+        if hasattr(self.nivel_actual, '_puertas_por_id'):
+            for id_puerta, puertas in self.nivel_actual._puertas_por_id.items():
+                for puerta in puertas:
+                    puerta.abierta = False
 
         # Generar enemigos con diversidad - REDUCIDOS Y BALANCEADOS
         apariciones = list(self.nivel_actual.spawn_enemigos)
