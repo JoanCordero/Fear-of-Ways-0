@@ -1,0 +1,1 @@
+Lolo|1|800|8|Explorador|2|5|100|100|4|150|255,255,0|620|350|2|3|False|0|False|None|0|0|0|False|False|2025-11-09 13:19:28|7|2539666808|veloz:1955:0:2:5,acechador:1573:1213:3:3,bruto:450:1070:5:1,veloz:1895:750:2:4,veloz:1878:91:2:5,veloz:867:1455:2:4,acechador:1945:1370:3:3|vida:153:968,vision_clara:747:1126,super_velocidad:1514:679,vision_clara:1229:1058,energia:1635:979|4741

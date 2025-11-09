@@ -13,9 +13,20 @@ TEXTURA_SUELO = None  # Valor inicial, será reemplazado
 
 class nivel:
     """Define un nivel con su laberinto, enemigos, salida y escondites"""
-    def __init__(self, numero):
+    def __init__(self, numero, semilla=None):
         # identificación del nivel
         self.numero = numero
+        
+        # Semilla para generación procedural consistente
+        if semilla is None:
+            # Generar nueva semilla basada en el nivel y tiempo actual
+            import time
+            self.semilla = hash((numero, time.time())) % (2**32)
+        else:
+            self.semilla = semilla
+        
+        # Establecer la semilla de random para generación consistente
+        random.seed(self.semilla)
 
         # listas de objetos del mapa
         self.muros = []
@@ -33,6 +44,9 @@ class nivel:
         # Esto evita artefactos de bordes y garantiza que el suelo cubra todo el laberinto.
         self._crear_surface_suelo()
         self.generar_escondites_random(cantidad=random.randint(3, 5))
+        
+        # Restaurar random a estado no determinista después de generar
+        random.seed()
 
     def crear_nivel(self):
         # selecciona qué versión de nivel crear

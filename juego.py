@@ -37,9 +37,19 @@ class juego:
         self.enemigos_derrotados = 0  # Contador de enemigos
         self.volumen_musica = 0.3  # Volumen de música (0.0 a 1.0)
         self.volumen_efectos = 0.7  # Volumen de efectos (0.0 a 1.0)
-        self.mostrar_tutorial = True  # Mostrar tutorial en el primer nivel
-        self.tutorial_mostrado = False  # Controlar si ya se mostró
+        self.mostrar_tutorial = False  # No mostrar tutorial en el juego (ya hay pantalla de controles)
+        self.tutorial_mostrado = True  # Marcar como mostrado para que no bloquee controles
         self.menu_index = 0  # Índice de selección en el menú
+
+        # Sistema de guardado de partidas
+        self.nombre_jugador = ""  # Nombre del jugador actual
+        self.input_activo = False  # Si el campo de texto está activo
+        self.archivo_guardado = "partidas_guardadas.txt"  # Archivo de guardado
+        self.archivo_historial = "historial_jugadores.txt"  # Archivo de historial
+        self.archivo_campeones = "campeones.txt"  # Archivo de campeones
+        self._cargar_hitboxes = []  # Hitboxes para el menú de carga de partidas
+        self._borrar_hitboxes = []  # Hitboxes para los botones de borrar partidas
+        self._tab_puntuacion = "campeones"  # Tab activa en puntuaciones: "campeones" o "historico"
 
         # Configuración visual
         self.altura_header = 0.10
@@ -58,6 +68,14 @@ class juego:
         self.tiempo_restante = 0  # En frames (60 fps)
         self.tiempo_agotado = False
         self.spawn_enemigos_extra = 0  # Contador para spawnar enemigos cuando se acaba el tiempo
+        
+        # Cronómetro de partida (cuenta hacia arriba)
+        self.cronometro_frames = 0  # Tiempo en frames (60 fps)
+        self.cronometro_activo = False  # Se activa al empezar a jugar
+        self.tiempo_total_segundos = 0  # Tiempo total en segundos para guardar
+        
+        # Control para evitar guardar múltiples veces en historial
+        self.historial_guardado = False  # Flag para guardar solo una vez
 
         # Sistema de spawn progresivo de enemigos
         self.spawn_progresivo_activo = True
@@ -173,6 +191,16 @@ class juego:
             self.posion_img = None
             print(" Advertencia: images/posion.png no encontrado, se usará fallback")
         
+        # Cargar icono del cronómetro/reloj para el HUD (más grande que otros iconos)
+        try:
+            img = pygame.image.load(os.path.join(self._dir, 'images', 'tiempo.png')).convert_alpha()
+            tiempo_size = int(icon_size * 1.3)  # 30% más grande que otros iconos
+            self.tiempo_img = pygame.transform.smoothscale(img, (tiempo_size, tiempo_size))
+            print("Icono de tiempo/cronómetro cargado")
+        except (pygame.error, FileNotFoundError):
+            self.tiempo_img = None
+            print("Advertencia: images/tiempo.png no encontrado, se usará fallback")
+        
         print("Recursos gráficos inicializados\n")
 
         # Color de la barra de energía (más visible y coherente con la estética)
@@ -241,7 +269,7 @@ class juego:
         pantalla.blit(base, (ancho//2 - base.get_width()//2, int(alto*0.16)))
 
         # OPCIONES
-        opciones = ["Jugar", "Nueva Partida", "Cargar Partida"]
+        opciones = ["Nueva Partida", "Cargar Partida", "Puntuación"]
 
         # Subimos el bloque un poco: antes 0.45–0.72, ahora 0.40–0.67
         area_y_start = int(alto * 0.40)
@@ -253,6 +281,7 @@ class juego:
         except Exception:
             font_menu = pygame.font.Font(None, max(16, int(area_height / 6)))
 
+        # Crear superficies con color base
         surfaces = [font_menu.render(txt, True, (235, 225, 210)) for txt in opciones]
         heights  = [s.get_height() for s in surfaces]
         spacing  = int(area_height * 0.12)
@@ -262,19 +291,26 @@ class juego:
         mouse_pos = pygame.mouse.get_pos()
         self._menu_hitboxes = []
 
-        for i, surf in enumerate(surfaces):
-            x = ancho // 2 - surf.get_width() // 2
+        for i, txt in enumerate(opciones):
+            x = ancho // 2 - surfaces[i].get_width() // 2
             y = y_current
 
-            rect_hit = pygame.Rect(x - 18, y - 8, surf.get_width() + 36, surf.get_height() + 16)
+            rect_hit = pygame.Rect(x - 18, y - 8, surfaces[i].get_width() + 36, surfaces[i].get_height() + 16)
             self._menu_hitboxes.append((rect_hit, i))
 
             hovering = rect_hit.collidepoint(mouse_pos)
+            
+            # Renderizar texto con color según hover
             if hovering:
+                # Color resaltado cuando el mouse está encima
+                surf = font_menu.render(txt, True, (255, 215, 0))  # Dorado brillante
                 overlay = pygame.Surface((rect_hit.width, rect_hit.height), pygame.SRCALPHA)
                 overlay.fill((0, 0, 0, 90))
                 pantalla.blit(overlay, rect_hit.topleft)
-                pygame.draw.rect(pantalla, (210, 200, 180), rect_hit, 1, border_radius=8)
+                pygame.draw.rect(pantalla, (255, 215, 0), rect_hit, 1, border_radius=8)
+            else:
+                # Color normal
+                surf = surfaces[i]
 
             pantalla.blit(surf, (x, y))
             y_current += surf.get_height() + spacing
@@ -289,7 +325,7 @@ class juego:
         self._guardado = False
         self.puntos = 0  # Resetear puntuación
         self.enemigos_derrotados = 0  # Resetear contador
-        self.tutorial_mostrado = False  # Resetear tutorial
+        self.tutorial_mostrado = True  # Mantener como mostrado (ya se muestra en pantalla de controles)
         if tipo_personaje == 1:
             self.jugador = jugador("Explorador", AMARILLO, velocidad=4, energia=100, vision=150)
         elif tipo_personaje == 2:
@@ -302,6 +338,14 @@ class juego:
         self.resultado = ""
         self.estado = "controles"
         pygame.mouse.set_visible(True)   # mostramos el mouse en la pantalla de controles
+        
+        # Inicializar cronómetro
+        self.cronometro_frames = 0
+        self.cronometro_activo = False  # Se activará cuando empiece a jugar
+        self.tiempo_total_segundos = 0
+        
+        # Resetear bandera de historial
+        self.historial_guardado = False
 
 
     def activar_temporizador(self):
@@ -320,12 +364,12 @@ class juego:
         else:
             self.tiempo_restante = 60 * 60   # Por defecto 1 minuto
 
-    def cargar_nivel(self, numero):
+    def cargar_nivel(self, numero, semilla_mapa=None):
         self.numero_nivel = numero
         # Limpiar nivel anterior completamente
         self.nivel_actual = None
-        # Crear nuevo nivel con llaves frescas
-        self.nivel_actual = nivel(numero)
+        # Crear nuevo nivel con llaves frescas (usar semilla si se proporciona)
+        self.nivel_actual = nivel(numero, semilla=semilla_mapa)
         self.camara = camara(self.nivel_actual.ancho, self.nivel_actual.alto)
         self.enemigos.clear()
         self.proyectiles.clear()
@@ -487,6 +531,11 @@ class juego:
             muros_bloq = [m for m in self.nivel_actual.muros if getattr(m, "bloquea", True)]
             self.jugador.mover(teclas, muros_bloq, self.nivel_actual.ancho, self.nivel_actual.alto)
             
+            # Actualizar cronómetro (cuenta hacia arriba)
+            if self.cronometro_activo:
+                self.cronometro_frames += 1
+                self.tiempo_total_segundos = self.cronometro_frames // 60
+            
             # Actualizar temporizador si está activo
             if self.temporizador_activo and self.tiempo_restante > 0:
                 self.tiempo_restante -= 1
@@ -541,6 +590,12 @@ class juego:
             if not pausado and not tutorial_activo and self.jugador.vida <= 0:
                 self.resultado = "perdiste"
                 self.estado = "fin"
+                # Guardar en historial y eliminar la partida guardada cuando el jugador muere (SOLO UNA VEZ)
+                if self.nombre_jugador and not self.historial_guardado:
+                    self.guardar_en_historial()
+                    self.borrar_partida(self.nombre_jugador)
+                    self.historial_guardado = True  # Marcar como guardado
+                    print(f"Partida de {self.nombre_jugador} guardada en historial y eliminada")
 
         # Actualizar duración de power-ups activos
         if not pausado and not tutorial_activo and self.powerup_duracion > 0:
@@ -762,9 +817,20 @@ class juego:
                 # Mostrar pantalla de transición con estadísticas
                 self.pantalla_nivel_completado(tiempo_bonus)
                 self.cargar_nivel(self.numero_nivel + 1)
+                # Guardar progreso automáticamente al pasar de nivel
+                if self.nombre_jugador:
+                    self.guardar_partida()
             else:
                 self.resultado = "ganaste"
                 self.estado = "fin"
+                # Detener cronómetro y guardar como campeón (SOLO UNA VEZ)
+                if self.nombre_jugador and not self.historial_guardado:
+                    self.cronometro_activo = False  # Detener cronómetro
+                    self.guardar_campeon(self.tiempo_total_segundos)
+                    self.guardar_en_historial()
+                    self.borrar_partida(self.nombre_jugador)  # Eliminar de partidas guardadas
+                    self.historial_guardado = True  # Marcar como guardado
+                    print(f"¡{self.nombre_jugador} completó el juego en {self.tiempo_total_segundos}s!")
 
     # -------------------------------------------------------
     # HEADER (HUD) - Formato Simple Horizontal
@@ -809,6 +875,30 @@ class juego:
             txt = font_key.render(f"{llaves_recogidas}/{llaves_totales}", True, (240, 220, 100))
             pantalla.blit(txt, (x_cursor, y_center - txt.get_height() // 2))
             x_cursor += txt.get_width() + 5
+        
+        # Mostrar cronómetro (tiempo jugado)
+        if self.cronometro_activo:
+            x_cursor += 20  # Espacio adicional
+            
+            # Dibujar icono del cronómetro si está disponible
+            if self.tiempo_img:
+                t_w, t_h = self.tiempo_img.get_size()
+                pantalla.blit(self.tiempo_img, (x_cursor, y_center - t_h // 2))
+                x_cursor += t_w + 5
+            
+            # Dibujar el tiempo
+            minutos = self.tiempo_total_segundos // 60
+            segundos = self.tiempo_total_segundos % 60
+            font_crono_size = max(12, int(alto_header * 0.35))
+            try:
+                font_crono = pygame.font.Font(self.font_path, font_crono_size)
+            except Exception:
+                font_crono = pygame.font.Font(None, font_crono_size)
+            crono_text = f"{minutos:02d}:{segundos:02d}"
+            txt_crono = font_crono.render(crono_text, True, (180, 180, 220))
+            pantalla.blit(txt_crono, (x_cursor, y_center - txt_crono.get_height() // 2))
+            x_cursor += txt_crono.get_width() + 5
+        
         # Barra de energía y icono de rayo
         bar_width = int(ancho * 0.15)
         bar_height = int(alto_header * 0.3)
@@ -1238,6 +1328,7 @@ class juego:
         except Exception:
             font_menu = pygame.font.Font(None, max(16, int(area_height / 6)))
 
+        # Crear superficies con color base
         surfaces = [font_menu.render(txt, True, (235, 225, 210)) for txt in opciones]
         heights  = [s.get_height() for s in surfaces]
         spacing  = int(area_height * 0.12)
@@ -1247,19 +1338,26 @@ class juego:
         mouse_pos = pygame.mouse.get_pos()
         self._pause_hitboxes = []
 
-        for i, surf in enumerate(surfaces):
-            x = ancho // 2 - surf.get_width() // 2
+        for i, txt in enumerate(opciones):
+            x = ancho // 2 - surfaces[i].get_width() // 2
             y = y_current
 
-            rect_hit = pygame.Rect(x - 18, y - 8, surf.get_width() + 36, surf.get_height() + 16)
+            rect_hit = pygame.Rect(x - 18, y - 8, surfaces[i].get_width() + 36, surfaces[i].get_height() + 16)
             self._pause_hitboxes.append((rect_hit, i))
 
             hovering = rect_hit.collidepoint(mouse_pos)
+            
+            # Renderizar texto con color según hover
             if hovering:
+                # Color resaltado cuando el mouse está encima
+                surf = font_menu.render(txt, True, (100, 255, 100))  # Verde brillante
                 overlay_btn = pygame.Surface((rect_hit.width, rect_hit.height), pygame.SRCALPHA)
                 overlay_btn.fill((0, 0, 0, 90))
                 pantalla.blit(overlay_btn, rect_hit.topleft)
-                pygame.draw.rect(pantalla, (210, 200, 180), rect_hit, 1, border_radius=8)
+                pygame.draw.rect(pantalla, (100, 255, 100), rect_hit, 1, border_radius=8)
+            else:
+                # Color normal
+                surf = surfaces[i]
 
             pantalla.blit(surf, (x, y))
             y_current += surf.get_height() + spacing
@@ -1332,11 +1430,14 @@ class juego:
         self._controles_btn_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
 
         hovering = self._controles_btn_rect.collidepoint(pygame.mouse.get_pos())
+        
+        # Renderizar texto con color según hover
         if hovering:
+            btn_surf = font_btn.render("Continuar", True, (255, 215, 0))  # Dorado brillante
             overlay = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 90))
             pantalla.blit(overlay, (btn_x, btn_y))
-            pygame.draw.rect(pantalla, (210, 200, 180), self._controles_btn_rect, 1, border_radius=8)
+            pygame.draw.rect(pantalla, (255, 215, 0), self._controles_btn_rect, 1, border_radius=8)
 
         # Texto del botón
         pantalla.blit(btn_surf, (ancho//2 - btn_surf.get_width()//2, btn_y + (btn_h - btn_surf.get_height())//2))
@@ -1444,6 +1545,884 @@ class juego:
             self.guardar_resultado()
             self._guardado = True
 
+    def pantalla_puntuacion(self):
+        """Pantalla de puntuaciones - Muestra ranking de jugadores con dos pestañas"""
+        pantalla = pygame.display.get_surface()
+        ancho, alto = pantalla.get_size()
+        
+        # Fondo similar al menú
+        fondo_path = os.path.join(self._dir, 'images', 'menu_background.png')
+        if os.path.isfile(fondo_path):
+            try:
+                bg = pygame.image.load(fondo_path).convert()
+                bg = pygame.transform.scale(bg, (ancho, alto))
+                pantalla.blit(bg, (0, 0))
+            except Exception:
+                pantalla.fill((10, 10, 20))
+        else:
+            pantalla.fill((10, 10, 20))
+        
+        # Título
+        title_size = int(alto * 0.085)
+        try:
+            font_title = pygame.font.Font(self.font_path_title, title_size)
+        except Exception:
+            font_title = pygame.font.Font(None, title_size)
+
+        titulo = "Puntuaciones"
+        base = font_title.render(titulo, True, (240, 235, 220))
+        for dx, dy in ((-2,0),(2,0),(0,-2),(0,2)):
+            sombra = font_title.render(titulo, True, (20, 20, 25))
+            pantalla.blit(sombra, (ancho//2 - base.get_width()//2 + dx, int(alto*0.18) + dy))
+        pantalla.blit(base, (ancho//2 - base.get_width()//2, int(alto*0.18)))
+        
+        # Pestañas
+        try:
+            font_tab = pygame.font.Font(self.font_path, int(alto * 0.04))
+        except Exception:
+            font_tab = pygame.font.Font(None, int(alto * 0.04))
+        
+        tab_y = int(alto * 0.30)
+        tab1_text = "Campeones"
+        tab2_text = "Histórico"
+        
+        # Calcular posiciones de pestañas
+        tab1_surf = font_tab.render(tab1_text, True, (255, 255, 255))
+        tab2_surf = font_tab.render(tab2_text, True, (255, 255, 255))
+        
+        tab1_x = ancho // 2 - tab1_surf.get_width() - 30
+        tab2_x = ancho // 2 + 30
+        
+        # Almacenar hitboxes para las pestañas
+        self._tab_campeones_rect = pygame.Rect(tab1_x - 10, tab_y - 5, tab1_surf.get_width() + 20, tab1_surf.get_height() + 10)
+        self._tab_historico_rect = pygame.Rect(tab2_x - 10, tab_y - 5, tab2_surf.get_width() + 20, tab2_surf.get_height() + 10)
+        
+        # Dibujar pestañas
+        mouse_pos = pygame.mouse.get_pos()
+        
+        # Pestaña Campeones
+        if self._tab_puntuacion == "campeones":
+            pygame.draw.rect(pantalla, (255, 215, 0), self._tab_campeones_rect, 0, border_radius=5)
+            tab1_color = (0, 0, 0)
+        elif self._tab_campeones_rect.collidepoint(mouse_pos):
+            pygame.draw.rect(pantalla, (100, 100, 120), self._tab_campeones_rect, 0, border_radius=5)
+            tab1_color = (255, 255, 255)
+        else:
+            pygame.draw.rect(pantalla, (40, 40, 50), self._tab_campeones_rect, 0, border_radius=5)
+            tab1_color = (200, 200, 200)
+        
+        tab1_render = font_tab.render(tab1_text, True, tab1_color)
+        pantalla.blit(tab1_render, (tab1_x, tab_y))
+        
+        # Pestaña Histórico
+        if self._tab_puntuacion == "historico":
+            pygame.draw.rect(pantalla, (255, 215, 0), self._tab_historico_rect, 0, border_radius=5)
+            tab2_color = (0, 0, 0)
+        elif self._tab_historico_rect.collidepoint(mouse_pos):
+            pygame.draw.rect(pantalla, (100, 100, 120), self._tab_historico_rect, 0, border_radius=5)
+            tab2_color = (255, 255, 255)
+        else:
+            pygame.draw.rect(pantalla, (40, 40, 50), self._tab_historico_rect, 0, border_radius=5)
+            tab2_color = (200, 200, 200)
+        
+        tab2_render = font_tab.render(tab2_text, True, tab2_color)
+        pantalla.blit(tab2_render, (tab2_x, tab_y))
+        
+        # Contenido según la pestaña activa
+        y_inicial = alto * 0.40
+        
+        if self._tab_puntuacion == "campeones":
+            # Mostrar campeones (completaron el juego)
+            campeones = self.obtener_campeones()
+            
+            if not campeones:
+                self.dibujar_texto("No hay campeones aún", int(alto * 0.04), (190, 190, 200), ancho // 2, alto * 0.52)
+                self.dibujar_texto("¡Sé el primero en completar el juego!", int(alto * 0.03), (150, 150, 160), ancho // 2, alto * 0.60)
+            else:
+                # Encabezados
+                self.dibujar_texto("Pos", int(alto * 0.035), (255, 215, 0), ancho * 0.18, y_inicial)
+                self.dibujar_texto("Nombre", int(alto * 0.035), (255, 215, 0), ancho * 0.38, y_inicial)
+                self.dibujar_texto("Puntos", int(alto * 0.035), (255, 215, 0), ancho * 0.60, y_inicial)
+                self.dibujar_texto("Tiempo", int(alto * 0.035), (255, 215, 0), ancho * 0.82, y_inicial)
+                
+                # Mostrar hasta 8 campeones
+                max_mostrar = min(8, len(campeones))
+                y_posicion = y_inicial + alto * 0.07
+                
+                for i in range(max_mostrar):
+                    campeon = campeones[i]
+                    
+                    # Color especial para podio
+                    if i == 0:
+                        color = (255, 215, 0)  # Oro
+                    elif i == 1:
+                        color = (192, 192, 192)  # Plata
+                    elif i == 2:
+                        color = (205, 127, 50)  # Bronce
+                    else:
+                        color = (200, 200, 210)
+                    
+                    # Posición
+                    self.dibujar_texto(f"{i+1}°", int(alto * 0.03), color, ancho * 0.18, y_posicion)
+                    
+                    # Nombre
+                    nombre_mostrar = campeon['nombre'] if len(campeon['nombre']) <= 12 else campeon['nombre'][:9] + "..."
+                    self.dibujar_texto(nombre_mostrar, int(alto * 0.03), color, ancho * 0.38, y_posicion)
+                    
+                    # Puntos
+                    self.dibujar_texto(str(campeon['puntos']), int(alto * 0.03), color, ancho * 0.60, y_posicion)
+                    
+                    # Tiempo (formatear como MM:SS)
+                    minutos = campeon['tiempo'] // 60
+                    segundos = campeon['tiempo'] % 60
+                    tiempo_str = f"{minutos:02d}:{segundos:02d}"
+                    self.dibujar_texto(tiempo_str, int(alto * 0.03), color, ancho * 0.82, y_posicion)
+                    
+                    y_posicion += alto * 0.055
+        
+        else:  # historico
+            # Mostrar histórico de todas las partidas
+            historial = self.obtener_historial()
+            
+            if not historial:
+                self.dibujar_texto("No hay historial de partidas", int(alto * 0.04), (190, 190, 200), ancho // 2, alto * 0.52)
+                self.dibujar_texto("¡Juega para aparecer aquí!", int(alto * 0.03), (150, 150, 160), ancho // 2, alto * 0.60)
+            else:
+                # Encabezados
+                self.dibujar_texto("Nombre", int(alto * 0.032), (255, 215, 0), ancho * 0.22, y_inicial)
+                self.dibujar_texto("Nivel", int(alto * 0.032), (255, 215, 0), ancho * 0.42, y_inicial)
+                self.dibujar_texto("Puntos", int(alto * 0.032), (255, 215, 0), ancho * 0.58, y_inicial)
+                self.dibujar_texto("Tiempo", int(alto * 0.032), (255, 215, 0), ancho * 0.73, y_inicial)
+                self.dibujar_texto("Enemigos", int(alto * 0.032), (255, 215, 0), ancho * 0.88, y_inicial)
+                
+                # Mostrar hasta 8 partidas
+                max_mostrar = min(8, len(historial))
+                y_posicion = y_inicial + alto * 0.065
+                
+                for i in range(max_mostrar):
+                    partida = historial[i]
+                    color = (200, 200, 210)
+                    
+                    # Nombre
+                    nombre_mostrar = partida['nombre'] if len(partida['nombre']) <= 10 else partida['nombre'][:7] + "..."
+                    self.dibujar_texto(nombre_mostrar, int(alto * 0.028), color, ancho * 0.22, y_posicion)
+                    
+                    # Nivel
+                    self.dibujar_texto(str(partida['nivel']), int(alto * 0.028), color, ancho * 0.42, y_posicion)
+                    
+                    # Puntos
+                    self.dibujar_texto(str(partida['puntos']), int(alto * 0.028), color, ancho * 0.58, y_posicion)
+                    
+                    # Tiempo (formatear como MM:SS)
+                    minutos = partida['tiempo'] // 60
+                    segundos = partida['tiempo'] % 60
+                    tiempo_str = f"{minutos:02d}:{segundos:02d}"
+                    self.dibujar_texto(tiempo_str, int(alto * 0.028), color, ancho * 0.73, y_posicion)
+                    
+                    # Enemigos
+                    self.dibujar_texto(str(partida['enemigos']), int(alto * 0.028), color, ancho * 0.88, y_posicion)
+                    
+                    y_posicion += alto * 0.055
+        
+        # Instrucciones
+        self.dibujar_texto("Click en las pestañas para cambiar de vista", int(alto * 0.025), (150, 150, 160), ancho // 2, int(alto * 0.85))
+        self.dibujar_texto("ESC para volver al menú", int(alto * 0.03), (190, 190, 200), ancho // 2, int(alto * 0.90))
+
+    def pantalla_cargar_partida(self):
+        """Pantalla para cargar partidas guardadas"""
+        pantalla = pygame.display.get_surface()
+        ancho, alto = pantalla.get_size()
+        
+        # Fondo similar al menú
+        fondo_path = os.path.join(self._dir, 'images', 'menu_background.png')
+        if os.path.isfile(fondo_path):
+            try:
+                bg = pygame.image.load(fondo_path).convert()
+                bg = pygame.transform.scale(bg, (ancho, alto))
+                pantalla.blit(bg, (0, 0))
+            except Exception:
+                pantalla.fill((10, 10, 20))
+        else:
+            pantalla.fill((10, 10, 20))
+        
+        # Título
+        title_size = int(alto * 0.085)
+        try:
+            font_title = pygame.font.Font(self.font_path_title, title_size)
+        except Exception:
+            font_title = pygame.font.Font(None, title_size)
+
+        titulo = "Cargar Partida"
+        base = font_title.render(titulo, True, (240, 235, 220))
+        for dx, dy in ((-2,0),(2,0),(0,-2),(0,2)):
+            sombra = font_title.render(titulo, True, (20, 20, 25))
+            pantalla.blit(sombra, (ancho//2 - base.get_width()//2 + dx, int(alto*0.18) + dy))
+        pantalla.blit(base, (ancho//2 - base.get_width()//2, int(alto*0.18)))
+        
+        # Obtener partidas guardadas
+        partidas = self.obtener_partidas_guardadas()
+        
+        if not partidas:
+            # No hay partidas guardadas
+            self.dibujar_texto("No hay partidas guardadas", int(alto * 0.045), (235, 225, 210), ancho // 2, alto * 0.5)
+            self.dibujar_texto("ESC para volver", int(alto * 0.03), (190, 190, 200), ancho // 2, int(alto * 0.90))
+        else:
+            # Mostrar lista de partidas
+            try:
+                font_menu = pygame.font.Font(self.font_path, int(alto * 0.04))
+            except Exception:
+                font_menu = pygame.font.Font(None, int(alto * 0.04))
+            
+            area_y_start = int(alto * 0.35)
+            spacing = int(alto * 0.08)
+            
+            mouse_pos = pygame.mouse.get_pos()
+            self._cargar_hitboxes = []
+            self._borrar_hitboxes = []  # Hitboxes para los botones de borrar
+            
+            try:
+                font_delete = pygame.font.Font(self.font_path, int(alto * 0.03))
+            except Exception:
+                font_delete = pygame.font.Font(None, int(alto * 0.03))
+            
+            for i, (nombre, datos) in enumerate(partidas.items()):
+                y = area_y_start + i * spacing
+                
+                # Información de la partida
+                texto = f"{nombre} - Nivel {datos['nivel']} - {datos['puntos']} pts"
+                surf_normal = font_menu.render(texto, True, (235, 225, 210))
+                
+                # Calcular posición centrada pero dejando espacio para el botón borrar
+                total_width = surf_normal.get_width() + int(ancho * 0.12)  # Espacio para botón
+                x = ancho // 2 - total_width // 2
+                
+                rect_hit = pygame.Rect(x, y - 8, surf_normal.get_width() + 20, surf_normal.get_height() + 16)
+                self._cargar_hitboxes.append((rect_hit, nombre))
+                
+                hovering = rect_hit.collidepoint(mouse_pos)
+                
+                # Renderizar texto con color según hover
+                if hovering:
+                    surf = font_menu.render(texto, True, (100, 255, 100))
+                    overlay = pygame.Surface((rect_hit.width, rect_hit.height), pygame.SRCALPHA)
+                    overlay.fill((0, 0, 0, 90))
+                    pantalla.blit(overlay, rect_hit.topleft)
+                    pygame.draw.rect(pantalla, (100, 255, 100), rect_hit, 1, border_radius=8)
+                else:
+                    surf = surf_normal
+                
+                pantalla.blit(surf, (x, y))
+                
+                # Botón de borrar
+                delete_text = "[X] Borrar"
+                delete_x = x + surf_normal.get_width() + int(ancho * 0.05)
+                delete_rect = pygame.Rect(delete_x - 10, y - 8, int(ancho * 0.09), surf_normal.get_height() + 16)
+                self._borrar_hitboxes.append((delete_rect, nombre))
+                
+                hovering_delete = delete_rect.collidepoint(mouse_pos)
+                
+                if hovering_delete:
+                    delete_surf = font_delete.render(delete_text, True, (255, 100, 100))
+                    overlay = pygame.Surface((delete_rect.width, delete_rect.height), pygame.SRCALPHA)
+                    overlay.fill((0, 0, 0, 90))
+                    pantalla.blit(overlay, delete_rect.topleft)
+                    pygame.draw.rect(pantalla, (255, 100, 100), delete_rect, 1, border_radius=8)
+                else:
+                    delete_surf = font_delete.render(delete_text, True, (200, 150, 150))
+                
+                pantalla.blit(delete_surf, (delete_x, y))
+            
+            # Instrucciones
+            self.dibujar_texto("Click en una partida para cargarla", int(alto * 0.03), (190, 190, 200), ancho // 2, int(alto * 0.85))
+            self.dibujar_texto("ESC para volver", int(alto * 0.03), (190, 190, 200), ancho // 2, int(alto * 0.90))
+
+    def pantalla_registro(self):
+        """Pantalla para ingresar el nombre del jugador"""
+        pantalla = pygame.display.get_surface()
+        ancho, alto = pantalla.get_size()
+        
+        # Fondo similar al menú
+        fondo_path = os.path.join(self._dir, 'images', 'menu_background.png')
+        if os.path.isfile(fondo_path):
+            try:
+                bg = pygame.image.load(fondo_path).convert()
+                bg = pygame.transform.scale(bg, (ancho, alto))
+                pantalla.blit(bg, (0, 0))
+            except Exception:
+                pantalla.fill((10, 10, 20))
+        else:
+            pantalla.fill((10, 10, 20))
+        
+        # Título
+        title_size = int(alto * 0.085)
+        try:
+            font_title = pygame.font.Font(self.font_path_title, title_size)
+        except Exception:
+            font_title = pygame.font.Font(None, title_size)
+
+        titulo = "Nueva Partida"
+        base = font_title.render(titulo, True, (240, 235, 220))
+        for dx, dy in ((-2,0),(2,0),(0,-2),(0,2)):
+            sombra = font_title.render(titulo, True, (20, 20, 25))
+            pantalla.blit(sombra, (ancho//2 - base.get_width()//2 + dx, int(alto*0.18) + dy))
+        pantalla.blit(base, (ancho//2 - base.get_width()//2, int(alto*0.18)))
+        
+        # Instrucción
+        try:
+            font_body = pygame.font.Font(self.font_path, int(alto * 0.04))
+        except Exception:
+            font_body = pygame.font.Font(None, int(alto * 0.04))
+        
+        self.dibujar_texto("Ingresa tu nombre:", int(alto * 0.045), (235, 225, 210), ancho // 2, alto * 0.38)
+        
+        # Campo de texto
+        input_width = int(ancho * 0.5)
+        input_height = int(alto * 0.08)
+        input_x = ancho // 2 - input_width // 2
+        input_y = int(alto * 0.48)
+        
+        input_rect = pygame.Rect(input_x, input_y, input_width, input_height)
+        
+        # Fondo del campo de texto
+        pygame.draw.rect(pantalla, (40, 40, 50), input_rect, border_radius=8)
+        pygame.draw.rect(pantalla, (255, 215, 0), input_rect, 2, border_radius=8)
+        
+        # Texto ingresado
+        try:
+            font_input = pygame.font.Font(self.font_path, int(alto * 0.045))
+        except Exception:
+            font_input = pygame.font.Font(None, int(alto * 0.045))
+        
+        texto_display = self.nombre_jugador if self.nombre_jugador else ""
+        
+        # Cursor parpadeante
+        tiempo = pygame.time.get_ticks()
+        mostrar_cursor = (tiempo // 500) % 2 == 0
+        if mostrar_cursor and self.input_activo:
+            texto_display += "|"
+        
+        texto_surf = font_input.render(texto_display, True, (255, 255, 255))
+        pantalla.blit(texto_surf, (input_x + 20, input_y + (input_height - texto_surf.get_height()) // 2))
+        
+        # Botón Continuar (solo si hay texto)
+        if len(self.nombre_jugador) > 0:
+            try:
+                font_btn = pygame.font.Font(self.font_path, int(alto * 0.04))
+            except Exception:
+                font_btn = pygame.font.Font(None, int(alto * 0.04))
+
+            btn_surf_normal = font_btn.render("Continuar", True, (235, 225, 210))
+            btn_w, btn_h = btn_surf_normal.get_width() + 36, btn_surf_normal.get_height() + 16
+            btn_x = ancho//2 - btn_w//2
+            btn_y = int(alto * 0.68)
+
+            self._registro_btn_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
+
+            hovering = self._registro_btn_rect.collidepoint(pygame.mouse.get_pos())
+            
+            # Renderizar texto con color según hover
+            if hovering:
+                btn_surf = font_btn.render("Continuar", True, (255, 215, 0))
+                overlay = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+                overlay.fill((0, 0, 0, 90))
+                pantalla.blit(overlay, (btn_x, btn_y))
+                pygame.draw.rect(pantalla, (255, 215, 0), self._registro_btn_rect, 1, border_radius=8)
+            else:
+                btn_surf = btn_surf_normal
+
+            pantalla.blit(btn_surf, (ancho//2 - btn_surf.get_width()//2, btn_y + (btn_h - btn_surf.get_height())//2))
+        
+        # Instrucciones
+        self.dibujar_texto("Escribe tu nombre y presiona ENTER", int(alto * 0.03), (190, 190, 200), ancho // 2, int(alto * 0.82))
+        self.dibujar_texto("ESC para cancelar", int(alto * 0.03), (190, 190, 200), ancho // 2, int(alto * 0.90))
+
+    # -------------------------------------------------------
+    # GUARDADO Y CARGA
+    # -------------------------------------------------------
+    def _serializar_enemigos(self):
+        """Convierte la lista de enemigos a formato: tipo:x:y:vida:velocidad,tipo:x:y:vida:velocidad,..."""
+        if not self.enemigos:
+            return "NONE"
+        
+        enemigos_data = []
+        for e in self.enemigos:
+            # Formato: tipo:x:y:vida:velocidad
+            tipo = getattr(e, 'tipo', 'normal')
+            x = int(e.rect.x)
+            y = int(e.rect.y)
+            vida = int(e.vida)
+            velocidad = int(e.velocidad)
+            enemigos_data.append(f"{tipo}:{x}:{y}:{vida}:{velocidad}")
+        
+        return ",".join(enemigos_data)
+    
+    def _deserializar_enemigos(self, data):
+        """Convierte el string serializado de nuevo a lista de enemigos"""
+        if not data or data == "NONE":
+            return []
+        
+        enemigos_restaurados = []
+        enemigos_str = data.split(',')
+        
+        for e_str in enemigos_str:
+            partes = e_str.split(':')
+            if len(partes) >= 5:
+                tipo = partes[0]
+                x = int(float(partes[1]))
+                y = int(float(partes[2]))
+                vida = int(float(partes[3]))
+                velocidad = int(float(partes[4]))
+                
+                # Crear enemigo con los datos guardados
+                from enemigo import enemigo as clase_enemigo
+                e = clase_enemigo(x, y, vida, tipo=tipo)
+                e.velocidad = velocidad
+                enemigos_restaurados.append(e)
+        
+        return enemigos_restaurados
+    
+    def _serializar_bonus(self):
+        """Convierte la lista de bonus (corazones, rayos, power-ups) a formato: tipo:x:y,tipo:x:y,..."""
+        if not hasattr(self.nivel_actual, 'bonus') or not self.nivel_actual.bonus:
+            return "NONE"
+        
+        bonus_data = []
+        for bonus in self.nivel_actual.bonus:
+            # Formato: tipo:x:y
+            tipo = bonus.get('tipo', 'vida')
+            rect = bonus.get('rect')
+            if rect:
+                x = int(rect.x)
+                y = int(rect.y)
+                bonus_data.append(f"{tipo}:{x}:{y}")
+        
+        return ",".join(bonus_data)
+    
+    def _deserializar_bonus(self, data):
+        """Convierte el string serializado de nuevo a lista de bonus"""
+        if not data or data == "NONE":
+            return []
+        
+        bonus_restaurados = []
+        bonus_str = data.split(',')
+        
+        for b_str in bonus_str:
+            partes = b_str.split(':')
+            if len(partes) >= 3:
+                tipo = partes[0]
+                x = int(float(partes[1]))
+                y = int(float(partes[2]))
+                
+                # Crear bonus con los datos guardados
+                bonus_restaurados.append({
+                    "rect": pygame.Rect(x, y, 15, 15),
+                    "tipo": tipo
+                })
+        
+        return bonus_restaurados
+    
+    def guardar_partida(self):
+        """Guarda el progreso completo del jugador en formato TXT"""
+        try:
+            # Leer partidas existentes
+            partidas = {}
+            if os.path.exists(self.archivo_guardado):
+                with open(self.archivo_guardado, 'r', encoding='utf-8') as f:
+                    for linea in f:
+                        linea = linea.strip()
+                        if linea and '|' in linea:
+                            partes = linea.split('|')
+                            if len(partes) >= 1:
+                                nombre = partes[0]
+                                partidas[nombre] = linea
+            
+            # Crear línea con TODOS los datos separados por |
+            datos = [
+                self.nombre_jugador,                                    # 0: Nombre
+                str(self.numero_nivel),                                 # 1: Nivel
+                str(self.puntos),                                       # 2: Puntos
+                str(self.enemigos_derrotados),                          # 3: Enemigos derrotados
+                self.jugador.nombre,                                    # 4: Personaje
+                str(self.jugador.vida),                                 # 5: Vida actual
+                str(self.jugador.vida_max),                             # 6: Vida máxima
+                str(self.jugador.energia),                              # 7: Energía actual
+                str(self.jugador.energia_max),                          # 8: Energía máxima
+                str(self.jugador.velocidad_base),                       # 9: Velocidad
+                str(self.jugador.vision),                               # 10: Visión
+                f"{self.jugador.color[0]},{self.jugador.color[1]},{self.jugador.color[2]}",  # 11: Color RGB
+                str(self.jugador.rect.x),                               # 12: Posición X
+                str(self.jugador.rect.y),                               # 13: Posición Y
+                str(len(getattr(self.nivel_actual, "llaves", []))),     # 14: Llaves restantes
+                str(getattr(self.nivel_actual, "llaves_requeridas", 3)), # 15: Llaves requeridas
+                str(self.temporizador_activo),                          # 16: Temporizador activo
+                str(self.tiempo_restante),                              # 17: Tiempo restante
+                str(self.tiempo_agotado),                               # 18: Tiempo agotado
+                str(self.powerup_activo if self.powerup_activo else "None"),  # 19: Power-up tipo
+                str(self.powerup_duracion),                             # 20: Power-up duración
+                str(self.vision_normal if hasattr(self, 'vision_normal') else self.jugador.vision),  # 21: Visión normal
+                str(self.velocidad_normal if hasattr(self, 'velocidad_normal') else self.jugador.velocidad_base),  # 22: Velocidad normal
+                str(self.disparo_doble),                                # 23: Disparo doble
+                str(self.escudo_activo),                                # 24: Escudo activo
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),           # 25: Fecha
+                str(len(self.enemigos)),                                # 26: Cantidad de enemigos vivos
+                str(getattr(self.nivel_actual, 'semilla', 0)),          # 27: Semilla del mapa
+                self._serializar_enemigos(),                            # 28: Datos de enemigos (tipo:x:y:vida:velocidad,...)
+                self._serializar_bonus(),                               # 29: Datos de bonus (tipo:x:y,tipo:x:y,...)
+                str(self.cronometro_frames)                             # 30: Tiempo del cronómetro en frames
+            ]
+            
+            linea_guardado = '|'.join(datos)
+            partidas[self.nombre_jugador] = linea_guardado
+            
+            # Escribir archivo
+            with open(self.archivo_guardado, 'w', encoding='utf-8') as f:
+                for nombre, linea in partidas.items():
+                    f.write(linea + '\n')
+            
+            semilla_guardada = getattr(self.nivel_actual, 'semilla', 'N/A')
+            bonus_count = len(getattr(self.nivel_actual, 'bonus', []))
+            print(f"Partida guardada para {self.nombre_jugador} - Nivel {self.numero_nivel}, Vida {self.jugador.vida}, Pos ({self.jugador.rect.x}, {self.jugador.rect.y}), Semilla: {semilla_guardada}, Enemigos: {len(self.enemigos)}, Bonus: {bonus_count}")
+            return True
+        except Exception as e:
+            print(f"Error al guardar partida: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    def cargar_partida(self, nombre):
+        """Carga una partida guardada desde formato TXT con TODOS los datos"""
+        try:
+            if not os.path.exists(self.archivo_guardado):
+                return False
+            
+            # Buscar la línea del jugador
+            linea_encontrada = None
+            with open(self.archivo_guardado, 'r', encoding='utf-8') as f:
+                for linea in f:
+                    linea = linea.strip()
+                    if linea and linea.startswith(nombre + '|'):
+                        linea_encontrada = linea
+                        break
+            
+            if not linea_encontrada:
+                return False
+            
+            # Parsear datos
+            partes = linea_encontrada.split('|')
+            if len(partes) < 26:
+                print(f"Error: Formato de guardado incompleto ({len(partes)} partes, se esperan al menos 26)")
+                return False
+            
+            # PASO 1: Extraer TODOS los datos del guardado
+            nombre_jugador = partes[0]
+            nivel = int(partes[1])
+            puntos = int(partes[2])
+            enemigos_derrotados = int(partes[3])
+            personaje = partes[4]
+            vida = int(float(partes[5]))
+            vida_max = int(float(partes[6]))
+            energia = int(float(partes[7]))
+            energia_max = int(float(partes[8]))
+            velocidad = int(float(partes[9]))
+            vision = int(float(partes[10]))
+            
+            # Parsear color RGB
+            color_rgb = partes[11].split(',')
+            color = (int(color_rgb[0]), int(color_rgb[1]), int(color_rgb[2]))
+            
+            pos_x = int(float(partes[12]))
+            pos_y = int(float(partes[13]))
+            llaves_restantes = int(float(partes[14]))
+            llaves_requeridas = int(float(partes[15]))
+            temporizador_activo = partes[16] == "True"
+            tiempo_restante = int(float(partes[17]))
+            tiempo_agotado = partes[18] == "True"
+            powerup_tipo = partes[19] if partes[19] != "None" else None
+            powerup_duracion = int(float(partes[20]))
+            vision_normal = int(float(partes[21]))
+            velocidad_normal = int(float(partes[22]))
+            disparo_doble = partes[23] == "True"
+            escudo_activo = partes[24] == "True"
+            
+            # Cantidad de enemigos vivos (nuevo campo, compatibilidad con guardados antiguos)
+            cantidad_enemigos_guardados = int(float(partes[26])) if len(partes) > 26 else None
+            
+            # Semilla del mapa (nuevo campo, compatibilidad con guardados antiguos)
+            semilla_mapa = int(float(partes[27])) if len(partes) > 27 else None
+            
+            # Datos de enemigos (nuevo campo, compatibilidad con guardados antiguos)
+            enemigos_data = partes[28] if len(partes) > 28 else None
+            
+            # Datos de bonus (nuevo campo, compatibilidad con guardados antiguos)
+            bonus_data = partes[29] if len(partes) > 29 else None
+            
+            # PASO 2: Crear jugador con los datos guardados
+            self.nombre_jugador = nombre_jugador
+            self.jugador = jugador(personaje, color, velocidad=velocidad, energia=energia_max, vision=vision)
+            
+            # PASO 3: Cargar el nivel con la MISMA semilla (esto genera el MISMO mapa)
+            print(f"Cargando nivel {nivel} con semilla: {semilla_mapa}")
+            self.cargar_nivel(nivel, semilla_mapa=semilla_mapa)
+            
+            # PASO 3.5: Restaurar enemigos guardados (reemplazar los generados)
+            if enemigos_data:
+                self.enemigos = self._deserializar_enemigos(enemigos_data)
+                print(f"Enemigos restaurados: {len(self.enemigos)} enemigos con posiciones guardadas")
+            
+            # PASO 3.6: Restaurar bonus guardados (reemplazar los generados)
+            if bonus_data:
+                self.nivel_actual.bonus = self._deserializar_bonus(bonus_data)
+                print(f"Bonus restaurados: {len(self.nivel_actual.bonus)} items (corazones, rayos, power-ups)")
+            
+            # PASO 4: RESTAURAR INMEDIATAMENTE todos los valores guardados
+            # Restaurar datos básicos
+            self.numero_nivel = nivel
+            self.puntos = puntos
+            self.enemigos_derrotados = enemigos_derrotados
+            
+            # Restaurar vida y energía EXACTAS (sobrescribir el reset de cargar_nivel)
+            self.jugador.vida = vida
+            self.jugador.vida_max = vida_max
+            self.jugador.energia = energia
+            self.jugador.energia_max = energia_max
+            self.jugador.velocidad_base = velocidad
+            self.jugador.vision = vision
+            
+            # Restaurar posición EXACTA del jugador (sobrescribir spawn aleatorio)
+            self.jugador.rect.x = pos_x
+            self.jugador.rect.y = pos_y
+            self.jugador.pos_inicial = (pos_x, pos_y)  # También actualizar pos_inicial
+            self.jugador.vel_x = 0.0  # Resetear velocidad
+            self.jugador.vel_y = 0.0
+            
+            # Actualizar la cámara para que se centre en la posición restaurada
+            if self.camara:
+                self.camara.actualizar(self.jugador.rect)
+            
+            print(f"Posición restaurada: ({pos_x}, {pos_y})")
+            
+            # Restaurar estado de llaves
+            llaves_a_eliminar = llaves_requeridas - llaves_restantes
+            if hasattr(self.nivel_actual, "llaves") and llaves_a_eliminar > 0 and llaves_a_eliminar <= len(self.nivel_actual.llaves):
+                self.nivel_actual.llaves = self.nivel_actual.llaves[llaves_a_eliminar:]
+                print(f"Llaves restauradas: {len(self.nivel_actual.llaves)} restantes")
+            
+            # Restaurar estado del temporizador
+            self.temporizador_activo = temporizador_activo
+            self.tiempo_restante = tiempo_restante
+            self.tiempo_agotado = tiempo_agotado
+            if self.temporizador_activo:
+                print(f"Temporizador restaurado: {self.tiempo_restante // 60} segundos restantes")
+            
+            # Restaurar power-ups activos
+            if powerup_tipo:
+                self.powerup_activo = powerup_tipo
+                self.powerup_duracion = powerup_duracion
+                self.vision_normal = vision_normal
+                self.velocidad_normal = velocidad_normal
+                self.disparo_doble = disparo_doble
+                self.escudo_activo = escudo_activo
+                
+                # Aplicar efectos del power-up activo
+                if self.powerup_activo == "vision_clara":
+                    self.jugador.vision = 9999
+                elif self.powerup_activo == "super_velocidad":
+                    self.jugador.velocidad_base = int(self.velocidad_normal * 3.5)
+                
+                print(f"Power-up restaurado: {self.powerup_activo} ({self.powerup_duracion} frames restantes)")
+            else:
+                self.powerup_activo = None
+                self.powerup_duracion = 0
+                self.disparo_doble = False
+                self.escudo_activo = False
+            
+            # Restaurar cronómetro (nuevo campo, compatibilidad con guardados antiguos)
+            if len(partes) > 30:
+                self.cronometro_frames = int(float(partes[30]))
+                self.tiempo_total_segundos = self.cronometro_frames // 60
+                self.cronometro_activo = True  # Reactivar cronómetro
+                print(f"Cronómetro restaurado: {self.tiempo_total_segundos} segundos")
+            else:
+                # Guardados antiguos sin cronómetro, inicializar en 0
+                self.cronometro_frames = 0
+                self.tiempo_total_segundos = 0
+                self.cronometro_activo = True
+            
+            # Resetear bandera de historial para esta partida cargada
+            self.historial_guardado = False
+            
+            bonus_count = len(getattr(self.nivel_actual, 'bonus', []))
+            print(f"Partida cargada para {nombre}: Nivel {self.numero_nivel}, Vida {self.jugador.vida}/{self.jugador.vida_max}, Energía {self.jugador.energia}/{self.jugador.energia_max}, Enemigos: {len(self.enemigos)}, Bonus: {bonus_count}, Tiempo: {self.tiempo_total_segundos}s")
+            return True
+        except Exception as e:
+            print(f"Error al cargar partida: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    def obtener_partidas_guardadas(self):
+        """Obtiene la lista de partidas guardadas desde formato TXT"""
+        try:
+            if not os.path.exists(self.archivo_guardado):
+                return {}
+            
+            partidas = {}
+            with open(self.archivo_guardado, 'r', encoding='utf-8') as f:
+                for linea in f:
+                    linea = linea.strip()
+                    if not linea:
+                        continue
+                    
+                    partes = linea.split('|')
+                    if len(partes) >= 26:
+                        nombre = partes[0]
+                        partidas[nombre] = {
+                            "nivel": int(partes[1]),
+                            "puntos": int(partes[2]),
+                            "fecha": partes[25]
+                        }
+            
+            return partidas
+        except Exception as e:
+            print(f"Error al leer partidas: {e}")
+            return {}
+
+    def borrar_partida(self, nombre):
+        """Borra una partida guardada del archivo TXT"""
+        try:
+            if not os.path.exists(self.archivo_guardado):
+                return False
+            
+            # Leer todas las líneas excepto la del jugador a borrar
+            lineas_conservar = []
+            with open(self.archivo_guardado, 'r', encoding='utf-8') as f:
+                for linea in f:
+                    linea_limpia = linea.strip()
+                    if linea_limpia and not linea_limpia.startswith(nombre + '|'):
+                        lineas_conservar.append(linea_limpia)
+            
+            # Reescribir el archivo sin la partida borrada
+            with open(self.archivo_guardado, 'w', encoding='utf-8') as f:
+                for linea in lineas_conservar:
+                    f.write(linea + '\n')
+            
+            print(f"Partida '{nombre}' borrada exitosamente")
+            return True
+        except Exception as e:
+            print(f"Error al borrar partida: {e}")
+            return False
+
+    def guardar_en_historial(self):
+        """Guarda la partida actual en el historial de jugadores UNA SOLA VEZ"""
+        try:
+            # Usar el tiempo del cronómetro
+            tiempo_jugado = self.tiempo_total_segundos
+            
+            # Formato: Nombre|Nivel|Puntos|Tiempo(seg)|Enemigos|Fecha
+            datos = [
+                self.nombre_jugador,
+                str(self.numero_nivel),
+                str(self.puntos),
+                str(tiempo_jugado),
+                str(self.enemigos_derrotados),
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ]
+            
+            linea = '|'.join(datos) + '\n'
+            
+            # Agregar al archivo de historial (solo una vez)
+            with open(self.archivo_historial, 'a', encoding='utf-8') as f:
+                f.write(linea)
+            
+            print(f"Partida guardada en historial: {self.nombre_jugador} - {tiempo_jugado}s")
+            return True
+        except Exception as e:
+            print(f"Error al guardar en historial: {e}")
+            return False
+    
+    def guardar_campeon(self, tiempo_total):
+        """Guarda al jugador como campeón (completó el juego)"""
+        try:
+            # Formato: Nombre|Puntos|Tiempo(seg)|Fecha
+            datos = [
+                self.nombre_jugador,
+                str(self.puntos),
+                str(tiempo_total),
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ]
+            
+            linea = '|'.join(datos) + '\n'
+            
+            # Agregar al archivo de campeones
+            with open(self.archivo_campeones, 'a', encoding='utf-8') as f:
+                f.write(linea)
+            
+            print(f"¡Campeón registrado!: {self.nombre_jugador}")
+            return True
+        except Exception as e:
+            print(f"Error al guardar campeón: {e}")
+            return False
+    
+    def obtener_campeones(self):
+        """Obtiene la lista de campeones ordenada por puntos"""
+        try:
+            if not os.path.exists(self.archivo_campeones):
+                return []
+            
+            campeones = []
+            with open(self.archivo_campeones, 'r', encoding='utf-8') as f:
+                for linea in f:
+                    linea = linea.strip()
+                    if not linea:
+                        continue
+                    
+                    partes = linea.split('|')
+                    if len(partes) >= 4:
+                        campeones.append({
+                            'nombre': partes[0],
+                            'puntos': int(partes[1]),
+                            'tiempo': int(partes[2]),
+                            'fecha': partes[3]
+                        })
+            
+            # Ordenar por puntos descendente, luego por tiempo ascendente
+            campeones.sort(key=lambda x: (-x['puntos'], x['tiempo']))
+            return campeones
+        except Exception as e:
+            print(f"Error al obtener campeones: {e}")
+            return []
+    
+    def obtener_historial(self):
+        """Obtiene el historial de todas las partidas jugadas"""
+        try:
+            if not os.path.exists(self.archivo_historial):
+                return []
+            
+            historial = []
+            with open(self.archivo_historial, 'r', encoding='utf-8') as f:
+                for linea in f:
+                    linea = linea.strip()
+                    if not linea:
+                        continue
+                    
+                    partes = linea.split('|')
+                    if len(partes) >= 6:
+                        historial.append({
+                            'nombre': partes[0],
+                            'nivel': int(partes[1]),
+                            'puntos': int(partes[2]),
+                            'tiempo': int(partes[3]),
+                            'enemigos': int(partes[4]),
+                            'fecha': partes[5]
+                        })
+            
+            # Ordenar por puntos descendente
+            historial.sort(key=lambda x: -x['puntos'])
+            return historial
+        except Exception as e:
+            print(f"Error al obtener historial: {e}")
+            return []
+
     # -------------------------------------------------------
     # LOOP DE EVENTOS
     # -------------------------------------------------------
@@ -1460,13 +2439,14 @@ class juego:
                         if hasattr(self, "_menu_hitboxes"):
                             for rect_hit, idx in self._menu_hitboxes:
                                 if rect_hit.collidepoint(pygame.mouse.get_pos()):
-                                    if idx == 0:          # Jugar
-                                        self.iniciar_juego(1)
-                                    elif idx == 1:        # Nueva Partida
-                                        self.iniciar_juego(1)
-                                    elif idx == 2:        # Cargar Partida
-                                        self.mensaje_temporal = "Cargar Partida no disponible aún"
-                                        self.mensaje_timer = 120
+                                    if idx == 0:          # Nueva Partida
+                                        self.nombre_jugador = ""
+                                        self.input_activo = True
+                                        self.estado = "registro"
+                                    elif idx == 1:        # Cargar Partida
+                                        self.estado = "cargar_partida"
+                                    elif idx == 2:        # Puntuación
+                                        self.estado = "puntuacion"
                                     break
                 
                 elif self.estado == "controles":
@@ -1477,29 +2457,25 @@ class juego:
                             elif e.key in (pygame.K_RETURN, pygame.K_SPACE):
                                 self.estado = "jugando"
                                 pygame.mouse.set_visible(False)
+                                # Activar cronómetro cuando empieza a jugar
+                                if not self.cronometro_activo:
+                                    self.cronometro_activo = True
+                                    self.cronometro_frames = 0
                         elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                             if hasattr(self, "_controles_btn_rect") and self._controles_btn_rect.collidepoint(pygame.mouse.get_pos()):
                                 self.estado = "jugando"
                                 pygame.mouse.set_visible(False)
+                                # Activar cronómetro cuando empieza a jugar
+                                if not self.cronometro_activo:
+                                    self.cronometro_activo = True
+                                    self.cronometro_frames = 0
 
-                # PAUSA 
-                elif self.estado == "pausado":
-                    if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
-                        self.estado = "jugando"
-                    elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
-                        if hasattr(self, "_pause_hitboxes"):
-                            for rect_hit, idx in self._pause_hitboxes:
-                                if rect_hit.collidepoint(pygame.mouse.get_pos()):
-                                    if idx == 0:      # Reanudar
-                                        self.estado = "jugando"
-                                    elif idx == 1:    # Reiniciar
-                                        self.cargar_nivel(self.numero_nivel)
-                                        self.estado = "jugando"
-                                    elif idx == 2:    # Menú principal
-                                        self.estado = "menu"
-                                        pygame.mouse.set_visible(True)
-                                    break
-
+                # JUGANDO
+                elif self.estado == "jugando":
+                    # Pausar con ESC o P
+                    if e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_p):
+                        self.estado = "pausado"
+                    
                     # Ataque a distancia (click derecho o tecla ESPACIO) - solo si el tutorial fue cerrado
                     elif ((e.type == pygame.MOUSEBUTTONDOWN and e.button == 3) or \
                          (e.type == pygame.KEYDOWN and e.key == pygame.K_SPACE)) and \
@@ -1537,6 +2513,7 @@ class juego:
                         if not powerup_activado:
                             self.ataque_corto()
 
+                # PAUSA 
                 elif self.estado == "pausado":
                     # Mostrar cursor en menú de pausa
                     pygame.mouse.set_visible(True)
@@ -1568,67 +2545,133 @@ class juego:
                                 self.estado = "jugando"
                                 pygame.mouse.set_visible(False)  # Ocultar al reanudar
                             elif self.opcion_pausa == 1:  # Reiniciar nivel
+                                # Reiniciar el nivel completamente
                                 self.cargar_nivel(self.numero_nivel)
+                                # Reiniciar cronómetro
+                                self.cronometro_frames = 0
+                                self.cronometro_activo = True
+                                # Resetear temporizador
+                                self.temporizador_activo = False
+                                self.tiempo_restante = 0
+                                self.tiempo_agotado = False
+                                self.spawn_enemigos_extra = 0
+                                # Limpiar mensajes temporales
+                                self.mensaje_temporal = ""
+                                self.mensaje_timer = 0
                                 self.estado = "jugando"
                                 pygame.mouse.set_visible(False)  # Ocultar al reanudar
                             elif self.opcion_pausa == 2:  # Menú principal
+                                # Guardar antes de salir al menú
+                                if self.nombre_jugador:
+                                    self.guardar_partida()
                                 self.estado = "menu"
                                 pygame.mouse.set_visible(True)  # Mostrar cursor en menú
                     
                     # Soporte de mouse en menú de pausa
                     elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
-                        mx, my = pygame.mouse.get_pos()
-                        pantalla = pygame.display.get_surface()
-                        ancho, alto = pantalla.get_size()
-                        
-                        y_inicial = alto * 0.5
-                        espaciado = alto * 0.08
-                        
-                        # Verificar clicks en las opciones del menú
-                        for i in range(3):
-                            y_opcion = y_inicial + i * espaciado
-                            # Área clickeable aproximada (altura de cada opción)
-                            if y_opcion - alto * 0.03 < my < y_opcion + alto * 0.03:
-                                if i == 0:  # Reanudar
-                                    self.estado = "jugando"
-                                    pygame.mouse.set_visible(False)  # Ocultar al reanudar
-                                elif i == 1:  # Reiniciar nivel
-                                    self.cargar_nivel(self.numero_nivel)
-                                    self.estado = "jugando"
-                                    pygame.mouse.set_visible(False)  # Ocultar al reanudar
-                                elif i == 2:  # Menú principal
-                                    self.estado = "menu"
-                                    pygame.mouse.set_visible(True)
-                                break
-                        
-                        # Verificar clicks en controles de volumen
-                        vol_y = alto * 0.75
-                        
-                        # Música (izquierda)
-                        musica_x = ancho // 2 - int(ancho * 0.15)
-                        if vol_y + alto * 0.03 < my < vol_y + alto * 0.07:
-                            # Click en área de música
-                            if mx < musica_x - 50:  # Zona izquierda - disminuir
-                                self.volumen_musica = max(0.0, self.volumen_musica - 0.25)
-                                pygame.mixer.music.set_volume(self.volumen_musica)
-                            elif mx > musica_x + 50:  # Zona derecha - aumentar
-                                self.volumen_musica = min(1.0, self.volumen_musica + 0.25)
-                                pygame.mixer.music.set_volume(self.volumen_musica)
-                        
-                        # Efectos (derecha)
-                        efectos_x = ancho // 2 + int(ancho * 0.15)
-                        if vol_y + alto * 0.03 < my < vol_y + alto * 0.07:
-                            # Click en área de efectos
-                            if mx > efectos_x - 150 and mx < efectos_x - 50:  # Zona izquierda - disminuir
-                                self.volumen_efectos = max(0.0, self.volumen_efectos - 0.25)
-                                self.actualizar_volumen_efectos()
-                            elif mx > efectos_x + 50:  # Zona derecha - aumentar
-                                self.volumen_efectos = min(1.0, self.volumen_efectos + 0.25)
-                                self.actualizar_volumen_efectos()
+                        # Usar las hitboxes creadas en menu_pausa() para detección precisa
+                        if hasattr(self, "_pause_hitboxes"):
+                            for rect_hit, idx in self._pause_hitboxes:
+                                if rect_hit.collidepoint(pygame.mouse.get_pos()):
+                                    if idx == 0:  # Reanudar
+                                        self.estado = "jugando"
+                                        pygame.mouse.set_visible(False)  # Ocultar al reanudar
+                                    elif idx == 1:  # Reiniciar nivel
+                                        # Reiniciar el nivel completamente
+                                        self.cargar_nivel(self.numero_nivel)
+                                        # Reiniciar cronómetro
+                                        self.cronometro_frames = 0
+                                        self.cronometro_activo = True
+                                        # Resetear temporizador
+                                        self.temporizador_activo = False
+                                        self.tiempo_restante = 0
+                                        self.tiempo_agotado = False
+                                        self.spawn_enemigos_extra = 0
+                                        # Limpiar mensajes temporales
+                                        self.mensaje_temporal = ""
+                                        self.mensaje_timer = 0
+                                        self.estado = "jugando"
+                                        pygame.mouse.set_visible(False)  # Ocultar al reanudar
+                                    elif idx == 2:  # Menú principal
+                                        # Guardar antes de salir al menú
+                                        if self.nombre_jugador:
+                                            self.guardar_partida()
+                                        self.estado = "menu"
+                                        pygame.mouse.set_visible(True)
+                                    break
                 
                 elif self.estado == "fin" and e.type == pygame.KEYDOWN and e.key == pygame.K_RETURN:
                     self.estado = "menu"
                     pygame.mouse.set_visible(True)  # Mostrar cursor en menú
+                
+                # PUNTUACIÓN
+                elif self.estado == "puntuacion":
+                    if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                        self.estado = "menu"
+                    elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                        mouse_pos = pygame.mouse.get_pos()
+                        # Click en pestañas
+                        if hasattr(self, "_tab_campeones_rect") and self._tab_campeones_rect.collidepoint(mouse_pos):
+                            self._tab_puntuacion = "campeones"
+                        elif hasattr(self, "_tab_historico_rect") and self._tab_historico_rect.collidepoint(mouse_pos):
+                            self._tab_puntuacion = "historico"
+                
+                # REGISTRO
+                elif self.estado == "registro":
+                    if e.type == pygame.KEYDOWN:
+                        if e.key == pygame.K_ESCAPE:
+                            self.estado = "menu"
+                            self.nombre_jugador = ""
+                            self.input_activo = False
+                        elif e.key == pygame.K_RETURN and len(self.nombre_jugador) > 0:
+                            # Iniciar juego con el nombre registrado
+                            self.input_activo = False
+                            self.iniciar_juego(1)
+                        elif e.key == pygame.K_BACKSPACE:
+                            self.nombre_jugador = self.nombre_jugador[:-1]
+                        else:
+                            # Agregar caracteres (limitar a 20 caracteres)
+                            if len(self.nombre_jugador) < 20 and e.unicode.isprintable():
+                                self.nombre_jugador += e.unicode
+                    elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                        # Click en botón continuar
+                        if hasattr(self, "_registro_btn_rect") and self._registro_btn_rect.collidepoint(pygame.mouse.get_pos()):
+                            if len(self.nombre_jugador) > 0:
+                                self.input_activo = False
+                                self.iniciar_juego(1)
+                
+                # CARGAR PARTIDA
+                elif self.estado == "cargar_partida":
+                    if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                        self.estado = "menu"
+                    elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                        mouse_pos = pygame.mouse.get_pos()
+                        
+                        # Primero verificar si se clickeó un botón de borrar
+                        borrado = False
+                        if hasattr(self, "_borrar_hitboxes"):
+                            for rect_hit, nombre in self._borrar_hitboxes:
+                                if rect_hit.collidepoint(mouse_pos):
+                                    if self.borrar_partida(nombre):
+                                        self.mensaje_temporal = f"Partida '{nombre}' borrada"
+                                        self.mensaje_timer = 120
+                                    else:
+                                        self.mensaje_temporal = "Error al borrar la partida"
+                                        self.mensaje_timer = 120
+                                    borrado = True
+                                    break
+                        
+                        # Si no se borró, verificar si se clickeó para cargar
+                        if not borrado and hasattr(self, "_cargar_hitboxes"):
+                            for rect_hit, nombre in self._cargar_hitboxes:
+                                if rect_hit.collidepoint(mouse_pos):
+                                    if self.cargar_partida(nombre):
+                                        self.estado = "jugando"
+                                        pygame.mouse.set_visible(False)
+                                    else:
+                                        self.mensaje_temporal = "Error al cargar la partida"
+                                        self.mensaje_timer = 120
+                                    break
 
             if self.estado == "menu":
                 self.menu()
@@ -1641,6 +2684,12 @@ class juego:
                 self.menu_pausa()  # Dibujar el menú de pausa encima
             elif self.estado == "fin":
                 self.pantalla_final()
+            elif self.estado == "puntuacion":
+                self.pantalla_puntuacion()
+            elif self.estado == "registro":
+                self.pantalla_registro()
+            elif self.estado == "cargar_partida":
+                self.pantalla_cargar_partida()
 
             pygame.display.flip()
             reloj.tick(60)
