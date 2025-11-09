@@ -97,7 +97,9 @@ class enemigo:
             
             # Ejecutar ataque al final de la preparación
             if self.preparando_ataque == 1:
-                jugador.recibir_daño(1)
+                # Verificar si el jugador tiene escudo activo
+                escudo = getattr(jugador, 'escudo_activo', False)
+                jugador.recibir_daño(1, escudo_activo=escudo)
                 self.tiempo_recarga["ataque"] = 90  # 1.5 segundos
                 self.preparando_ataque = 0
         else:
@@ -148,7 +150,8 @@ class enemigo:
 
             # Colisión con jugador
             if p["activo"] and p["rect"].colliderect(jugador.rect):
-                jugador.recibir_daño(1)
+                escudo = getattr(jugador, 'escudo_activo', False)
+                jugador.recibir_daño(1, escudo_activo=escudo)
                 p["activo"] = False
 
             if p["activo"]:
@@ -162,7 +165,8 @@ class enemigo:
         if distancia < self.radio_aura:
             jugador.slow_ticks = max(jugador.slow_ticks, 30)  # Reducido de 45 a 30
         if self.rect.colliderect(jugador.rect) and self.tiempo_recarga["aura"] == 0:
-            jugador.recibir_daño(1)
+            escudo = getattr(jugador, 'escudo_activo', False)
+            jugador.recibir_daño(1, escudo_activo=escudo)
             self.tiempo_recarga["aura"] = 90  # Aumentado de 30 a 90
 
 

@@ -136,9 +136,9 @@ class jugador:
         # El sprite sheet es 1080x1080
         # Estructura: 5 columnas x 3 filas = 15 frames totales
         # Cada sprite: 216 ancho x 360 alto (1080/5 = 216 por columna, 1080/3 = 360 por fila)
-        ruta = "assets/ingeniero_sheet.png"
+        ruta = "images/ingeniero_sheet.png"
         # Aumentar margen general y recorte extra en la parte inferior para evitar artefactos
-        frames = cargar_frames("assets/ingeniero_sheet.png", 216, 360, escala=0.18, margen=40, margen_inferior_extra=5)
+        frames = cargar_frames("images/ingeniero_sheet.png", 216, 360, escala=0.18, margen=40, margen_inferior_extra=5)
 
         self.animaciones = {
             "idle":     [frames[0]],    # primera fila: solo primer frame para estar quieto
@@ -150,7 +150,7 @@ class jugador:
 
         # Sonido de daño (opcional)
         try:
-            self.sonido_daño = pygame.mixer.Sound("daño.mp3")
+            self.sonido_daño = pygame.mixer.Sound("audio/daño.mp3")
         except Exception:
             self.sonido_daño = None
 
@@ -410,7 +410,11 @@ class jugador:
     # -------------------------------------------------------
     # DAÑO Y VIDA
     # -------------------------------------------------------
-    def recibir_daño(self, cantidad):
+    def recibir_daño(self, cantidad, escudo_activo=False):
+        # Si el escudo está activo, no recibir daño
+        if escudo_activo:
+            return
+        
         if self.daño_cooldown <= 0 and not self.muriendo:
             self.vida = max(0, self.vida - cantidad)
             self.daño_cooldown = 120
