@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pygame
 
-
 class salida:
     """Representa la salida del nivel."""
 
