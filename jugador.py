@@ -154,9 +154,7 @@ class jugador:
         except Exception:
             self.sonido_daño = None
 
-    # -------------------------------------------------------
     # MOVIMIENTO
-    # -------------------------------------------------------
     def mover(self, teclas, muros, ancho_mapa, alto_mapa):
         if self.muriendo:
             self.estado = "morir"
@@ -259,9 +257,7 @@ class jugador:
             else:
                 self.estado = "caminar"
 
-    # -------------------------------------------------------
     # UTILIDADES
-    # -------------------------------------------------------
     def resetear_posicion(self):
         self.rect.x, self.rect.y = self.pos_inicial
         self.vel_x = self.vel_y = 0
@@ -273,9 +269,7 @@ class jugador:
         self.vel_x = 0.0
         self.vel_y = 0.0
 
-    # -------------------------------------------------------
     # ATAQUE CORTO
-    # -------------------------------------------------------
     def atacar_corto(self, enemigos):
         if self.cooldown_ataque > 0 or self.muriendo:
             return
@@ -299,9 +293,7 @@ class jugador:
                     enemigos.remove(e)
         self.cooldown_ataque = 25
     
-    # -------------------------------------------------------
     # DISPARO (nuevo método)
-    # -------------------------------------------------------
     def iniciar_disparo(self):
         """Inicia la animación de disparo"""
         if self.cooldown_disparo > 0 or self.muriendo:
@@ -312,9 +304,7 @@ class jugador:
         self.tiempo_anim = 0
         return True
 
-    # -------------------------------------------------------
     # DIBUJO
-    # -------------------------------------------------------
     def actualizar_angulo_linterna(self, mouse_x, mouse_y, camara):
         """Actualiza el ángulo de la linterna hacia la posición del mouse"""
         # Obtener posición del jugador en pantalla
@@ -407,9 +397,7 @@ class jugador:
         )
         ventana.blit(frame_escalado, frame_rect)
 
-    # -------------------------------------------------------
     # DAÑO Y VIDA
-    # -------------------------------------------------------
     def recibir_daño(self, cantidad, escudo_activo=False):
         # Si el escudo está activo, no recibir daño
         if escudo_activo:
