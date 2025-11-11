@@ -1701,7 +1701,7 @@ class juego:
         pantalla.blit(overlay, (0, 0))
 
         # Título
-        titulo = "¡Victoria!" if self.resultado == "ganaste" else "¡Derrota!"
+        titulo = "Victoria" if self.resultado == "ganaste" else "Derrota"
         # Color del título: usar base_text con un matiz según resultado
         color = success_green if self.resultado == "ganaste" else fail_red
 
@@ -1733,7 +1733,7 @@ class juego:
             "La proxima vez sera."
         ]
         frases_ganar = [
-            "Eres imparable!"
+            "Eres imparable"
         ]
 
         frases_perder_por_nivel = {
@@ -1745,7 +1745,7 @@ class juego:
         if self.puntos >= 3000:
             frases_ganar_por_puntos.append("Haz brillado en la oscuridad. Puntos sobresalientes.")
         elif self.puntos >= 1500:
-            frases_ganar_por_puntos.append("Buen trabajo — tu coraje fue recompensado.")
+            frases_ganar_por_puntos.append("Buen trabajo tu coraje fue recompensado.")
 
         if not hasattr(self, 'frase_final') or self.frase_final is None:
             if self.resultado == 'perdiste':
@@ -1756,7 +1756,7 @@ class juego:
                 self.frase_final = random.choice(candidatos)
             else:
                 # Ganaste: usar la frase fija solicitada
-                self.frase_final = "¡Eres imparable!"
+                self.frase_final = "Eres imparable"
 
         # Fuente de frase: usar la fuente de cuerpo (filled) para mejor legibilidad
         try:
