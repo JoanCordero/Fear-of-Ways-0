@@ -505,7 +505,7 @@ class juego:
         try:
             # Nivel 2 usa texturas alternativas solicitadas por el diseñador
             if numero == 2:
-                muro_file = os.path.join(self._dir, 'images', 'pared_pasto.png')
+                muro_file = os.path.join(self._dir, 'images', 'pared_hojas.png')
                 suelo_file = os.path.join(self._dir, 'images', 'texture_tierra.png')
             else:
                 muro_file = os.path.join(self._dir, 'images', 'wall_texture.png')
@@ -1723,7 +1723,7 @@ class juego:
             pantalla.blit(overlay, (0, 0))
 
             # Título con halo
-            titulo = f"¡NIVEL {self.numero_nivel} COMPLETADO!"
+            titulo = f"NIVEL {self.numero_nivel} COMPLETADO"
             title_surface = font_title.render(titulo, True, accent_gold)
             title_x = ancho // 2 - title_surface.get_width() // 2
             title_y = int(alto * 0.16)
@@ -1734,7 +1734,7 @@ class juego:
             pantalla.blit(title_surface, (title_x, title_y))
 
             # Subtítulo del nivel
-            subtitulo = nombres_niveles.get(self.numero_nivel, "TRAVESÍA DESCONOCIDA")
+            subtitulo = nombres_niveles.get(self.numero_nivel, "TRAVESIA DESCONOCIDA")
             blit_centrado(font_subtitle, subtitulo, base_text, title_y + title_surface.get_height() + int(alto * 0.04))
 
             # Separador decorativo
@@ -1745,7 +1745,7 @@ class juego:
 
             # Panel de estadísticas
             panel = panel_base.copy()
-            heading_surf = font_section.render("ESTADÍSTICAS", True, accent_gold)
+            heading_surf = font_section.render("ESTADISTICAS", True, accent_gold)
             panel.blit(heading_surf, (panel_w // 2 - heading_surf.get_width() // 2, int(panel_h * 0.08)))
 
             stat_offset = int(panel_h * 0.24)
