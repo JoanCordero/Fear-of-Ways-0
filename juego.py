@@ -1169,27 +1169,27 @@ class juego:
                 pygame.draw.rect(pantalla, color_fondo, barra_rect, border_radius=2)
             
             # Nombre del power-up centrado con tamaño ajustado al contenido
-            # Tamaño base más pequeño para textos largos
-            if len(nombre) > 10:  # "VISIÓN CLARA" y "DISPARO x2" son más largos
-                font_size_nombre = max(8, int(alto_header * 0.28))
-            else:
-                font_size_nombre = max(8, int(alto_header * 0.35))
-            
-            try:
-                font_nombre = pygame.font.Font(self.font_path, self.ajustar_tamano(font_size_nombre))
-            except Exception:
-                font_nombre = pygame.font.Font(None, font_size_nombre)
-            
-            surf_nombre = font_nombre.render(nombre, True, color_principal)
-            
-            # Si el texto es muy ancho, reducir más el tamaño
-            if surf_nombre.get_width() > (bg_rect.width - 10):
-                font_size_nombre = max(6, int(alto_header * 0.25))
+            # Seleccionamos un tamaño base y lo reducimos progresivamente si es necesario
+            font_size_nombre = max(8, int(alto_header * 0.35))
+            if len(nombre) >= 10:
+                font_size_nombre = max(8, int(alto_header * 0.3))
+
+            tamano_minimo = max(6, int(alto_header * 0.22))
+            ancho_maximo = bg_rect.width - 10
+
+            while True:
                 try:
                     font_nombre = pygame.font.Font(self.font_path, self.ajustar_tamano(font_size_nombre))
                 except Exception:
                     font_nombre = pygame.font.Font(None, font_size_nombre)
+
                 surf_nombre = font_nombre.render(nombre, True, color_principal)
+
+                # Si el texto cabe o ya alcanzamos el tamaño mínimo, dejamos de reducir
+                if surf_nombre.get_width() <= ancho_maximo or font_size_nombre <= tamano_minimo:
+                    break
+
+                font_size_nombre -= 1
             
             texto_x = bg_rect.x + (bg_rect.width - surf_nombre.get_width()) // 2
             texto_y = y_center - surf_nombre.get_height() // 2 - 3
