@@ -106,3 +106,5 @@
 2025-11-10 23:25:31 | Explorador | Nivel 2 | perdiste | Puntos: 4410 | Enemigos: 28
 2025-11-10 23:28:30 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
 2025-11-10 23:28:54 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-10 23:38:42 | Explorador | Nivel 1 | ganaste | Puntos: 100 | Enemigos: 1
+2025-11-10 23:38:55 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
