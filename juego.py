@@ -1071,7 +1071,7 @@ class juego:
                 color_principal = (255, 255, 150)
                 color_fondo = (255, 255, 100)
                 icono = "👁"
-                nombre = "VISIÓN CLARA"
+                nombre = "VISION CLARA"
             elif self.powerup_activo == "disparo_doble":
                 color_principal = (255, 120, 120)
                 color_fondo = (255, 80, 80)
