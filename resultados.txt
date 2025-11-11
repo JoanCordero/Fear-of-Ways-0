@@ -111,3 +111,21 @@
 2025-11-10 23:38:42 | Explorador | Nivel 1 | ganaste | Puntos: 100 | Enemigos: 1
 2025-11-10 23:38:55 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
 >>>>>>> 1a3e1fe4729d91fd48742321ae06e043aaaf4d54
+2025-11-11 01:26:09 | Explorador | Nivel 1 | perdiste | Puntos: 1800 | Enemigos: 18
+2025-11-11 01:55:48 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-11 01:56:18 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
+2025-11-11 02:01:22 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-11 02:01:54 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
+2025-11-11 02:02:23 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-11 02:06:51 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-11 02:07:47 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
+2025-11-11 02:10:46 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
+2025-11-11 02:11:10 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-11 02:21:04 | Explorador | Nivel 2 | perdiste | Puntos: 3110 | Enemigos: 15
+2025-11-11 02:58:12 | Explorador | Nivel 2 | perdiste | Puntos: 7500 | Enemigos: 59
+2025-11-11 03:09:46 | Explorador | Nivel 2 | perdiste | Puntos: 5400 | Enemigos: 38
+2025-11-11 03:36:27 | Explorador | Nivel 2 | perdiste | Puntos: 10400 | Enemigos: 88
+2025-11-11 03:42:15 | Explorador | Nivel 2 | perdiste | Puntos: 3450 | Enemigos: 19
+2025-11-11 04:09:09 | Explorador | Nivel 2 | perdiste | Puntos: 5540 | Enemigos: 44
+2025-11-11 04:16:46 | Explorador | Nivel 2 | perdiste | Puntos: 2980 | Enemigos: 17
+2025-11-11 04:33:53 | Explorador | Nivel 2 | perdiste | Puntos: 2830 | Enemigos: 12
