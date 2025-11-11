@@ -1424,7 +1424,7 @@ class juego:
             pantalla.blit(sombra, (ancho//2 - base.get_width()//2 + dx, int(alto*0.14) + dy))
         pantalla.blit(base, (ancho//2 - base.get_width()//2, int(alto*0.14)))
 
-        opciones = ["Reanudar", "Reiniciar Nivel", "Configuración", "Menú Principal"]
+        opciones = ["Reanudar", "Reiniciar Nivel", "Configuracion", "Menu Principal"]
 
         area_y_start = int(alto * 0.38)
         area_y_end   = int(alto * 0.72)

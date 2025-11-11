@@ -1,0 +1,113 @@
+<<<<<<< HEAD
+=======
+2025-11-07 14:29:06 | Explorador | Nivel 1 | perdiste
+2025-11-07 14:29:17 | Cazador    | Nivel 1 | perdiste
+2025-11-07 14:29:37 | Ingeniero  | Nivel 1 | perdiste
+2025-11-07 14:30:27 | Ingeniero  | Nivel 1 | perdiste
+2025-11-07 14:30:39 | Ingeniero  | Nivel 1 | perdiste
+2025-11-07 14:34:43 | Explorador | Nivel 1 | perdiste
+2025-11-07 14:35:37 | Explorador | Nivel 1 | perdiste
+2025-11-07 14:43:53 | Explorador | Nivel 1 | perdiste
+2025-11-07 14:46:37 | Explorador | Nivel 1 | perdiste
+2025-11-07 14:47:16 | Ingeniero  | Nivel 1 | perdiste
+2025-11-07 14:59:03 | Explorador | Nivel 1 | perdiste
+2025-11-07 15:01:40 | Explorador | Nivel 1 | perdiste
+2025-11-07 15:02:09 | Cazador | Nivel 1 | perdiste
+2025-11-07 15:02:30 | Cazador | Nivel 1 | perdiste
+2025-11-07 15:02:35 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 15:02:42 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 15:02:48 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 15:02:57 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 15:03:56 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 15:35:09 | Explorador | Nivel 1 | perdiste
+2025-11-07 15:35:21 | Cazador | Nivel 1 | perdiste
+2025-11-07 15:41:08 | Explorador | Nivel 1 | perdiste
+2025-11-07 15:41:32 | Cazador | Nivel 1 | perdiste
+2025-11-07 15:41:37 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 15:41:41 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 15:41:53 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 15:42:13 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 15:42:17 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 15:47:59 | Explorador | Nivel 1 | perdiste
+2025-11-07 15:48:13 | Explorador | Nivel 1 | perdiste
+2025-11-07 15:48:28 | Explorador | Nivel 1 | perdiste
+2025-11-07 15:55:20 | Explorador | Nivel 1 | perdiste
+2025-11-07 15:55:25 | Explorador | Nivel 1 | perdiste
+2025-11-07 15:55:36 | Explorador | Nivel 1 | perdiste
+2025-11-07 15:55:42 | Explorador | Nivel 1 | perdiste
+2025-11-07 15:56:26 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 15:56:35 | Explorador | Nivel 1 | perdiste
+2025-11-07 15:56:40 | Explorador | Nivel 1 | perdiste
+2025-11-07 15:56:51 | Cazador | Nivel 1 | perdiste
+2025-11-07 16:00:26 | Explorador | Nivel 1 | perdiste
+2025-11-07 16:04:45 | Explorador | Nivel 1 | perdiste
+2025-11-07 16:06:15 | Explorador | Nivel 1 | perdiste
+2025-11-07 16:06:31 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 16:10:48 | Explorador | Nivel 1 | perdiste
+2025-11-07 16:11:47 | Explorador | Nivel 1 | perdiste
+2025-11-07 16:17:07 | Explorador | Nivel 1 | perdiste
+2025-11-07 16:19:09 | Explorador | Nivel 1 | perdiste
+2025-11-07 16:29:41 | Explorador | Nivel 1 | perdiste
+2025-11-07 16:29:49 | Cazador | Nivel 1 | perdiste
+2025-11-07 16:29:54 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 16:30:01 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 16:34:09 | Explorador | Nivel 1 | perdiste
+2025-11-07 16:34:21 | Cazador | Nivel 1 | perdiste
+2025-11-07 16:34:46 | Explorador | Nivel 1 | perdiste
+2025-11-07 16:38:22 | Explorador | Nivel 1 | perdiste
+2025-11-07 16:38:26 | Cazador | Nivel 1 | perdiste
+2025-11-07 16:38:39 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 16:46:16 | Explorador | Nivel 2 | perdiste
+2025-11-07 16:57:11 | Explorador | Nivel 1 | perdiste
+2025-11-07 16:59:10 | Ingeniero | Nivel 1 | perdiste
+2025-11-07 17:14:32 | Explorador | Nivel 2 | perdiste
+2025-11-07 17:22:28 | Explorador | Nivel 2 | perdiste
+2025-11-07 17:29:34 | Explorador | Nivel 1 | perdiste
+2025-11-07 17:55:15 | Explorador | Nivel 1 | perdiste
+2025-11-09 18:47:06 | Explorador | Nivel 1 | perdiste | Puntos: 800 | Enemigos: 8
+2025-11-09 18:50:19 | Explorador | Nivel 1 | perdiste | Puntos: 1100 | Enemigos: 11
+2025-11-09 19:01:00 | Explorador | Nivel 1 | perdiste | Puntos: 600 | Enemigos: 6
+2025-11-09 19:27:40 | Explorador | Nivel 1 | perdiste | Puntos: 200 | Enemigos: 2
+2025-11-09 19:30:43 | Explorador | Nivel 1 | perdiste | Puntos: 600 | Enemigos: 6
+2025-11-09 19:41:26 | Explorador | Nivel 1 | perdiste | Puntos: 800 | Enemigos: 8
+2025-11-09 19:52:00 | Explorador | Nivel 3 | perdiste | Puntos: 3690 | Enemigos: 17
+2025-11-09 20:36:43 | Explorador | Nivel 2 | perdiste | Puntos: 3230 | Enemigos: 17
+2025-11-09 20:39:44 | Explorador | Nivel 1 | perdiste | Puntos: 1300 | Enemigos: 13
+2025-11-09 21:03:49 | Explorador | Nivel 2 | perdiste | Puntos: 3640 | Enemigos: 24
+2025-11-10 10:46:21 | Explorador | Nivel 2 | perdiste | Puntos: 2140 | Enemigos: 11
+2025-11-10 10:52:30 | Explorador | Nivel 1 | perdiste | Puntos: 800 | Enemigos: 8
+2025-11-10 15:39:37 | Explorador | Nivel 1 | perdiste | Puntos: 900 | Enemigos: 9
+2025-11-10 16:23:53 | Explorador | Nivel 1 | perdiste | Puntos: 200 | Enemigos: 2
+2025-11-10 16:30:11 | Explorador | Nivel 1 | perdiste | Puntos: 1500 | Enemigos: 15
+2025-11-10 16:56:14 | Explorador | Nivel 2 | perdiste | Puntos: 3720 | Enemigos: 23
+2025-11-10 17:06:21 | Explorador | Nivel 1 | perdiste | Puntos: 1400 | Enemigos: 14
+2025-11-10 19:27:40 | Explorador | Nivel 1 | perdiste | Puntos: 1400 | Enemigos: 14
+2025-11-10 19:39:33 | Explorador | Nivel 1 | perdiste | Puntos: 600 | Enemigos: 6
+2025-11-10 19:47:08 | Explorador | Nivel 1 | perdiste | Puntos: 1400 | Enemigos: 14
+2025-11-10 20:16:39 | Explorador | Nivel 1 | perdiste | Puntos: 300 | Enemigos: 3
+2025-11-10 20:18:38 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-10 20:28:00 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-10 20:41:58 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-10 20:45:38 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
+2025-11-10 21:01:11 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
+2025-11-10 21:06:53 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
+2025-11-10 21:07:29 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
+2025-11-10 21:07:37 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-10 21:13:55 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
+2025-11-10 21:25:41 | Explorador | Nivel 1 | ganaste | Puntos: 200 | Enemigos: 2
+2025-11-10 21:28:33 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
+2025-11-10 21:29:05 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-10 21:30:03 | Explorador | Nivel 1 | ganaste | Puntos: 200 | Enemigos: 2
+2025-11-10 21:43:23 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
+2025-11-10 22:05:01 | Explorador | Nivel 2 | perdiste | Puntos: 5460 | Enemigos: 41
+2025-11-10 22:26:30 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-10 22:26:48 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
+2025-11-10 22:34:09 | Explorador | Nivel 1 | ganaste | Puntos: 100 | Enemigos: 1
+2025-11-10 22:34:21 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-10 23:19:05 | Explorador | Nivel 1 | ganaste | Puntos: 200 | Enemigos: 2
+2025-11-10 23:25:31 | Explorador | Nivel 2 | perdiste | Puntos: 4410 | Enemigos: 28
+2025-11-10 23:28:30 | Explorador | Nivel 1 | ganaste | Puntos: 0 | Enemigos: 0
+2025-11-10 23:28:54 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+2025-11-10 23:38:42 | Explorador | Nivel 1 | ganaste | Puntos: 100 | Enemigos: 1
+2025-11-10 23:38:55 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+>>>>>>> 1a3e1fe4729d91fd48742321ae06e043aaaf4d54
