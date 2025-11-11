@@ -1591,71 +1591,166 @@ class juego:
 
     # TRANSICIÓN Y FINAL
     def pantalla_nivel_completado(self, tiempo_bonus):
-        """Muestra estadísticas al completar un nivel"""
+        """Muestra estadísticas al completar un nivel con la estética de los menús."""
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
         reloj = pygame.time.Clock()
-        
+
         # Nombres de niveles
         nombres_niveles = {
             1: "LAS CATACUMBAS",
             2: "LA ESPIRAL DESCENDENTE",
             3: "EL ABISMO PROFUNDO"
         }
-        
+
+        # Fondo consistente con los menús
+        fondo_path = os.path.join(self._dir, 'images', 'menu_background.png')
+        fondo = None
+        if os.path.isfile(fondo_path):
+            try:
+                fondo = pygame.image.load(fondo_path).convert()
+                fondo = pygame.transform.smoothscale(fondo, (ancho, alto))
+            except Exception:
+                fondo = None
+
+        # Overlay con tonos según el nivel actual
+        overlays = {
+            1: (28, 14, 54, 185),
+            2: (54, 20, 20, 190),
+            3: (14, 26, 60, 190)
+        }
+        overlay_color = overlays.get(self.numero_nivel, (18, 18, 28, 185))
+        overlay = pygame.Surface((ancho, alto), pygame.SRCALPHA)
+        overlay.fill(overlay_color)
+
+        base_text = (240, 235, 220)
+        accent_gold = (255, 215, 0)
+        accent_green = (120, 235, 160)
+
+        # Fuentes para secciones
+        try:
+            font_title = pygame.font.Font(self.font_path_title, self.ajustar_tamano(int(alto * 0.085)))
+        except Exception:
+            font_title = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.085)))
+
+        try:
+            font_subtitle = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.045)))
+        except Exception:
+            font_subtitle = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.045)))
+
+        try:
+            font_section = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.04)))
+        except Exception:
+            font_section = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.04)))
+
+        try:
+            font_stats = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.034)))
+        except Exception:
+            font_stats = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.034)))
+
+        hint_size = self.ajustar_tamano(int(alto * 0.03))
+        try:
+            font_hint = pygame.font.Font(self.font_path, hint_size)
+        except Exception:
+            font_hint = pygame.font.Font(None, hint_size)
+
+        # Panel reutilizable para estadísticas
+        panel_w = int(ancho * 0.64)
+        panel_h = int(alto * 0.36)
+        panel_base = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        panel_base.fill((18, 18, 32, 210))
+        pygame.draw.rect(panel_base, (30, 30, 44), panel_base.get_rect(), border_radius=18)
+        pygame.draw.rect(panel_base, (90, 80, 60), panel_base.get_rect(), 2, border_radius=18)
+        borde_dorado = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        pygame.draw.rect(borde_dorado, (255, 215, 0, 80), borde_dorado.get_rect().inflate(-16, -16), 2, border_radius=14)
+        panel_base.blit(borde_dorado, (0, 0))
+        top_glow = pygame.Surface((panel_w, panel_h // 3), pygame.SRCALPHA)
+        top_glow.fill((255, 215, 0, 22))
+        panel_base.blit(top_glow, (0, 0))
+
+        panel_x = ancho // 2 - panel_w // 2
+        panel_y = int(alto * 0.42)
+
         esperando = True
         tiempo_minimo = 180  # Mínimo 3 segundos
         contador = 0
-        
+
+        def blit_centrado(font, texto, color, y):
+            superficie = font.render(texto, True, color)
+            pantalla.blit(superficie, (ancho // 2 - superficie.get_width() // 2, int(y)))
+            return superficie.get_height()
+
         while esperando:
             for e in pygame.event.get():
                 if e.type == pygame.QUIT:
                     pygame.quit()
                     return
                 if e.type == pygame.KEYDOWN and contador > tiempo_minimo:
-                    if e.key == pygame.K_RETURN or e.key == pygame.K_SPACE:
+                    if e.key in (pygame.K_RETURN, pygame.K_SPACE):
                         esperando = False
-            
-            pantalla.fill((5, 5, 10))
-            
-            # Título
-            self.dibujar_texto(f"¡NIVEL {self.numero_nivel} COMPLETADO!", 
-                              int(alto * 0.08), VERDE, ancho // 2, alto * 0.2)
-            self.dibujar_texto(nombres_niveles[self.numero_nivel], 
-                              int(alto * 0.05), AMARILLO, ancho // 2, alto * 0.28)
-            
-            # Estadísticas
-            y_stats = alto * 0.42
-            self.dibujar_texto("ESTADÍSTICAS", int(alto * 0.04), BLANCO, 
-                              ancho // 2, y_stats)
-            
-            self.dibujar_texto(f"Puntos base: +500", int(alto * 0.035), BLANCO, 
-                              ancho // 2, y_stats + alto * 0.08)
-            
+
+            if fondo:
+                pantalla.blit(fondo, (0, 0))
+            else:
+                pantalla.fill((10, 10, 20))
+
+            pantalla.blit(overlay, (0, 0))
+
+            # Título con halo
+            titulo = f"¡NIVEL {self.numero_nivel} COMPLETADO!"
+            title_surface = font_title.render(titulo, True, accent_gold)
+            title_x = ancho // 2 - title_surface.get_width() // 2
+            title_y = int(alto * 0.16)
+            for dx, dy, alpha in ((-3, 0, 80), (3, 0, 80), (0, -3, 80), (0, 3, 80)):
+                sombra = font_title.render(titulo, True, (0, 0, 0))
+                sombra.set_alpha(alpha)
+                pantalla.blit(sombra, (title_x + dx, title_y + dy))
+            pantalla.blit(title_surface, (title_x, title_y))
+
+            # Subtítulo del nivel
+            subtitulo = nombres_niveles.get(self.numero_nivel, "TRAVESÍA DESCONOCIDA")
+            blit_centrado(font_subtitle, subtitulo, base_text, title_y + title_surface.get_height() + int(alto * 0.04))
+
+            # Separador decorativo
+            separador_y = int(alto * 0.32)
+            separador = pygame.Surface((int(ancho * 0.52), 2), pygame.SRCALPHA)
+            separador.fill((255, 215, 0, 120))
+            pantalla.blit(separador, (int(ancho * 0.24), separador_y))
+
+            # Panel de estadísticas
+            panel = panel_base.copy()
+            heading_surf = font_section.render("ESTADÍSTICAS", True, accent_gold)
+            panel.blit(heading_surf, (panel_w // 2 - heading_surf.get_width() // 2, int(panel_h * 0.08)))
+
+            stat_offset = int(panel_h * 0.24)
+            stats = [
+                (f"Puntos base: +500", base_text),
+            ]
             if tiempo_bonus > 0:
-                self.dibujar_texto(f"Bonus de tiempo: +{tiempo_bonus}", 
-                                  int(alto * 0.035), AMARILLO, 
-                                  ancho // 2, y_stats + alto * 0.13)
-            
-            self.dibujar_texto(f"Puntos totales: {self.puntos}", 
-                              int(alto * 0.045), VERDE, 
-                              ancho // 2, y_stats + alto * 0.2)
-            
+                stats.append((f"Bonus de tiempo: +{tiempo_bonus}", accent_gold))
+            stats.append((f"Puntos totales: {self.puntos}", accent_green))
+
+            y_actual = stat_offset
+            separacion = int(panel_h * 0.08)
+            for texto, color in stats:
+                surf = font_stats.render(texto, True, color)
+                x = panel_w // 2 - surf.get_width() // 2
+                panel.blit(surf, (x, y_actual))
+                y_actual += surf.get_height() + separacion
+
+            pantalla.blit(panel, (panel_x, panel_y))
+
             # Mensaje para continuar
             if contador > tiempo_minimo:
-                alpha = int(128 + 127 * math.sin(contador / 10))
-                color_parpadeante = (255, 255, 255, alpha)
-                self.dibujar_texto("Presiona ENTER para continuar", 
-                                  int(alto * 0.03), color_parpadeante[:3], 
-                                  ancho // 2, alto * 0.75)
-            
-            # Actualizar música de fondo según el estado actual (menu / jugando / otros)
-            try:
-                self.actualizar_musica_por_estado()
-            except Exception:
-                pass
+                alpha = int(160 + 95 * math.sin(contador / 12))
+                color = (accent_gold[0], accent_gold[1], accent_gold[2], alpha)
+                mensaje = "Presiona ENTER para continuar"
+                mensaje_surface = font_hint.render(mensaje, True, color[:3])
+                pantalla.blit(mensaje_surface, (ancho // 2 - mensaje_surface.get_width() // 2, int(alto * 0.8)))
 
-            # Actualizar música de fondo según el estado actual (menu / jugando / otros)
+            # Pie informativo
+            self.dibujar_texto("ESC para volver al menu", hint_size, (190, 190, 200), ancho // 2, int(alto * 0.9))
+
             try:
                 self.actualizar_musica_por_estado()
             except Exception:
