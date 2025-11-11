@@ -5,20 +5,20 @@ import pygame
 class salida:
     """Representa la salida del nivel."""
 
-    def __init__(self, x: int, y: int):
+    def __init__(self, posicion_x: int, posicion_y: int):
         # La salida ahora es del tamaño del jugador (35x50 píxeles)
         # y se posiciona usando coordenadas centradas para coincidir con
         # la celda objetivo del laberinto.
         self._ancho_base, self._alto_base = 35, 50
-        ancho, alto = self._ancho_base, self._alto_base
-        self.rect = pygame.Rect(0, 0, ancho, alto)
-        self.rect.center = (x, y)
+        ancho_salida, alto_salida = self._ancho_base, self._alto_base
+        self.rect = pygame.Rect(0, 0, ancho_salida, alto_salida)
+        self.rect.center = (posicion_x, posicion_y)
         self.color_bloqueada = (100, 40, 40)
         self.color_abierta = (40, 160, 80)
 
         # Directorio base para intentar cargar texturas opcionales
-        self._dir = Path(__file__).resolve().parent
-        self._asset_dir = self._dir / "images"
+        self._directorio_base = Path(__file__).resolve().parent
+        self._directorio_assets = self._directorio_base / "images"
         self._textura_bloqueada = self._cargar_textura(
             "salida_bloqueada.png", fallback="puerta.png"
         )
@@ -78,11 +78,11 @@ class salida:
     def _cargar_textura(self, nombre_principal: str, fallback=None):
         """Intenta cargar y escalar una textura opcional para la salida."""
 
-        for nombre in filter(None, (nombre_principal, fallback)):
-            ruta = (self._asset_dir / nombre).resolve()
-            if ruta.exists():
+        for nombre_archivo in filter(None, (nombre_principal, fallback)):
+            ruta_textura = (self._directorio_assets / nombre_archivo).resolve()
+            if ruta_textura.exists():
                 try:
-                    return pygame.image.load(str(ruta)).convert_alpha()
+                    return pygame.image.load(str(ruta_textura)).convert_alpha()
                 except pygame.error:
                     continue
 
