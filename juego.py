@@ -505,7 +505,7 @@ class juego:
         try:
             # Nivel 2 usa texturas alternativas solicitadas por el diseñador
             if numero == 2:
-                muro_file = os.path.join(self._dir, 'images', 'pared_pasto.png')
+                muro_file = os.path.join(self._dir, 'images', 'pared_hojas.png')
                 suelo_file = os.path.join(self._dir, 'images', 'texture_tierra.png')
             else:
                 muro_file = os.path.join(self._dir, 'images', 'wall_texture.png')
@@ -1169,27 +1169,27 @@ class juego:
                 pygame.draw.rect(pantalla, color_fondo, barra_rect, border_radius=2)
             
             # Nombre del power-up centrado con tamaño ajustado al contenido
-            # Tamaño base más pequeño para textos largos
-            if len(nombre) > 10:  # "VISIÓN CLARA" y "DISPARO x2" son más largos
-                font_size_nombre = max(8, int(alto_header * 0.28))
-            else:
-                font_size_nombre = max(8, int(alto_header * 0.35))
-            
-            try:
-                font_nombre = pygame.font.Font(self.font_path, self.ajustar_tamano(font_size_nombre))
-            except Exception:
-                font_nombre = pygame.font.Font(None, font_size_nombre)
-            
-            surf_nombre = font_nombre.render(nombre, True, color_principal)
-            
-            # Si el texto es muy ancho, reducir más el tamaño
-            if surf_nombre.get_width() > (bg_rect.width - 10):
-                font_size_nombre = max(6, int(alto_header * 0.25))
+            # Seleccionamos un tamaño base y lo reducimos progresivamente si es necesario
+            font_size_nombre = max(8, int(alto_header * 0.35))
+            if len(nombre) >= 10:
+                font_size_nombre = max(8, int(alto_header * 0.3))
+
+            tamano_minimo = max(6, int(alto_header * 0.22))
+            ancho_maximo = bg_rect.width - 10
+
+            while True:
                 try:
                     font_nombre = pygame.font.Font(self.font_path, self.ajustar_tamano(font_size_nombre))
                 except Exception:
                     font_nombre = pygame.font.Font(None, font_size_nombre)
+
                 surf_nombre = font_nombre.render(nombre, True, color_principal)
+
+                # Si el texto cabe o ya alcanzamos el tamaño mínimo, dejamos de reducir
+                if surf_nombre.get_width() <= ancho_maximo or font_size_nombre <= tamano_minimo:
+                    break
+
+                font_size_nombre -= 1
             
             texto_x = bg_rect.x + (bg_rect.width - surf_nombre.get_width()) // 2
             texto_y = y_center - surf_nombre.get_height() // 2 - 3
@@ -1721,7 +1721,7 @@ class juego:
             pantalla.blit(overlay, (0, 0))
 
             # Título con halo
-            titulo = f"¡NIVEL {self.numero_nivel} COMPLETADO!"
+            titulo = f"NIVEL {self.numero_nivel} COMPLETADO"
             title_surface = font_title.render(titulo, True, accent_gold)
             title_x = ancho // 2 - title_surface.get_width() // 2
             title_y = int(alto * 0.16)
@@ -1732,7 +1732,7 @@ class juego:
             pantalla.blit(title_surface, (title_x, title_y))
 
             # Subtítulo del nivel
-            subtitulo = nombres_niveles.get(self.numero_nivel, "TRAVESÍA DESCONOCIDA")
+            subtitulo = nombres_niveles.get(self.numero_nivel, "TRAVESIA DESCONOCIDA")
             blit_centrado(font_subtitle, subtitulo, base_text, title_y + title_surface.get_height() + int(alto * 0.04))
 
             # Separador decorativo
@@ -1743,7 +1743,7 @@ class juego:
 
             # Panel de estadísticas
             panel = panel_base.copy()
-            heading_surf = font_section.render("ESTADÍSTICAS", True, accent_gold)
+            heading_surf = font_section.render("ESTADISTICAS", True, accent_gold)
             panel.blit(heading_surf, (panel_w // 2 - heading_surf.get_width() // 2, int(panel_h * 0.08)))
 
             stat_offset = int(panel_h * 0.24)
