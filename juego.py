@@ -868,7 +868,7 @@ class juego:
                         minutos = tiempo_seg // 60
                         segundos = tiempo_seg % 60
                         self.mostrar_mensaje(
-                            f"¡SALIDA ABIERTA! TIENES {minutos}:{segundos:02d} PARA ESCAPAR",
+                            f"SALIDA ABIERTA TIENES {minutos}:{segundos:02d} PARA ESCAPAR",
                             180
                         )
                     else:
@@ -1075,7 +1075,7 @@ class juego:
             segundos = tiempo_seg % 60
             if self.tiempo_agotado or tiempo_seg == 0:
                 color_t = (255, 50, 50)
-                display = "¡ESCAPAR!"
+                display = "ESCAPAR"
             elif tiempo_seg <= 10:
                 color_t = (255, 100, 100)
                 display = f"{minutos}:{segundos:02d}"
@@ -1607,9 +1607,7 @@ class juego:
             3: "EL ABISMO PROFUNDO"
         }
 
-        # Fondo con la ambientación solicitada. Primero probamos con "siguiente_nivel"
-        # (sin importar extensión) y, si no se encuentra, utilizamos el arte previo diseñado
-        # para esta pantalla sin recurrir al fondo general del menú.
+        # Fondo con la ambientación "siguiente_nivel"
         rutas_fondo = []
         base_siguiente_nivel = os.path.join(self._dir, 'images', 'siguiente_nivel')
         for extension in ('.png', '.jpg', '.jpeg', '.bmp', '.webp'):
@@ -2448,7 +2446,7 @@ class juego:
             font_body = pygame.font.Font(None, int(alto * 0.04))
             font_small = pygame.font.Font(None, int(alto * 0.032))
         
-        # ===== MODO DE PANTALLA =====
+        # MODO DE PANTALLA 
         y_offset = int(alto * 0.30)
         self.dibujar_texto(" ", int(alto * 0.04), (235, 225, 210), ancho // 2, y_offset)
 
@@ -2479,7 +2477,7 @@ class juego:
         pantalla.blit(btn_surf, (ancho // 2 - btn_surf.get_width() // 2, 
                                   btn_y + (btn_height - btn_surf.get_height()) // 2))
         
-        # ===== VOLUMEN DE MÚSICA =====
+        # VOLUMEN DE MÚSICA 
         y_offset = btn_y + int(alto * 0.13)
         self.dibujar_texto("Volumen de música:", int(alto * 0.04), (235, 225, 210), ancho // 2, y_offset)
         
@@ -2582,7 +2580,6 @@ class juego:
         
         pygame.display.set_caption("Fear of Ways")
 
-    # -------------------------------------------------------
     # GUARDADO Y CARGA
     def _serializar_enemigos(self):
         """Convierte la lista de enemigos a formato: tipo:x:y:vida:velocidad,tipo:x:y:vida:velocidad,..."""
@@ -2817,7 +2814,7 @@ class juego:
             if bonus_data:
                 self.nivel_actual.bonus = self._deserializar_bonus(bonus_data)
             
-            # PASO 4: RESTAURAR INMEDIATAMENTE todos los valores guardados
+            # PASO 4
             # Restaurar datos básicos
             self.numero_nivel = nivel
             self.puntos = puntos
@@ -3533,9 +3530,7 @@ class juego:
                 print(f"Advertencia: No se pudo cargar sonido de menú {ruta}")
         return sonidos
 
-    # -------------------------------------------------------
     # Control de música de fondo (menu / nivel)
-    # -------------------------------------------------------
     def _play_music(self, ruta, loop=True):
         """Carga y reproduce una pista de música usando pygame.mixer.music.
         Guarda la ruta en self._musica_actual para evitar recargas innecesarias."""
