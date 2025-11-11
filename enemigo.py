@@ -167,17 +167,17 @@ class enemigo:
         if self.tiempo_recarga["disparo"] > 0:
             return
 
-        distancia, dx, dy = self.distancia_a(jugador)
+        distancia, diferencia_x, diferencia_y = self.distancia_a(jugador)
         if distancia >= self.rango_deteccion:
             return
 
-        d = max(1, distancia)
-        vx, vy = (dx / d) * self.velocidad_disparo, (dy / d) * self.velocidad_disparo
+        distancia_normalizada = max(1, distancia)
+        velocidad_proyectil_x, velocidad_proyectil_y = (diferencia_x / distancia_normalizada) * self.velocidad_disparo, (diferencia_y / distancia_normalizada) * self.velocidad_disparo
 
         proyectil = {
             "rect": pygame.Rect(self.rect.centerx, self.rect.centery, 8, 8),
-            "vx": vx,
-            "vy": vy,
+            "vx": velocidad_proyectil_x,
+            "vy": velocidad_proyectil_y,
             "dano": 1,
             "activo": True
         }
@@ -186,35 +186,35 @@ class enemigo:
 
     def mover_proyectiles(self, muros, ancho_mapa, alto_mapa, jugador):
         """Actualiza proyectiles y revisa colisiones."""
-        activos = []
-        for p in self.proyectiles:
-            if not p["activo"]:
+        proyectiles_activos = []
+        for proyectil in self.proyectiles:
+            if not proyectil["activo"]:
                 continue
 
-            p["rect"].x += int(p["vx"])
-            p["rect"].y += int(p["vy"])
+            proyectil["rect"].x += int(proyectil["vx"])
+            proyectil["rect"].y += int(proyectil["vy"])
 
             # Fuera del mapa
-            if (p["rect"].right < 0 or p["rect"].left > ancho_mapa or
-                p["rect"].bottom < 0 or p["rect"].top > alto_mapa):
-                p["activo"] = False
+            if (proyectil["rect"].right < 0 or proyectil["rect"].left > ancho_mapa or
+                proyectil["rect"].bottom < 0 or proyectil["rect"].top > alto_mapa):
+                proyectil["activo"] = False
 
             # Colisión con muros
             for muro in muros:
-                if p["activo"] and p["rect"].colliderect(muro.rect):
-                    p["activo"] = False
+                if proyectil["activo"] and proyectil["rect"].colliderect(muro.rect):
+                    proyectil["activo"] = False
                     break
 
             # Colisión con jugador
-            if p["activo"] and p["rect"].colliderect(jugador.rect):
+            if proyectil["activo"] and proyectil["rect"].colliderect(jugador.rect):
                 escudo = getattr(jugador, 'escudo_activo', False)
                 jugador.recibir_daño(1, escudo_activo=escudo)
-                p["activo"] = False
+                proyectil["activo"] = False
 
-            if p["activo"]:
-                activos.append(p)
+            if proyectil["activo"]:
+                proyectiles_activos.append(proyectil)
 
-        self.proyectiles = activos
+        self.proyectiles = proyectiles_activos
 
     def aplicar_aura_bruto(self, jugador):
         """Aura del bruto: ralentiza y daña si hay contacto."""
@@ -230,14 +230,14 @@ class enemigo:
     def mover(self, muros, ancho, alto, jugador):
         self.reducir_recargas()
 
-        dx = jugador.rect.centerx - self.rect.centerx
-        dy = jugador.rect.centery - self.rect.centery
-        dist = math.hypot(dx, dy)
-        self.angulo_actual = math.degrees(math.atan2(dy, dx)) if dist > 0 else 0
+        diferencia_x = jugador.rect.centerx - self.rect.centerx
+        diferencia_y = jugador.rect.centery - self.rect.centery
+        distancia_al_jugador = math.hypot(diferencia_x, diferencia_y)
+        self.angulo_actual = math.degrees(math.atan2(diferencia_y, diferencia_x)) if distancia_al_jugador > 0 else 0
 
         # Sistema de ocultamiento: "Los peligros permanecen ocultos hasta que están cerca"
         if not self.revelado_permanente:
-            if dist < self.rango_revelacion:
+            if distancia_al_jugador < self.rango_revelacion:
                 # Jugador cerca - revelar gradualmente
                 self.oculto = False
                 if self.alpha_actual < 255:
@@ -255,7 +255,7 @@ class enemigo:
             self.alpha_actual = 255
 
         # Detectar jugador (visión + línea de visión)
-        puede_ver = dist < self.rango_deteccion and not jugador.oculto and self.tiene_linea_de_vision(jugador, muros)
+        puede_ver = distancia_al_jugador < self.rango_deteccion and not jugador.oculto and self.tiene_linea_de_vision(jugador, muros)
 
         if puede_ver:
             self.objetivo_visible = True
@@ -268,28 +268,28 @@ class enemigo:
         # Movimiento base - MEJORADO
         if self.objetivo_visible:
             # Persecución más lenta y predecible
-            if dist > 0:
-                dirx, diry = dx / dist, dy / dist
+            if distancia_al_jugador > 0:
+                direccion_x, direccion_y = diferencia_x / distancia_al_jugador, diferencia_y / distancia_al_jugador
             else:
-                dirx = diry = 0
+                direccion_x = direccion_y = 0
             # Velocidad reducida y más constante
             velocidad = self.velocidad_persecucion * 0.75  # Reducido considerablemente
 
             # Los enemigos mantienen distancia mínima (excepto veloz)
-            if self.tipo != "veloz" and dist < 80:
-                dirx *= -0.3  # Se alejan un poco si están muy cerca
-                diry *= -0.3
+            if self.tipo != "veloz" and distancia_al_jugador < 80:
+                direccion_x *= -0.3  # Se alejan un poco si están muy cerca
+                direccion_y *= -0.3
 
         else:
             # Patrulla aleatoria más lenta
             if random.random() < 0.02:
                 self.ang_pat = random.uniform(0, math.pi * 2)
-            dirx, diry = math.cos(self.ang_pat), math.sin(self.ang_pat)
+            direccion_x, direccion_y = math.cos(self.ang_pat), math.sin(self.ang_pat)
             velocidad = self.velocidad * 0.5  # Reducido de 0.6 a 0.5
 
         # Movimiento con suavizado
-        self.vel_x += (dirx * velocidad - self.vel_x) * 0.2
-        self.vel_y += (diry * velocidad - self.vel_y) * 0.2
+        self.vel_x += (direccion_x * velocidad - self.vel_x) * 0.2
+        self.vel_y += (direccion_y * velocidad - self.vel_y) * 0.2
 
         # Actualizar posición
         self.rect.x += int(self.vel_x)
@@ -465,15 +465,15 @@ class enemigo:
     # VISIÓN LINEAL
     def tiene_linea_de_vision(self, jugador, muros):
         """Comprueba si hay muros bloqueando la visión hacia el jugador."""
-        distancia, dx, dy = self.distancia_a(jugador)
+        distancia, diferencia_x, diferencia_y = self.distancia_a(jugador)
         if distancia == 0:
             return True
-        pasos = int(distancia / 20)
-        for i in range(1, pasos):
-            x = self.rect.centerx + (dx / pasos) * i
-            y = self.rect.centery + (dy / pasos) * i
-            punto = pygame.Rect(x, y, 4, 4)
-            if any(punto.colliderect(m.rect) for m in muros):
+        numero_pasos = int(distancia / 20)
+        for paso_actual in range(1, numero_pasos):
+            posicion_x = self.rect.centerx + (diferencia_x / numero_pasos) * paso_actual
+            posicion_y = self.rect.centery + (diferencia_y / numero_pasos) * paso_actual
+            punto_verificacion = pygame.Rect(posicion_x, posicion_y, 4, 4)
+            if any(punto_verificacion.colliderect(muro.rect) for muro in muros):
                 return False
         return True
 

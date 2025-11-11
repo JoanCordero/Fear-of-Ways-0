@@ -39,9 +39,6 @@ class juego:
         self.volumen_musica = 0.3  # Volumen de música (0.0 a 1.0)
         self.volumen_efectos = 0.7  # Volumen de efectos (0.0 a 1.0)
         self.estado_previo_config = None  # Para saber si se viene de menú o pausa
-        self.mostrar_tutorial = False  # No mostrar tutorial en el juego (ya hay pantalla de controles)
-        self.tutorial_mostrado = True  # Marcar como mostrado para que no bloquee controles
-        self.menu_index = 0  # Índice de selección en el menú
         self.using_pixel_fonts = False  # Marca si se están usando fuentes pixelizadas personalizadas
 
         # Sistema de guardado de partidas
@@ -57,7 +54,6 @@ class juego:
         # Configuración visual
         self.altura_header = 0.10
         pygame.display.set_caption("Fear of Ways")
-        self.fuente_base = pygame.font.Font(None, 30)
         
         # Ocultar cursor del mouse durante el juego
         pygame.mouse.set_visible(True)  # Visible en menú
@@ -169,8 +165,8 @@ class juego:
         
         # Cargar icono del corazón (vida)
         try:
-            img = pygame.image.load(os.path.join(self._dir, 'images', 'heart.png')).convert_alpha()
-            self.heart_img = pygame.transform.smoothscale(img, (icon_size, icon_size))
+            imagen_corazon = pygame.image.load(os.path.join(self._dir, 'images', 'heart.png')).convert_alpha()
+            self.heart_img = pygame.transform.smoothscale(imagen_corazon, (icon_size, icon_size))
             print("Icono de corazón cargado")
         except (pygame.error, FileNotFoundError):
             self.heart_img = None
@@ -178,8 +174,8 @@ class juego:
 
         # Cargar icono de la llave
         try:
-            img = pygame.image.load(os.path.join(self._dir, 'images', 'key_icon.png')).convert_alpha()
-            self.key_img = pygame.transform.smoothscale(img, (icon_size, icon_size))
+            imagen_llave = pygame.image.load(os.path.join(self._dir, 'images', 'key_icon.png')).convert_alpha()
+            self.key_img = pygame.transform.smoothscale(imagen_llave, (icon_size, icon_size))
             print("Icono de llave cargado")
         except (pygame.error, FileNotFoundError):
             self.key_img = None
@@ -187,8 +183,8 @@ class juego:
 
         # Cargar icono del rayo
         try:
-            img = pygame.image.load(os.path.join(self._dir, 'images', 'lightning.png')).convert_alpha()
-            self.lightning_img = pygame.transform.smoothscale(img, (icon_size, icon_size))
+            imagen_rayo = pygame.image.load(os.path.join(self._dir, 'images', 'lightning.png')).convert_alpha()
+            self.lightning_img = pygame.transform.smoothscale(imagen_rayo, (icon_size, icon_size))
             print("Icono de rayo cargado")
         except (pygame.error, FileNotFoundError):
             self.lightning_img = None
@@ -208,8 +204,8 @@ class juego:
 
         # Cargar icono del corazón para bonus de vida en el mapa
         try:
-            img = pygame.image.load(os.path.join(self._dir, 'images', 'heart.png')).convert_alpha()
-            self.heart_bonus_img = pygame.transform.scale(img, (15, 15))
+            imagen_bonus_vida = pygame.image.load(os.path.join(self._dir, 'images', 'heart.png')).convert_alpha()
+            self.heart_bonus_img = pygame.transform.scale(imagen_bonus_vida, (15, 15))
             print("Icono de bonus de vida cargado")
         except (pygame.error, FileNotFoundError):
             self.heart_bonus_img = None
@@ -217,8 +213,8 @@ class juego:
 
         # Cargar icono del rayo para bonus de energía en el mapa
         try:
-            img = pygame.image.load(os.path.join(self._dir, 'images', 'lightning.png')).convert_alpha()
-            self.lightning_bonus_img = pygame.transform.scale(img, (15, 15))
+            imagen_bonus_energia = pygame.image.load(os.path.join(self._dir, 'images', 'lightning.png')).convert_alpha()
+            self.lightning_bonus_img = pygame.transform.scale(imagen_bonus_energia, (15, 15))
             print("Icono de bonus de energía cargado")
         except (pygame.error, FileNotFoundError):
             self.lightning_bonus_img = None
@@ -226,8 +222,8 @@ class juego:
         
         # Cargar icono de poción para power-ups
         try:
-            img = pygame.image.load(os.path.join(self._dir, 'images', 'posion.png')).convert_alpha()
-            self.posion_img = pygame.transform.scale(img, (15, 15))
+            imagen_pocion = pygame.image.load(os.path.join(self._dir, 'images', 'posion.png')).convert_alpha()
+            self.posion_img = pygame.transform.scale(imagen_pocion, (15, 15))
             print("Icono de poción cargado")
         except (pygame.error, FileNotFoundError):
             self.posion_img = None
@@ -235,9 +231,9 @@ class juego:
         
         # Cargar icono del cronómetro/reloj para el HUD (más grande que otros iconos)
         try:
-            img = pygame.image.load(os.path.join(self._dir, 'images', 'tiempo.png')).convert_alpha()
-            tiempo_size = int(icon_size * 1.3)  # 30% más grande que otros iconos
-            self.tiempo_img = pygame.transform.smoothscale(img, (tiempo_size, tiempo_size))
+            imagen_cronometro = pygame.image.load(os.path.join(self._dir, 'images', 'tiempo.png')).convert_alpha()
+            tamano_cronometro = int(icon_size * 1.3)  # 30% más grande que otros iconos
+            self.tiempo_img = pygame.transform.smoothscale(imagen_cronometro, (tamano_cronometro, tamano_cronometro))
             print("Icono de tiempo/cronómetro cargado")
         except (pygame.error, FileNotFoundError):
             self.tiempo_img = None
@@ -389,12 +385,12 @@ class juego:
             font_title = pygame.font.Font(None, self.ajustar_tamano(title_size))
 
         titulo = "Fear Of Ways"
-        base = font_title.render(titulo, True, (240, 235, 220))
+        superficie_titulo = font_title.render(titulo, True, (240, 235, 220))
         # contorno suave
-        for dx, dy in ((-2,0),(2,0),(0,-2),(0,2)):
-            sombra = font_title.render(titulo, True, (20, 20, 25))
-            pantalla.blit(sombra, (ancho//2 - base.get_width()//2 + dx, int(alto*0.12) + dy))
-        pantalla.blit(base, (ancho//2 - base.get_width()//2, int(alto*0.12)))
+        for desplazamiento_x, desplazamiento_y in ((-2,0),(2,0),(0,-2),(0,2)):
+            sombra_titulo = font_title.render(titulo, True, (20, 20, 25))
+            pantalla.blit(sombra_titulo, (ancho//2 - superficie_titulo.get_width()//2 + desplazamiento_x, int(alto*0.12) + desplazamiento_y))
+        pantalla.blit(superficie_titulo, (ancho//2 - superficie_titulo.get_width()//2, int(alto*0.12)))
 
         # OPCIONES
         opciones = ["Empezar Laberinto", "Continuar", "Tabla de Campeones", "Opciones"]
@@ -412,38 +408,40 @@ class juego:
             font_menu = pygame.font.Font(None, self.ajustar_tamano(menu_size))
 
         # Crear superficies con color base
-        surfaces = [font_menu.render(txt, True, (235, 225, 210)) for txt in opciones]
-        heights  = [s.get_height() for s in surfaces]
-        spacing  = int(area_height * 0.12)
-        total_h  = sum(heights) + spacing * (len(opciones) - 1)
-        y_current = area_y_start + (area_height - total_h) // 2
+        superficies_opciones = [font_menu.render(texto_opcion, True, (235, 225, 210)) for texto_opcion in opciones]
+        alturas_opciones = [superficie.get_height() for superficie in superficies_opciones]
+        espaciado_vertical = int(area_height * 0.12)
+        altura_total_menu = sum(alturas_opciones) + espaciado_vertical * (len(opciones) - 1)
+        posicion_y_actual = area_y_start + (area_height - altura_total_menu) // 2
 
-        mouse_pos = pygame.mouse.get_pos()
+        posicion_mouse = pygame.mouse.get_pos()
         self._menu_hitboxes = []
 
-        for i, txt in enumerate(opciones):
-            x = ancho // 2 - surfaces[i].get_width() // 2
-            y = y_current
+        for indice, texto_opcion in enumerate(opciones):
+            pos_x_opcion = ancho // 2 - superficies_opciones[indice].get_width() // 2
+            pos_y_opcion = posicion_y_actual
 
-            rect_hit = pygame.Rect(x - 18, y - 8, surfaces[i].get_width() + 36, surfaces[i].get_height() + 16)
-            self._menu_hitboxes.append((rect_hit, i))
+            rectangulo_clickeable = pygame.Rect(pos_x_opcion - 18, pos_y_opcion - 8, 
+                                                 superficies_opciones[indice].get_width() + 36, 
+                                                 superficies_opciones[indice].get_height() + 16)
+            self._menu_hitboxes.append((rectangulo_clickeable, indice))
 
-            hovering = rect_hit.collidepoint(mouse_pos)
+            mouse_sobre_opcion = rectangulo_clickeable.collidepoint(posicion_mouse)
             
             # Renderizar texto con color según hover
-            if hovering:
+            if mouse_sobre_opcion:
                 # Color resaltado cuando el mouse está encima
-                surf = font_menu.render(txt, True, (255, 215, 0))  # Dorado brillante
-                overlay = pygame.Surface((rect_hit.width, rect_hit.height), pygame.SRCALPHA)
-                overlay.fill((0, 0, 0, 90))
-                pantalla.blit(overlay, rect_hit.topleft)
-                pygame.draw.rect(pantalla, (255, 215, 0), rect_hit, 1, border_radius=8)
+                superficie_texto = font_menu.render(texto_opcion, True, (255, 215, 0))  # Dorado brillante
+                overlay_hover = pygame.Surface((rectangulo_clickeable.width, rectangulo_clickeable.height), pygame.SRCALPHA)
+                overlay_hover.fill((0, 0, 0, 90))
+                pantalla.blit(overlay_hover, rectangulo_clickeable.topleft)
+                pygame.draw.rect(pantalla, (255, 215, 0), rectangulo_clickeable, 1, border_radius=8)
             else:
                 # Color normal
-                surf = surfaces[i]
+                superficie_texto = superficies_opciones[indice]
 
-            pantalla.blit(surf, (x, y))
-            y_current += surf.get_height() + spacing
+            pantalla.blit(superficie_texto, (pos_x_opcion, pos_y_opcion))
+            posicion_y_actual += superficie_texto.get_height() + espaciado_vertical
 
         # Pie
         hint_size = int(alto * 0.03)
@@ -458,7 +456,6 @@ class juego:
         self._guardado = False
         self.puntos = 0  # Resetear puntuación
         self.enemigos_derrotados = 0  # Resetear contador
-        self.tutorial_mostrado = True  # Mantener como mostrado (ya se muestra en pantalla de controles)
         # Crear un único personaje por defecto (Explorador - equilibrado)
         self.jugador = jugador("Explorador", AMARILLO, velocidad=4, energia=100, vision=150)
         # Resetear frase final y animación de pantalla final para evitar que persistan entre partidas
@@ -620,11 +617,11 @@ class juego:
             self.cantidad_spawn = 3
 
     # GENERACIÓN DE BONUS POR NIVEL
-    def posicion_valida_bonus(self, x, y, tamaño):
+    def posicion_valida_bonus(self, posicion_x, posicion_y, tamano_bonus):
         """Verifica que una posición no colisione con muros"""
-        test_rect = pygame.Rect(x, y, tamaño, tamaño)
-        for muro in self.nivel_actual.muros:
-            if test_rect.colliderect(muro.rect):
+        rectangulo_prueba = pygame.Rect(posicion_x, posicion_y, tamano_bonus, tamano_bonus)
+        for muro_actual in self.nivel_actual.muros:
+            if rectangulo_prueba.colliderect(muro_actual.rect):
                 return False
         return True
     
@@ -634,65 +631,65 @@ class juego:
         
         # Determinar cantidad máxima de corazones según el nivel
         if numero_nivel == 1:
-            max_corazones = 3
+            cantidad_maxima_corazones = 3
         elif numero_nivel == 2:
-            max_corazones = 2
+            cantidad_maxima_corazones = 2
         elif numero_nivel == 3:
-            max_corazones = 1
+            cantidad_maxima_corazones = 1
         else:
-            max_corazones = 2  # Por defecto
+            cantidad_maxima_corazones = 2  # Por defecto
         
         # Generar corazones de vida (cantidad aleatoria hasta el máximo)
-        num_corazones = random.randint(1, max_corazones)
-        intentos_max = 50  # Máximo de intentos para encontrar una posición válida
+        cantidad_corazones = random.randint(1, cantidad_maxima_corazones)
+        intentos_maximos = 50  # Máximo de intentos para encontrar una posición válida
         
-        for _ in range(num_corazones):
-            for intento in range(intentos_max):
-                bx = random.randint(100, self.nivel_actual.ancho - 100)
-                by = random.randint(100, self.nivel_actual.alto - 100)
-                if self.posicion_valida_bonus(bx, by, 15):
-                    self.nivel_actual.bonus.append({"rect": pygame.Rect(bx, by, 15, 15), "tipo": "vida"})
+        for _ in range(cantidad_corazones):
+            for numero_intento in range(intentos_maximos):
+                bonus_pos_x = random.randint(100, self.nivel_actual.ancho - 100)
+                bonus_pos_y = random.randint(100, self.nivel_actual.alto - 100)
+                if self.posicion_valida_bonus(bonus_pos_x, bonus_pos_y, 15):
+                    self.nivel_actual.bonus.append({"rect": pygame.Rect(bonus_pos_x, bonus_pos_y, 15, 15), "tipo": "vida"})
                     break
         
         # Generar power-ups según el nivel
         if numero_nivel == 1:
-            num_powerups = 3
+            cantidad_powerups = 3
         elif numero_nivel == 2:
-            num_powerups = 2
+            cantidad_powerups = 2
         elif numero_nivel == 3:
-            num_powerups = 1
+            cantidad_powerups = 1
         else:
-            num_powerups = 2
+            cantidad_powerups = 2
         
         # Tipos de power-ups disponibles con sus probabilidades
-        powerup_tipos = ["vision_clara", "disparo_doble", "super_velocidad", "escudo"]
+        tipos_powerup_disponibles = ["vision_clara", "disparo_doble", "super_velocidad", "escudo"]
         # Pesos de probabilidad: visión clara tiene el doble de probabilidad que los otros
-        powerup_pesos = [0.4, 0.2, 0.2, 0.2]  # 40% visión clara, 20% cada uno de los otros
+        probabilidades_powerup = [0.4, 0.2, 0.2, 0.2]  # 40% visión clara, 20% cada uno de los otros
         
         # Generar power-ups en posiciones aleatorias
-        for _ in range(num_powerups):
-            tipo = random.choices(powerup_tipos, weights=powerup_pesos, k=1)[0]
-            tamaño = 15  # Tamaño de los power-ups (igual que corazones y energía)
+        for _ in range(cantidad_powerups):
+            tipo_powerup_seleccionado = random.choices(tipos_powerup_disponibles, weights=probabilidades_powerup, k=1)[0]
+            tamano_powerup = 15  # Tamaño de los power-ups (igual que corazones y energía)
             
-            for intento in range(intentos_max):
-                bx = random.randint(100, self.nivel_actual.ancho - 100)
-                by = random.randint(100, self.nivel_actual.alto - 100)
-                if self.posicion_valida_bonus(bx, by, tamaño):
+            for numero_intento in range(intentos_maximos):
+                powerup_pos_x = random.randint(100, self.nivel_actual.ancho - 100)
+                powerup_pos_y = random.randint(100, self.nivel_actual.alto - 100)
+                if self.posicion_valida_bonus(powerup_pos_x, powerup_pos_y, tamano_powerup):
                     self.nivel_actual.bonus.append({
-                        "rect": pygame.Rect(bx, by, tamaño, tamaño), 
-                        "tipo": tipo,
+                        "rect": pygame.Rect(powerup_pos_x, powerup_pos_y, tamano_powerup, tamano_powerup), 
+                        "tipo": tipo_powerup_seleccionado,
                         "activo": False  # Indica si el power-up está activo (para renderizado)
                     })
                     break
         
         # Generar energía adicional
-        num_energia = random.randint(1, 2)
-        for _ in range(num_energia):
-            for intento in range(intentos_max):
-                bx = random.randint(100, self.nivel_actual.ancho - 100)
-                by = random.randint(100, self.nivel_actual.alto - 100)
-                if self.posicion_valida_bonus(bx, by, 15):
-                    self.nivel_actual.bonus.append({"rect": pygame.Rect(bx, by, 15, 15), "tipo": "energia"})
+        cantidad_energia = random.randint(1, 2)
+        for _ in range(cantidad_energia):
+            for numero_intento in range(intentos_maximos):
+                energia_pos_x = random.randint(100, self.nivel_actual.ancho - 100)
+                energia_pos_y = random.randint(100, self.nivel_actual.alto - 100)
+                if self.posicion_valida_bonus(energia_pos_x, energia_pos_y, 15):
+                    self.nivel_actual.bonus.append({"rect": pygame.Rect(energia_pos_x, energia_pos_y, 15, 15), "tipo": "energia"})
                     break
 
     # BUCLE PRINCIPAL DE JUEGO
@@ -703,11 +700,8 @@ class juego:
         area_juego = pygame.Surface((ancho, alto - offset_header))
         area_juego.fill(GRIS)
 
-        # Verificar si el tutorial está activo (congela el juego)
-        tutorial_activo = (self.numero_nivel == 1 and self.mostrar_tutorial and not self.tutorial_mostrado)
-        
-        # Actualizar cámara y movimiento del jugador (solo si no está pausado Y el tutorial no está activo)
-        if not pausado and not tutorial_activo:
+        # Actualizar cámara y movimiento del jugador (solo si no está pausado)
+        if not pausado:
             self.camara.actualizar(self.jugador.rect)
             teclas = pygame.key.get_pressed()
             muros_bloq = [m for m in self.nivel_actual.muros if getattr(m, "bloquea", True)]
@@ -759,14 +753,14 @@ class juego:
         # Dibujar mapa y enemigos
         self.nivel_actual.dibujar(area_juego, self.camara)
         for enemigo_actual in list(self.enemigos):
-            if not pausado and not tutorial_activo:
+            if not pausado:
                 enemigo_actual.mover(muros_bloq, self.nivel_actual.ancho, self.nivel_actual.alto, self.jugador)
             enemigo_actual.dibujar(area_juego, self.camara)
 
             # Los enemigos ya NO dañan por contacto directo
             # Cada tipo tiene su propio sistema de ataque con cooldowns
             # Verificar si el jugador murió después de los ataques específicos
-            if not pausado and not tutorial_activo and self.jugador.vida <= 0:
+            if not pausado and self.jugador.vida <= 0:
                 self.resultado = "perdiste"
                 self.estado = "fin"
                 # Reproducir sonido de derrota cuando el jugador muere
@@ -784,7 +778,7 @@ class juego:
                     print(f"Partida de {self.nombre_jugador} guardada en historial (checkpoint activo)")
 
         # Actualizar duración de power-ups activos
-        if not pausado and not tutorial_activo and self.powerup_duracion > 0:
+        if not pausado and self.powerup_duracion > 0:
             self.powerup_duracion -= 1
             if self.powerup_duracion <= 0:
                 self.desactivar_powerup(mostrar_mensaje=False)
@@ -852,7 +846,7 @@ class juego:
                     area_juego.blit(texto, texto_rect)
             
             # Recoger bonus instantáneos (vida, energía)
-            if not pausado and not tutorial_activo and self.jugador.rect.colliderect(rect):
+            if not pausado and self.jugador.rect.colliderect(rect):
                 if tipo == "vida":
                     self.jugador.vida = min(self.jugador.vida_max, self.jugador.vida + 1)
                     self.reproducir_corazon()
@@ -863,8 +857,8 @@ class juego:
                     self.reproducir_rayo()
                     self.nivel_actual.bonus.remove(bonus)
         
-        # Recoger llaves (solo si no está pausado y tutorial no activo)
-        if not pausado and not tutorial_activo:
+        # Recoger llaves (solo si no está pausado)
+        if not pausado:
             for llave in list(getattr(self.nivel_actual, "llaves", [])):
                 if self.jugador.rect.colliderect(llave):
                     self.nivel_actual.llaves.remove(llave)
@@ -884,14 +878,14 @@ class juego:
                     else:
                         self.mostrar_mensaje(f"¡Llave recogida! Faltan {llaves_restantes}", 90)
         
-        # Proyectiles y colisiones (solo mover si no está pausado y tutorial no activo)
+        # Proyectiles y colisiones (solo mover si no está pausado)
         for bala in list(self.proyectiles):
-            if not pausado and not tutorial_activo:
+            if not pausado:
                 if not bala.mover(muros_bloq):
                     self.proyectiles.remove(bala)
                     continue
             bala.dibujar(area_juego, self.camara)
-            if not pausado and not tutorial_activo:
+            if not pausado:
                 for enemigo_actual in list(self.enemigos):
                     if bala.rect.colliderect(enemigo_actual.rect):
                         enemigo_actual.vida -= 1
@@ -922,7 +916,7 @@ class juego:
         self.dibujar_header(pantalla, ancho, alto, offset_header)
         
         # Actualizar y mostrar mensaje temporal
-        if not pausado and not tutorial_activo and self.mensaje_timer > 0:
+        if not pausado and self.mensaje_timer > 0:
             self.mensaje_timer -= 1
             # Dibujar mensaje en el centro de la pantalla
             alpha = min(255, self.mensaje_timer * 3) if self.mensaje_timer < 60 else 255
@@ -937,8 +931,8 @@ class juego:
             # Texto del mensaje
             self.dibujar_texto(self.mensaje_temporal, int(alto * 0.05), color_msg, ancho // 2, msg_y + int(alto * 0.05))
         
-        # Verificar proximidad a la salida y mostrar mensaje (solo si no está pausado y tutorial no activo)
-        if not pausado and not tutorial_activo and self.nivel_actual.salida:
+        # Verificar proximidad a la salida y mostrar mensaje (solo si no está pausado)
+        if not pausado and self.nivel_actual.salida:
             llaves_restantes = len(getattr(self.nivel_actual, "llaves", []))
             cerca, mensaje = self.nivel_actual.salida.verificar_proximidad_jugador(
                 self.jugador.rect, llaves_restantes
@@ -948,16 +942,12 @@ class juego:
                 color_texto = (255, 100, 100) if llaves_restantes > 0 else (100, 255, 100)
                 self.dibujar_texto(mensaje, int(alto * 0.04), color_texto, ancho // 2, indicador_y)
         
-        # Dibujar mira personalizada (solo si no está pausado y tutorial no activo)
-        if not pausado and not tutorial_activo:
+        # Dibujar mira personalizada (solo si no está pausado)
+        if not pausado:
             self.dibujar_mira(pantalla)
-        
-        # Mostrar tutorial en el primer nivel (se muestra aunque el juego esté congelado)
-        if self.numero_nivel == 1 and self.mostrar_tutorial and not self.tutorial_mostrado:
-            self.dibujar_tutorial(pantalla)
 
-        # Salida del nivel (solo si no está pausado y tutorial no activo)
-        if not pausado and not tutorial_activo and self.jugador.rect.colliderect(self.nivel_actual.salida.rect) and len(getattr(self.nivel_actual, "llaves", [])) == 0:
+        # Salida del nivel (solo si no está pausado)
+        if not pausado and self.jugador.rect.colliderect(self.nivel_actual.salida.rect) and len(getattr(self.nivel_actual, "llaves", [])) == 0:
             # Bonus por completar nivel
             self.puntos += 500
             # Bonus de tiempo
@@ -2597,82 +2587,82 @@ class juego:
         if not self.enemigos:
             return "NONE"
         
-        enemigos_data = []
-        for e in self.enemigos:
+        datos_enemigos_serializados = []
+        for enemigo_actual in self.enemigos:
             # Formato: tipo:x:y:vida:velocidad
-            tipo = getattr(e, 'tipo', 'normal')
-            x = int(e.rect.x)
-            y = int(e.rect.y)
-            vida = int(e.vida)
-            velocidad = int(e.velocidad)
-            enemigos_data.append(f"{tipo}:{x}:{y}:{vida}:{velocidad}")
+            tipo_enemigo = getattr(enemigo_actual, 'tipo', 'normal')
+            posicion_x = int(enemigo_actual.rect.x)
+            posicion_y = int(enemigo_actual.rect.y)
+            vida_enemigo = int(enemigo_actual.vida)
+            velocidad_enemigo = int(enemigo_actual.velocidad)
+            datos_enemigos_serializados.append(f"{tipo_enemigo}:{posicion_x}:{posicion_y}:{vida_enemigo}:{velocidad_enemigo}")
         
-        return ",".join(enemigos_data)
+        return ",".join(datos_enemigos_serializados)
     
-    def _deserializar_enemigos(self, data):
+    def _deserializar_enemigos(self, datos_serializados):
         """Convierte el string serializado de nuevo a lista de enemigos"""
-        if not data or data == "NONE":
+        if not datos_serializados or datos_serializados == "NONE":
             return []
         
-        enemigos_restaurados = []
-        enemigos_str = data.split(',')
+        lista_enemigos_restaurados = []
+        cadenas_enemigos = datos_serializados.split(',')
         
-        for e_str in enemigos_str:
-            partes = e_str.split(':')
-            if len(partes) >= 5:
-                tipo = partes[0]
-                x = int(float(partes[1]))
-                y = int(float(partes[2]))
-                vida = int(float(partes[3]))
-                velocidad = int(float(partes[4]))
+        for cadena_enemigo in cadenas_enemigos:
+            partes_datos = cadena_enemigo.split(':')
+            if len(partes_datos) >= 5:
+                tipo_enemigo = partes_datos[0]
+                posicion_x = int(float(partes_datos[1]))
+                posicion_y = int(float(partes_datos[2]))
+                vida_enemigo = int(float(partes_datos[3]))
+                velocidad_enemigo = int(float(partes_datos[4]))
                 
                 # Crear enemigo con los datos guardados
                 from enemigo import enemigo as clase_enemigo
-                e = clase_enemigo(x, y, vida, tipo=tipo)
-                e.velocidad = velocidad
-                enemigos_restaurados.append(e)
+                enemigo_restaurado = clase_enemigo(posicion_x, posicion_y, vida_enemigo, tipo=tipo_enemigo)
+                enemigo_restaurado.velocidad = velocidad_enemigo
+                lista_enemigos_restaurados.append(enemigo_restaurado)
         
-        return enemigos_restaurados
+        return lista_enemigos_restaurados
     
     def _serializar_bonus(self):
         """Convierte la lista de bonus (corazones, rayos, power-ups) a formato: tipo:x:y,tipo:x:y,..."""
         if not hasattr(self.nivel_actual, 'bonus') or not self.nivel_actual.bonus:
             return "NONE"
         
-        bonus_data = []
-        for bonus in self.nivel_actual.bonus:
+        datos_bonus_serializados = []
+        for item_bonus in self.nivel_actual.bonus:
             # Formato: tipo:x:y
-            tipo = bonus.get('tipo', 'vida')
-            rect = bonus.get('rect')
-            if rect:
-                x = int(rect.x)
-                y = int(rect.y)
-                bonus_data.append(f"{tipo}:{x}:{y}")
+            tipo_bonus = item_bonus.get('tipo', 'vida')
+            rectangulo_bonus = item_bonus.get('rect')
+            if rectangulo_bonus:
+                posicion_x = int(rectangulo_bonus.x)
+                posicion_y = int(rectangulo_bonus.y)
+                datos_bonus_serializados.append(f"{tipo_bonus}:{posicion_x}:{posicion_y}")
         
-        return ",".join(bonus_data)
+        return ",".join(datos_bonus_serializados)
     
-    def _deserializar_bonus(self, data):
+    def _deserializar_bonus(self, datos_serializados):
         """Convierte el string serializado de nuevo a lista de bonus"""
-        if not data or data == "NONE":
+        if not datos_serializados or datos_serializados == "NONE":
             return []
         
-        bonus_restaurados = []
-        bonus_str = data.split(',')
+        lista_bonus_restaurados = []
+        cadenas_bonus = datos_serializados.split(',')
         
-        for b_str in bonus_str:
-            partes = b_str.split(':')
-            if len(partes) >= 3:
-                tipo = partes[0]
-                x = int(float(partes[1]))
-                y = int(float(partes[2]))
+        for cadena_bonus in cadenas_bonus:
+            partes_datos = cadena_bonus.split(':')
+            if len(partes_datos) >= 3:
+                tipo_bonus = partes_datos[0]
+                posicion_x = int(float(partes_datos[1]))
+                posicion_y = int(float(partes_datos[2]))
                 
                 # Crear bonus con los datos guardados
-                bonus_restaurados.append({
-                    "rect": pygame.Rect(x, y, 15, 15),
-                    "tipo": tipo
+                lista_bonus_restaurados.append({
+                    "rect": pygame.Rect(posicion_x, posicion_y, 15, 15),
+                    "tipo": tipo_bonus
                 })
         
-        return bonus_restaurados
+        return lista_bonus_restaurados
     
     def guardar_partida(self):
         """Guarda el progreso completo del jugador en formato TXT"""
@@ -3159,15 +3149,13 @@ class juego:
                         self.estado = "fin"
                         pygame.mouse.set_visible(True)
                     
-                    # Disparo con click izquierdo - solo si el tutorial fue cerrado
-                    elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and \
-                         (self.tutorial_mostrado or self.numero_nivel > 1):
+                    # Disparo con click izquierdo
+                    elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                         if self.jugador.cooldown_disparo == 0:
                             self.disparar_proyectil()
 
                     # Tecla E - Activar power-up cercano
-                    elif e.type == pygame.KEYDOWN and e.key == pygame.K_e and \
-                         (self.tutorial_mostrado or self.numero_nivel > 1):
+                    elif e.type == pygame.KEYDOWN and e.key == pygame.K_e:
                         # Buscar power-up más cercano al jugador
                         power_up_cercano = None
                         distancia_minima = 80  # Radio de activación
@@ -3436,37 +3424,37 @@ class juego:
         
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
-        offset_header = int(alto * self.altura_header)
+        desplazamiento_header = int(alto * self.altura_header)
         
         # Obtener posición del mouse
-        mx, my = pygame.mouse.get_pos()
-        my_ajustado = my - offset_header
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        mouse_y_ajustado = mouse_y - desplazamiento_header
         
         # Obtener posición del jugador en pantalla
-        jugador_pantalla = self.camara.aplicar(self.jugador.rect)
-        px, py = jugador_pantalla.centerx, jugador_pantalla.centery
+        rectangulo_jugador_pantalla = self.camara.aplicar(self.jugador.rect)
+        jugador_pantalla_x, jugador_pantalla_y = rectangulo_jugador_pantalla.centerx, rectangulo_jugador_pantalla.centery
         
         # Calcular dirección desde el jugador al mouse
-        dx = mx - px
-        dy = my_ajustado - py
+        direccion_x = mouse_x - jugador_pantalla_x
+        direccion_y = mouse_y_ajustado - jugador_pantalla_y
         
         # Si el mouse está muy cerca del jugador, usar la última dirección de movimiento
-        distancia_mouse = math.hypot(dx, dy)
-        if distancia_mouse < 20:  # Mouse muy cerca del jugador
-            dx = self.jugador.ultima_direccion_x * 100
-            dy = self.jugador.ultima_direccion_y * 100
+        distancia_al_mouse = math.hypot(direccion_x, direccion_y)
+        if distancia_al_mouse < 20:  # Mouse muy cerca del jugador
+            direccion_x = self.jugador.ultima_direccion_x * 100
+            direccion_y = self.jugador.ultima_direccion_y * 100
         
         # Convertir dirección a coordenadas del mundo
-        mundo_destino_x = self.jugador.rect.centerx + dx
-        mundo_destino_y = self.jugador.rect.centery + dy
+        destino_mundo_x = self.jugador.rect.centerx + direccion_x
+        destino_mundo_y = self.jugador.rect.centery + direccion_y
         
         # Crear proyectil principal
         self.proyectiles.append(
             proyectil(
                 self.jugador.rect.centerx, 
                 self.jugador.rect.centery, 
-                mundo_destino_x, 
-                mundo_destino_y, 
+                destino_mundo_x, 
+                destino_mundo_y, 
                 self.jugador.color
             )
         )
@@ -3474,18 +3462,18 @@ class juego:
         # Si disparo doble está activo, crear proyectil adicional con un ángulo ligeramente diferente
         if self.disparo_doble:
             # Calcular ángulo del disparo original
-            angulo = math.atan2(dy, dx)
+            angulo_disparo = math.atan2(direccion_y, direccion_x)
             # Crear segundo proyectil con un pequeño offset angular (15 grados)
-            offset_angulo = math.radians(15)
-            dx2 = math.cos(angulo + offset_angulo) * distancia_mouse
-            dy2 = math.sin(angulo + offset_angulo) * distancia_mouse
+            desviacion_angular = math.radians(15)
+            direccion_x_segundo = math.cos(angulo_disparo + desviacion_angular) * distancia_al_mouse
+            direccion_y_segundo = math.sin(angulo_disparo + desviacion_angular) * distancia_al_mouse
             
             self.proyectiles.append(
                 proyectil(
                     self.jugador.rect.centerx, 
                     self.jugador.rect.centery, 
-                    self.jugador.rect.centerx + dx2, 
-                    self.jugador.rect.centery + dy2, 
+                    self.jugador.rect.centerx + direccion_x_segundo, 
+                    self.jugador.rect.centery + direccion_y_segundo, 
                     self.jugador.color
                 )
             )
@@ -3638,60 +3626,6 @@ class juego:
         if sonido:
             self.reproducir_notificacion()
     
-    # ATAQUE CORTO (melee)
-    def ataque_corto(self):
-        """Realiza un ataque cuerpo a cuerpo en la dirección del mouse"""
-        # Verificar cooldown del ataque melee (más rápido que disparo)
-        if not hasattr(self, 'cooldown_melee'):
-            self.cooldown_melee = 0
-        
-        if self.cooldown_melee > 0:
-            return  # Aún en cooldown
-        
-        # Establecer cooldown (15 frames = 0.25 segundos a 60 FPS)
-        self.cooldown_melee = 15
-        
-        # Obtener posición del mouse ajustada
-        pantalla = pygame.display.get_surface()
-        ancho, alto = pantalla.get_size()
-        offset_header = int(alto * self.altura_header)
-        mx, my = pygame.mouse.get_pos()
-        my_ajustado = my - offset_header
-        
-        # Calcular ángulo hacia el mouse
-        ang = math.atan2(my_ajustado - self.jugador.rect.centery, 
-                         mx - self.jugador.rect.centerx)
-        
-        # Alcance y área del ataque
-        alcance = 50  # Distancia del ataque
-        ancho_ataque = 50  # Ancho del área de ataque
-        
-        # Crear rectángulo de ataque en la dirección del mouse
-        ataque_x = self.jugador.rect.centerx + math.cos(ang) * alcance
-        ataque_y = self.jugador.rect.centery + math.sin(ang) * alcance
-        ataque_rect = pygame.Rect(0, 0, ancho_ataque, ancho_ataque)
-        ataque_rect.center = (ataque_x, ataque_y)
-        
-        # Verificar colisiones con enemigos
-        enemigos_golpeados = 0
-        for enemigo_actual in list(self.enemigos):
-            if ataque_rect.colliderect(enemigo_actual.rect):
-                enemigos_golpeados += 1
-                enemigo_actual.vida -= 1
-                
-                # Efecto visual en el enemigo
-                enemigo_actual.color = (255, 100, 100)
-                
-                # Reproducir sonido
-                if self.sonido_golpe:
-                    self.sonido_golpe.play()
-                
-                # Verificar si el enemigo murió
-                if enemigo_actual.vida <= 0:
-                    self.enemigos.remove(enemigo_actual)
-                    self.enemigos_derrotados += 1
-                    self.puntos += 100  # Puntos por enemigo derrotado
-
     # SISTEMA DE POWER-UPS
     def activar_powerup(self, tipo):
         """Activa un power-up con sus efectos específicos"""
@@ -3864,53 +3798,6 @@ class juego:
         # Los enemigos se generan silenciosamente sin mensaje ni sonido
 
     # GUARDADO DE RESULTADOS
-    def dibujar_tutorial(self, pantalla):
-        """Muestra un tutorial con los controles básicos"""
-        ancho, alto = pantalla.get_size()
-        
-        # Fondo semi-transparente
-        overlay = pygame.Surface((ancho, alto // 3))
-        overlay.set_alpha(200)
-        overlay.fill((0, 0, 0))
-        y_pos = alto // 3
-        pantalla.blit(overlay, (0, y_pos))
-        
-        # Título
-        self.dibujar_texto("CONTROLES BÁSICOS", int(alto * 0.05), AMARILLO, 
-                          ancho // 2, y_pos + int(alto * 0.05))
-        
-        # Controles - Dos columnas
-        controles_izq = [
-            "WASD - Movimiento",
-            "SHIFT - Sprint",
-            "Click Izq - Disparar",
-            "E - Activar pociones cercanas"
-        ]
-        
-        controles_der = [
-            "P/ESC - Pausar",
-            "",
-            "Recoge llaves para escapar",
-            ""
-        ]
-        
-        # Columna izquierda
-        x_izq = ancho // 4
-        y_start = y_pos + int(alto * 0.12)
-        for i, texto in enumerate(controles_izq):
-            self.dibujar_texto(texto, int(alto * 0.028), BLANCO, 
-                              x_izq, y_start + i * int(alto * 0.04))
-        
-        # Columna derecha
-        x_der = ancho * 3 // 4
-        for i, texto in enumerate(controles_der):
-            self.dibujar_texto(texto, int(alto * 0.028), BLANCO, 
-                              x_der, y_start + i * int(alto * 0.04))
-        
-        # Mensaje para cerrar
-        self.dibujar_texto("Presiona ENTER para comenzar", int(alto * 0.03), VERDE, 
-                          ancho // 2, y_pos + int(alto * 0.25))
-    
     def actualizar_volumen_efectos(self):
         """Actualiza el volumen de todos los efectos de sonido"""
         if self.sonido_disparo:

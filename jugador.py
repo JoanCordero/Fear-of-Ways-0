@@ -11,19 +11,19 @@ def cargar_frames(ruta, ancho, alto, escala=1.0, margen=30, margen_inferior_extr
         margen: Margen general en todos los lados
         margen_inferior_extra: Margen adicional en la parte inferior para evitar artefactos
     """
-    hoja = pygame.image.load(ruta).convert_alpha()
-    hoja_w, hoja_h = hoja.get_size()
+    sprite_sheet = pygame.image.load(ruta).convert_alpha()
+    ancho_sprite_sheet, alto_sprite_sheet = sprite_sheet.get_size()
     frames = []
 
     # Ajustar número de columnas y filas en función del tamaño real
-    columnas = hoja_w // ancho
-    filas = hoja_h // alto
+    numero_columnas = ancho_sprite_sheet // ancho
+    numero_filas = alto_sprite_sheet // alto
 
-    for y in range(filas):
-        for x in range(columnas):
-            # Detectar si es la fila de disparo (segunda fila, y=1, frames 5-9)
+    for fila_actual in range(numero_filas):
+        for columna_actual in range(numero_columnas):
+            # Detectar si es la fila de disparo (segunda fila, fila_actual=1, frames 5-9)
             # Para disparo, usar márgenes más pequeños arriba y a la derecha
-            es_fila_disparo = (y == 1)
+            es_fila_disparo = (fila_actual == 1)
             
             if es_fila_disparo:
                 # Márgenes personalizados para disparo: más espacio arriba y a la derecha
@@ -39,25 +39,25 @@ def cargar_frames(ruta, ancho, alto, escala=1.0, margen=30, margen_inferior_extr
                 margen_derecho = margen
             
             # Calcular posición exacta del frame con márgenes personalizados
-            x_pos = x * ancho + margen_izquierdo
-            y_pos = y * alto + margen_superior
+            posicion_x_frame = columna_actual * ancho + margen_izquierdo
+            posicion_y_frame = fila_actual * alto + margen_superior
             ancho_frame = ancho - margen_izquierdo - margen_derecho
             alto_frame = alto - margen_superior - margen_inferior
             
             # Asegurar que no salimos de los límites de la hoja
-            if x_pos < 0:
-                x_pos = 0
-            if y_pos < 0:
-                y_pos = 0
-            if x_pos + ancho_frame > hoja_w:
-                ancho_frame = hoja_w - x_pos
-            if y_pos + alto_frame > hoja_h:
-                alto_frame = hoja_h - y_pos
+            if posicion_x_frame < 0:
+                posicion_x_frame = 0
+            if posicion_y_frame < 0:
+                posicion_y_frame = 0
+            if posicion_x_frame + ancho_frame > ancho_sprite_sheet:
+                ancho_frame = ancho_sprite_sheet - posicion_x_frame
+            if posicion_y_frame + alto_frame > alto_sprite_sheet:
+                alto_frame = alto_sprite_sheet - posicion_y_frame
             
             # Solo crear el frame si tiene tamaño válido
             if ancho_frame > 0 and alto_frame > 0:
-                rect = pygame.Rect(x_pos, y_pos, ancho_frame, alto_frame)
-                frame = hoja.subsurface(rect).copy()  # Copiar para evitar referencias
+                rectangulo_frame = pygame.Rect(posicion_x_frame, posicion_y_frame, ancho_frame, alto_frame)
+                frame = sprite_sheet.subsurface(rectangulo_frame).copy()  # Copiar para evitar referencias
                 
                 # Crear una superficie limpia con canal alpha para evitar artefactos
                 frame_limpio = pygame.Surface((ancho_frame, alto_frame), pygame.SRCALPHA)
@@ -160,20 +160,20 @@ class jugador:
             self.estado = "morir"
             return
 
-        dx = (1 if teclas[pygame.K_d] else 0) - (1 if teclas[pygame.K_a] else 0)
-        dy = (1 if teclas[pygame.K_s] else 0) - (1 if teclas[pygame.K_w] else 0)
+        direccion_x = (1 if teclas[pygame.K_d] else 0) - (1 if teclas[pygame.K_a] else 0)
+        direccion_y = (1 if teclas[pygame.K_s] else 0) - (1 if teclas[pygame.K_w] else 0)
 
         # Normalizar vector
-        mag = math.hypot(dx, dy)
-        if mag > 0:
-            dx /= mag
-            dy /= mag
-            self.ultima_direccion_x = dx
-            self.ultima_direccion_y = dy
+        magnitud_vector = math.hypot(direccion_x, direccion_y)
+        if magnitud_vector > 0:
+            direccion_x /= magnitud_vector
+            direccion_y /= magnitud_vector
+            self.ultima_direccion_x = direccion_x
+            self.ultima_direccion_y = direccion_y
             # Actualizar dirección de mirada
-            if dx < 0:
+            if direccion_x < 0:
                 self.mirando_izquierda = True
-            elif dx > 0:
+            elif direccion_x > 0:
                 self.mirando_izquierda = False
 
         # Modificadores de velocidad
@@ -188,8 +188,8 @@ class jugador:
         velocidad = self.velocidad_base * slow_mult * mult_velocidad
 
         # Movimiento con aceleración progresiva
-        self.vel_x += dx * self.aceleracion * mult_aceleracion
-        self.vel_y += dy * self.aceleracion * mult_aceleracion
+        self.vel_x += direccion_x * self.aceleracion * mult_aceleracion
+        self.vel_y += direccion_y * self.aceleracion * mult_aceleracion
 
         self.vel_x *= friccion_actual
         self.vel_y *= friccion_actual
@@ -309,21 +309,21 @@ class jugador:
         """Actualiza el ángulo de la linterna hacia la posición del mouse"""
         # Obtener posición del jugador en pantalla
         jugador_pantalla = camara.aplicar(self.rect)
-        px, py = jugador_pantalla.centerx, jugador_pantalla.centery
+        posicion_jugador_x, posicion_jugador_y = jugador_pantalla.centerx, jugador_pantalla.centery
         
         # Calcular dirección desde el jugador al mouse
-        dx = mouse_x - px
-        dy = mouse_y - py
+        diferencia_x = mouse_x - posicion_jugador_x
+        diferencia_y = mouse_y - posicion_jugador_y
         
         # Si el mouse está muy cerca, usar la última dirección de movimiento
-        distancia_mouse = math.hypot(dx, dy)
+        distancia_mouse = math.hypot(diferencia_x, diferencia_y)
         if distancia_mouse < 20:
-            dx = self.ultima_direccion_x * 100
-            dy = self.ultima_direccion_y * 100
-            distancia_mouse = math.hypot(dx, dy)
+            diferencia_x = self.ultima_direccion_x * 100
+            diferencia_y = self.ultima_direccion_y * 100
+            distancia_mouse = math.hypot(diferencia_x, diferencia_y)
         
         if distancia_mouse > 0:
-            self.angulo_linterna = math.atan2(dy, dx)
+            self.angulo_linterna = math.atan2(diferencia_y, diferencia_x)
         else:
             # Si no hay movimiento, mantener el último ángulo
             self.angulo_linterna = math.atan2(self.ultima_direccion_y, self.ultima_direccion_x)

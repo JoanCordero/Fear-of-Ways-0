@@ -164,96 +164,96 @@ class nivel:
         # Aproximación a un laberinto circular usando marcos rectangulares
         # concéntricos con aperturas alternadas. Pasillos >= 110 px.
 
-        cx, cy = self.ancho // 2, self.alto // 2
-        grosor = 30               # grosor de muro
-        pasillo = 120             # ancho mínimo de pasillo
-        anillos = 5               # número de anillos
-        hueco = 160               # ancho de cada apertura
-        inner_half = 140          # semitamaño de la cámara central
+        centro_x, centro_y = self.ancho // 2, self.alto // 2
+        grosor_muro = 30               # grosor de muro
+        ancho_pasillo = 120             # ancho mínimo de pasillo
+        numero_anillos = 5               # número de anillos
+        ancho_hueco = 160               # ancho de cada apertura
+        mitad_interior = 140          # semitamaño de la cámara central
 
-        def add_h_split(x1, x2, y, gap_center=None):
+        def agregar_division_horizontal(x_inicio, x_fin, y_posicion, centro_hueco=None):
             """Añade una pared horizontal con hueco opcional."""
-            if gap_center is None:
-                self.muros.append(pared(x1, y, x2 - x1, grosor))
+            if centro_hueco is None:
+                self.muros.append(pared(x_inicio, y_posicion, x_fin - x_inicio, grosor_muro))
                 return
-            gl = max(x1, int(gap_center - hueco // 2))
-            gr = min(x2, int(gap_center + hueco // 2))
-            if gl - x1 > 0:
-                self.muros.append(pared(x1, y, gl - x1, grosor))
-            if x2 - gr > 0:
-                self.muros.append(pared(gr, y, x2 - gr, grosor))
+            hueco_izquierda = max(x_inicio, int(centro_hueco - ancho_hueco // 2))
+            hueco_derecha = min(x_fin, int(centro_hueco + ancho_hueco // 2))
+            if hueco_izquierda - x_inicio > 0:
+                self.muros.append(pared(x_inicio, y_posicion, hueco_izquierda - x_inicio, grosor_muro))
+            if x_fin - hueco_derecha > 0:
+                self.muros.append(pared(hueco_derecha, y_posicion, x_fin - hueco_derecha, grosor_muro))
 
-        def add_v_split(y1, y2, x, gap_center=None):
+        def agregar_division_vertical(y_inicio, y_fin, x_posicion, centro_hueco=None):
             """Añade una pared vertical con hueco opcional."""
-            if gap_center is None:
-                self.muros.append(pared(x, y1, grosor, y2 - y1))
+            if centro_hueco is None:
+                self.muros.append(pared(x_posicion, y_inicio, grosor_muro, y_fin - y_inicio))
                 return
-            gt = max(y1, int(gap_center - hueco // 2))
-            gb = min(y2, int(gap_center + hueco // 2))
-            if gt - y1 > 0:
-                self.muros.append(pared(x, y1, grosor, gt - y1))
-            if y2 - gb > 0:
-                self.muros.append(pared(x, gb, grosor, y2 - gb))
+            hueco_arriba = max(y_inicio, int(centro_hueco - ancho_hueco // 2))
+            hueco_abajo = min(y_fin, int(centro_hueco + ancho_hueco // 2))
+            if hueco_arriba - y_inicio > 0:
+                self.muros.append(pared(x_posicion, y_inicio, grosor_muro, hueco_arriba - y_inicio))
+            if y_fin - hueco_abajo > 0:
+                self.muros.append(pared(x_posicion, hueco_abajo, grosor_muro, y_fin - hueco_abajo))
 
         # Construcción de anillos desde el centro hacia afuera
-        aperturas = ['top', 'right', 'bottom', 'left']
-        for i in range(anillos):
-            half = inner_half + i * (pasillo + grosor)
-            left = cx - half
-            right = cx + half
-            top = cy - half
-            bottom = cy + half
+        posiciones_aperturas = ['top', 'right', 'bottom', 'left']
+        for indice_anillo in range(numero_anillos):
+            mitad_anillo = mitad_interior + indice_anillo * (ancho_pasillo + grosor_muro)
+            borde_izquierdo = centro_x - mitad_anillo
+            borde_derecho = centro_x + mitad_anillo
+            borde_superior = centro_y - mitad_anillo
+            borde_inferior = centro_y + mitad_anillo
 
-            side = aperturas[i % 4]
-            if side == 'top':
-                add_h_split(left, right, top - grosor, gap_center=cx)
-                add_h_split(left, right, bottom, gap_center=None)
-                add_v_split(top, bottom, left - grosor, gap_center=None)
-                add_v_split(top, bottom, right, gap_center=None)
-            elif side == 'right':
-                add_h_split(left, right, top - grosor, gap_center=None)
-                add_h_split(left, right, bottom, gap_center=None)
-                add_v_split(top, bottom, right, gap_center=cy)
-                add_v_split(top, bottom, left - grosor, gap_center=None)
-            elif side == 'bottom':
-                add_h_split(left, right, bottom, gap_center=cx)
-                add_h_split(left, right, top - grosor, gap_center=None)
-                add_v_split(top, bottom, left - grosor, gap_center=None)
-                add_v_split(top, bottom, right, gap_center=None)
+            lado_apertura = posiciones_aperturas[indice_anillo % 4]
+            if lado_apertura == 'top':
+                agregar_division_horizontal(borde_izquierdo, borde_derecho, borde_superior - grosor_muro, centro_hueco=centro_x)
+                agregar_division_horizontal(borde_izquierdo, borde_derecho, borde_inferior, centro_hueco=None)
+                agregar_division_vertical(borde_superior, borde_inferior, borde_izquierdo - grosor_muro, centro_hueco=None)
+                agregar_division_vertical(borde_superior, borde_inferior, borde_derecho, centro_hueco=None)
+            elif lado_apertura == 'right':
+                agregar_division_horizontal(borde_izquierdo, borde_derecho, borde_superior - grosor_muro, centro_hueco=None)
+                agregar_division_horizontal(borde_izquierdo, borde_derecho, borde_inferior, centro_hueco=None)
+                agregar_division_vertical(borde_superior, borde_inferior, borde_derecho, centro_hueco=centro_y)
+                agregar_division_vertical(borde_superior, borde_inferior, borde_izquierdo - grosor_muro, centro_hueco=None)
+            elif lado_apertura == 'bottom':
+                agregar_division_horizontal(borde_izquierdo, borde_derecho, borde_inferior, centro_hueco=centro_x)
+                agregar_division_horizontal(borde_izquierdo, borde_derecho, borde_superior - grosor_muro, centro_hueco=None)
+                agregar_division_vertical(borde_superior, borde_inferior, borde_izquierdo - grosor_muro, centro_hueco=None)
+                agregar_division_vertical(borde_superior, borde_inferior, borde_derecho, centro_hueco=None)
             else:  # left
-                add_h_split(left, right, top - grosor, gap_center=None)
-                add_h_split(left, right, bottom, gap_center=None)
-                add_v_split(top, bottom, left - grosor, gap_center=cy)
-                add_v_split(top, bottom, right, gap_center=None)
+                agregar_division_horizontal(borde_izquierdo, borde_derecho, borde_superior - grosor_muro, centro_hueco=None)
+                agregar_division_horizontal(borde_izquierdo, borde_derecho, borde_inferior, centro_hueco=None)
+                agregar_division_vertical(borde_superior, borde_inferior, borde_izquierdo - grosor_muro, centro_hueco=centro_y)
+                agregar_division_vertical(borde_superior, borde_inferior, borde_derecho, centro_hueco=None)
 
         # Cámara central abierta y salida cerca del centro
-        self.salida = salida(cx - 40, cy - 40)
+        self.salida = salida(centro_x - 40, centro_y - 40)
 
         # Preparar valores para colocar llaves en distintos anillos
-        outer_half = inner_half + (anillos - 1) * (pasillo + grosor)
+        mitad_exterior = mitad_interior + (numero_anillos - 1) * (ancho_pasillo + grosor_muro)
         # Coordenadas en mitad de pasillos (alejado de paredes)
-        offset = pasillo // 2
+        desplazamiento_llave = ancho_pasillo // 2
 
         # === LLAVES (3 requeridas en anillos distintos) ===
         self.llaves = [
-            pygame.Rect(cx + outer_half - offset - 10, cy - 10, 20, 20),          # Anillo exterior lado derecho
-            pygame.Rect(cx - 10, cy - outer_half + offset - 10, 20, 20),          # Anillo exterior parte superior
-            pygame.Rect(cx - outer_half + offset - 10, cy + 30, 20, 20),          # Anillo exterior lado izquierdo inferior
+            pygame.Rect(centro_x + mitad_exterior - desplazamiento_llave - 10, centro_y - 10, 20, 20),          # Anillo exterior lado derecho
+            pygame.Rect(centro_x - 10, centro_y - mitad_exterior + desplazamiento_llave - 10, 20, 20),          # Anillo exterior parte superior
+            pygame.Rect(centro_x - mitad_exterior + desplazamiento_llave - 10, centro_y + 30, 20, 20),          # Anillo exterior lado izquierdo inferior
         ]
         self.llaves_requeridas = 3
 
         # === SPAWNS DE ENEMIGOS (distribuidos por anillos) ===
         self.spawn_enemigos = []
         # Añadir spawns en diferentes anillos
-        for r in range(anillos):
-            half = inner_half + r * (pasillo + grosor)
-            if r % 2 == 0:
+        for radio_anillo in range(numero_anillos):
+            mitad_anillo_actual = mitad_interior + radio_anillo * (ancho_pasillo + grosor_muro)
+            if radio_anillo % 2 == 0:
                 # posiciones cardinales
-                self.spawn_enemigos.append((cx + half - offset, cy))
-                self.spawn_enemigos.append((cx - half + offset, cy))
+                self.spawn_enemigos.append((centro_x + mitad_anillo_actual - desplazamiento_llave, centro_y))
+                self.spawn_enemigos.append((centro_x - mitad_anillo_actual + desplazamiento_llave, centro_y))
             else:
-                self.spawn_enemigos.append((cx, cy + half - offset))
-                self.spawn_enemigos.append((cx, cy - half + offset))
+                self.spawn_enemigos.append((centro_x, centro_y + mitad_anillo_actual - desplazamiento_llave))
+                self.spawn_enemigos.append((centro_x, centro_y - mitad_anillo_actual + desplazamiento_llave))
         # Limitar cantidad razonable
         self.spawn_enemigos = self.spawn_enemigos[:10]
 
@@ -269,93 +269,93 @@ class nivel:
         self.muros.append(pared(self.ancho - 20, 0, 20, self.alto))
         
         # === DISEÑO RADIAL: rayos + anillos parciales ===
-        cx, cy = self.ancho // 2, self.alto // 2
-        grosor = 30
-        pasillo = 120
-        hueco = 160
+        centro_x, centro_y = self.ancho // 2, self.alto // 2
+        grosor_muro = 30
+        ancho_pasillo = 120
+        ancho_hueco = 160
 
-        def h_split(x1, x2, y, gap_center=None):
-            if gap_center is None:
-                self.muros.append(pared(x1, y, x2 - x1, grosor))
+        def dividir_horizontal(x_inicio, x_fin, y_posicion, centro_hueco=None):
+            if centro_hueco is None:
+                self.muros.append(pared(x_inicio, y_posicion, x_fin - x_inicio, grosor_muro))
             else:
-                gl = max(x1, int(gap_center - hueco // 2))
-                gr = min(x2, int(gap_center + hueco // 2))
-                if gl > x1:
-                    self.muros.append(pared(x1, y, gl - x1, grosor))
-                if x2 > gr:
-                    self.muros.append(pared(gr, y, x2 - gr, grosor))
+                hueco_izquierda = max(x_inicio, int(centro_hueco - ancho_hueco // 2))
+                hueco_derecha = min(x_fin, int(centro_hueco + ancho_hueco // 2))
+                if hueco_izquierda > x_inicio:
+                    self.muros.append(pared(x_inicio, y_posicion, hueco_izquierda - x_inicio, grosor_muro))
+                if x_fin > hueco_derecha:
+                    self.muros.append(pared(hueco_derecha, y_posicion, x_fin - hueco_derecha, grosor_muro))
 
-        def v_split(y1, y2, x, gap_center=None):
-            if gap_center is None:
-                self.muros.append(pared(x, y1, grosor, y2 - y1))
+        def dividir_vertical(y_inicio, y_fin, x_posicion, centro_hueco=None):
+            if centro_hueco is None:
+                self.muros.append(pared(x_posicion, y_inicio, grosor_muro, y_fin - y_inicio))
             else:
-                gt = max(y1, int(gap_center - hueco // 2))
-                gb = min(y2, int(gap_center + hueco // 2))
-                if gt > y1:
-                    self.muros.append(pared(x, y1, grosor, gt - y1))
-                if y2 > gb:
-                    self.muros.append(pared(x, gb, grosor, y2 - gb))
+                hueco_arriba = max(y_inicio, int(centro_hueco - ancho_hueco // 2))
+                hueco_abajo = min(y_fin, int(centro_hueco + ancho_hueco // 2))
+                if hueco_arriba > y_inicio:
+                    self.muros.append(pared(x_posicion, y_inicio, grosor_muro, hueco_arriba - y_inicio))
+                if y_fin > hueco_abajo:
+                    self.muros.append(pared(x_posicion, hueco_abajo, grosor_muro, y_fin - hueco_abajo))
 
         # Anillos parciales (tres "círculos" cuadrados con aberturas alternadas)
-        inner_half = 200
-        for i in range(3):
-            half = inner_half + i * (pasillo + grosor)
-            left, right = cx - half, cx + half
-            top, bottom = cy - half, cy + half
+        mitad_interior = 200
+        for indice_anillo in range(3):
+            mitad_anillo = mitad_interior + indice_anillo * (ancho_pasillo + grosor_muro)
+            borde_izquierdo, borde_derecho = centro_x - mitad_anillo, centro_x + mitad_anillo
+            borde_superior, borde_inferior = centro_y - mitad_anillo, centro_y + mitad_anillo
             # Top con hueco centrado
-            h_split(left, right, top - grosor, gap_center=cx if i % 2 == 0 else None)
+            dividir_horizontal(borde_izquierdo, borde_derecho, borde_superior - grosor_muro, centro_hueco=centro_x if indice_anillo % 2 == 0 else None)
             # Bottom con hueco alternado
-            h_split(left, right, bottom, gap_center=None if i % 2 == 0 else cx)
+            dividir_horizontal(borde_izquierdo, borde_derecho, borde_inferior, centro_hueco=None if indice_anillo % 2 == 0 else centro_x)
             # Left con hueco alternado vertical
-            v_split(top, bottom, left - grosor, gap_center=None if i % 2 == 0 else cy)
+            dividir_vertical(borde_superior, borde_inferior, borde_izquierdo - grosor_muro, centro_hueco=None if indice_anillo % 2 == 0 else centro_y)
             # Right con hueco vertical alternado
-            v_split(top, bottom, right, gap_center=cy if i % 2 == 0 else None)
+            dividir_vertical(borde_superior, borde_inferior, borde_derecho, centro_hueco=centro_y if indice_anillo % 2 == 0 else None)
 
         # Rayos (pasillos radiales) formando una rosa de 8 direcciones con cortes
-        r1 = inner_half - pasillo // 2
-        r2 = inner_half + 2 * (pasillo + grosor)
+        radio_interno = mitad_interior - ancho_pasillo // 2
+        radio_externo = mitad_interior + 2 * (ancho_pasillo + grosor_muro)
         # Horizontal
-        self.muros.append(pared(cx - r2, cy - grosor//2, r2 - r1, grosor))  # izquierda
-        self.muros.append(pared(cx + r1, cy - grosor//2, r2 - r1, grosor))  # derecha
+        self.muros.append(pared(centro_x - radio_externo, centro_y - grosor_muro//2, radio_externo - radio_interno, grosor_muro))  # izquierda
+        self.muros.append(pared(centro_x + radio_interno, centro_y - grosor_muro//2, radio_externo - radio_interno, grosor_muro))  # derecha
         # Vertical
-        self.muros.append(pared(cx - grosor//2, cy - r2, grosor, r2 - r1))  # arriba
-        self.muros.append(pared(cx - grosor//2, cy + r1, grosor, r2 - r1))  # abajo
+        self.muros.append(pared(centro_x - grosor_muro//2, centro_y - radio_externo, grosor_muro, radio_externo - radio_interno))  # arriba
+        self.muros.append(pared(centro_x - grosor_muro//2, centro_y + radio_interno, grosor_muro, radio_externo - radio_interno))  # abajo
         # Diagonales (aproximadas con bloques escalonados)
-        paso = 100
-        for d in range(r1 + paso, r2, paso):
-            off = int(d * 0.7)
+        tamano_paso = 100
+        for distancia in range(radio_interno + tamano_paso, radio_externo, tamano_paso):
+            desplazamiento_diagonal = int(distancia * 0.7)
             # up-left
-            self.muros.append(pared(cx - off - 40, cy - d, 80, grosor))
-            self.muros.append(pared(cx - d, cy - off - 40, grosor, 80))
+            self.muros.append(pared(centro_x - desplazamiento_diagonal - 40, centro_y - distancia, 80, grosor_muro))
+            self.muros.append(pared(centro_x - distancia, centro_y - desplazamiento_diagonal - 40, grosor_muro, 80))
             # up-right
-            self.muros.append(pared(cx + off - 40, cy - d, 80, grosor))
-            self.muros.append(pared(cx + d, cy - off - 40, grosor, 80))
+            self.muros.append(pared(centro_x + desplazamiento_diagonal - 40, centro_y - distancia, 80, grosor_muro))
+            self.muros.append(pared(centro_x + distancia, centro_y - desplazamiento_diagonal - 40, grosor_muro, 80))
             # down-left
-            self.muros.append(pared(cx - off - 40, cy + d, 80, grosor))
-            self.muros.append(pared(cx - d, cy + off - 40, grosor, 80))
+            self.muros.append(pared(centro_x - desplazamiento_diagonal - 40, centro_y + distancia, 80, grosor_muro))
+            self.muros.append(pared(centro_x - distancia, centro_y + desplazamiento_diagonal - 40, grosor_muro, 80))
             # down-right
-            self.muros.append(pared(cx + off - 40, cy + d, 80, grosor))
-            self.muros.append(pared(cx + d, cy + off - 40, grosor, 80))
+            self.muros.append(pared(centro_x + desplazamiento_diagonal - 40, centro_y + distancia, 80, grosor_muro))
+            self.muros.append(pared(centro_x + distancia, centro_y + desplazamiento_diagonal - 40, grosor_muro, 80))
 
         # === LLAVES (4) en cuadrantes distintos ===
-        k_off = inner_half + pasillo
+        desplazamiento_llave = mitad_interior + ancho_pasillo
         self.llaves = [
-            pygame.Rect(cx + k_off, cy - 10, 20, 20),         # Este
-            pygame.Rect(cx - k_off - 20, cy - 10, 20, 20),    # Oeste
-            pygame.Rect(cx - 10, cy - k_off - 20, 20, 20),    # Norte
-            pygame.Rect(cx - 10, cy + k_off, 20, 20),         # Sur
+            pygame.Rect(centro_x + desplazamiento_llave, centro_y - 10, 20, 20),         # Este
+            pygame.Rect(centro_x - desplazamiento_llave - 20, centro_y - 10, 20, 20),    # Oeste
+            pygame.Rect(centro_x - 10, centro_y - desplazamiento_llave - 20, 20, 20),    # Norte
+            pygame.Rect(centro_x - 10, centro_y + desplazamiento_llave, 20, 20),         # Sur
         ]
         self.llaves_requeridas = 4
 
         # === SALIDA (cercana al centro) ===
-        self.salida = salida(cx - 40, cy - 40)
+        self.salida = salida(centro_x - 40, centro_y - 40)
 
         # Spawns distribuidos en anillos
         self.spawn_enemigos = [
-            (cx + k_off + 150, cy), (cx - k_off - 150, cy),
-            (cx, cy + k_off + 150), (cx, cy - k_off - 150),
-            (cx + 300, cy + 300), (cx - 300, cy + 300),
-            (cx + 300, cy - 300), (cx - 300, cy - 300)
+            (centro_x + desplazamiento_llave + 150, centro_y), (centro_x - desplazamiento_llave - 150, centro_y),
+            (centro_x, centro_y + desplazamiento_llave + 150), (centro_x, centro_y - desplazamiento_llave - 150),
+            (centro_x + 300, centro_y + 300), (centro_x - 300, centro_y + 300),
+            (centro_x + 300, centro_y - 300), (centro_x - 300, centro_y - 300)
         ]
 
     def crear_nivel_3(self):
@@ -370,46 +370,46 @@ class nivel:
         self.muros.append(pared(self.ancho - 20, 0, 20, self.alto))
         
         # === DISEÑO EN ZIG-ZAG POR CAPAS (con loops) ===
-        grosor = 30
-        pasillo = 120
-        margen = 120
+        grosor_muro = 30
+        ancho_pasillo = 120
+        margen_borde = 120
         # Tres bandas horizontales principales separadas por pasillos anchos
         # Bandas: superior, media, inferior con cortes de zig-zag que se alternan
         # Superior
-        self.muros.append(pared(margen, 200, 500, grosor))
-        self.muros.append(pared(800, 200, 400, grosor))
-        self.muros.append(pared(1300, 200, 500, grosor))
+        self.muros.append(pared(margen_borde, 200, 500, grosor_muro))
+        self.muros.append(pared(800, 200, 400, grosor_muro))
+        self.muros.append(pared(1300, 200, 500, grosor_muro))
         # Media (desfasada)
-        self.muros.append(pared(300, 600, 400, grosor))
-        self.muros.append(pared(800, 600, 400, grosor))
-        self.muros.append(pared(1300, 600, 400, grosor))
+        self.muros.append(pared(300, 600, 400, grosor_muro))
+        self.muros.append(pared(800, 600, 400, grosor_muro))
+        self.muros.append(pared(1300, 600, 400, grosor_muro))
         # Inferior
-        self.muros.append(pared(margen, 1000, 500, grosor))
-        self.muros.append(pared(800, 1000, 400, grosor))
-        self.muros.append(pared(1300, 1000, 500, grosor))
+        self.muros.append(pared(margen_borde, 1000, 500, grosor_muro))
+        self.muros.append(pared(800, 1000, 400, grosor_muro))
+        self.muros.append(pared(1300, 1000, 500, grosor_muro))
 
         # Conectores verticales que crean el zig-zag y loops entre bandas
-        self.muros.append(pared(700, 200, grosor, 350))   # baja desde superior a media
-        self.muros.append(pared(1200, 200, grosor, 350))  # baja desde superior a media
-        self.muros.append(pared(500, 600, grosor, 350))   # baja desde media a inferior
-        self.muros.append(pared(1000, 600, grosor, 350))  # baja desde media a inferior
-        self.muros.append(pared(1500, 600, grosor, 350))  # baja desde media a inferior
+        self.muros.append(pared(700, 200, grosor_muro, 350))   # baja desde superior a media
+        self.muros.append(pared(1200, 200, grosor_muro, 350))  # baja desde superior a media
+        self.muros.append(pared(500, 600, grosor_muro, 350))   # baja desde media a inferior
+        self.muros.append(pared(1000, 600, grosor_muro, 350))  # baja desde media a inferior
+        self.muros.append(pared(1500, 600, grosor_muro, 350))  # baja desde media a inferior
 
         # Barreras internas para estrechar decisiones sin cerrar espacios
-        self.muros.append(pared(250, 350, 200, grosor))
-        self.muros.append(pared(1550, 350, 200, grosor))
-        self.muros.append(pared(250, 850, 200, grosor))
-        self.muros.append(pared(1550, 850, 200, grosor))
+        self.muros.append(pared(250, 350, 200, grosor_muro))
+        self.muros.append(pared(1550, 350, 200, grosor_muro))
+        self.muros.append(pared(250, 850, 200, grosor_muro))
+        self.muros.append(pared(1550, 850, 200, grosor_muro))
 
         # Grandes pilares que funcionan como esquinas suaves
-        self.muros.append(pared(600, 300, grosor, 200))
-        self.muros.append(pared(1400, 300, grosor, 200))
-        self.muros.append(pared(600, 700, grosor, 200))
-        self.muros.append(pared(1400, 700, grosor, 200))
+        self.muros.append(pared(600, 300, grosor_muro, 200))
+        self.muros.append(pared(1400, 300, grosor_muro, 200))
+        self.muros.append(pared(600, 700, grosor_muro, 200))
+        self.muros.append(pared(1400, 700, grosor_muro, 200))
 
         # Cierre parcial inferior derecha para forzar recorrido hacia la salida
-        self.muros.append(pared(1600, 1150, 250, grosor))
-        self.muros.append(pared(1850, 800, grosor, 350))
+        self.muros.append(pared(1600, 1150, 250, grosor_muro))
+        self.muros.append(pared(1850, 800, grosor_muro, 350))
 
         # === LLAVES (5) colocadas en rutas distintas ===
         self.llaves = [
@@ -612,18 +612,18 @@ class nivel:
 
     # ------------------------------------------------------------
     # Métodos auxiliares para generación procedural
-    def _idx(self, x, y, cols, filas):
-        """Devuelve True si la posición (x, y) está dentro de los límites."""
-        return 0 <= x < cols and 0 <= y < filas
+    def _idx(self, posicion_x, posicion_y, numero_columnas, numero_filas):
+        """Devuelve True si la posición (posicion_x, posicion_y) está dentro de los límites."""
+        return 0 <= posicion_x < numero_columnas and 0 <= posicion_y < numero_filas
 
-    def _vecinos_cardinales(self, x, y, cols, filas):
+    def _vecinos_cardinales(self, posicion_x, posicion_y, numero_columnas, numero_filas):
         """Genera las celdas vecinas en las direcciones arriba, abajo, izquierda, derecha."""
-        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            nx, ny = x + dx, y + dy
-            if self._idx(nx, ny, cols, filas):
-                yield (nx, ny)
+        for desplazamiento_x, desplazamiento_y in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            vecino_x, vecino_y = posicion_x + desplazamiento_x, posicion_y + desplazamiento_y
+            if self._idx(vecino_x, vecino_y, numero_columnas, numero_filas):
+                yield (vecino_x, vecino_y)
 
-    def _generar_laberinto_por_celdas(self, cols, filas):
+    def _generar_laberinto_por_celdas(self, numero_columnas, numero_filas):
         """Genera un laberinto perfecto mediante un algoritmo DFS (backtracker).
 
         Devuelve un diccionario `celdas` donde cada clave es una tupla (x, y) y su
@@ -631,33 +631,33 @@ class nivel:
         devuelve un conjunto `paredes` con todas las paredes entre celdas no
         conectadas.
         """
-        visit = set()
-        stack = [(0, 0)]
-        visit.add((0, 0))
-        celdas = {(0, 0): set()}
-        paredes = set()
-        while stack:
-            x, y = stack[-1]
+        celdas_visitadas = set()
+        pila_celdas = [(0, 0)]
+        celdas_visitadas.add((0, 0))
+        celdas_conectadas = {(0, 0): set()}
+        conjunto_paredes = set()
+        while pila_celdas:
+            celda_x, celda_y = pila_celdas[-1]
             # elige vecinos no visitados
-            candidatos = [(nx, ny) for (nx, ny) in self._vecinos_cardinales(x, y, cols, filas) if (nx, ny) not in visit]
-            if candidatos:
-                nx, ny = random.choice(candidatos)
-                visit.add((nx, ny))
-                stack.append((nx, ny))
+            vecinos_no_visitados = [(vecino_x, vecino_y) for (vecino_x, vecino_y) in self._vecinos_cardinales(celda_x, celda_y, numero_columnas, numero_filas) if (vecino_x, vecino_y) not in celdas_visitadas]
+            if vecinos_no_visitados:
+                siguiente_x, siguiente_y = random.choice(vecinos_no_visitados)
+                celdas_visitadas.add((siguiente_x, siguiente_y))
+                pila_celdas.append((siguiente_x, siguiente_y))
                 # conecta ambos lados
-                celdas.setdefault((x, y), set()).add((nx, ny))
-                celdas.setdefault((nx, ny), set()).add((x, y))
+                celdas_conectadas.setdefault((celda_x, celda_y), set()).add((siguiente_x, siguiente_y))
+                celdas_conectadas.setdefault((siguiente_x, siguiente_y), set()).add((celda_x, celda_y))
             else:
-                stack.pop()
+                pila_celdas.pop()
         # genera paredes entre pares no conectados (almacenando cada una solo una vez)
-        for y in range(filas):
-            for x in range(cols):
-                for nx, ny in self._vecinos_cardinales(x, y, cols, filas):
-                    if (nx, ny) not in celdas.get((x, y), set()):
+        for fila in range(numero_filas):
+            for columna in range(numero_columnas):
+                for vecino_x, vecino_y in self._vecinos_cardinales(columna, fila, numero_columnas, numero_filas):
+                    if (vecino_x, vecino_y) not in celdas_conectadas.get((columna, fila), set()):
                         # orienta la tupla para evitar duplicados
-                        if (x, y, nx, ny) < (nx, ny, x, y):
-                            paredes.add((x, y, nx, ny))
-        return celdas, paredes
+                        if (columna, fila, vecino_x, vecino_y) < (vecino_x, vecino_y, columna, fila):
+                            conjunto_paredes.add((columna, fila, vecino_x, vecino_y))
+        return celdas_conectadas, conjunto_paredes
 
     def _levantar_paredes_de_celdas(self, paredes, tam, esp):
         """Convierte cada pared entre celdas en un objeto `pared` (rectángulo).
