@@ -91,6 +91,8 @@ class juego:
         self.powerup_duracion = 0   # Duración restante en frames
         self.vision_normal = 0      # Guardar visión normal para restaurar
         self.velocidad_normal = 0   # Guardar velocidad normal para restaurar
+        self.aceleracion_normal = 0  # Guardar aceleración normal para restaurar
+        self.friccion_normal = 0    # Guardar fricción normal para restaurar
         self.disparo_doble = False  # Si está activo el disparo doble
         self.escudo_activo = False  # Si está activo el escudo
 
@@ -395,7 +397,7 @@ class juego:
         pantalla.blit(base, (ancho//2 - base.get_width()//2, int(alto*0.12)))
 
         # OPCIONES
-        opciones = ["Empezar Aventura", "Continuar", "Tabla de Campeones", "Opciones"]
+        opciones = ["Empezar Laberinto", "Continuar", "Tabla de Campeones", "Opciones"]
 
         # Ajustar área para 4 opciones
         area_y_start = int(alto * 0.40)
@@ -487,9 +489,9 @@ class juego:
         
         # Tiempos según el nivel (en frames a 60 FPS)
         if self.numero_nivel == 1:
-            self.tiempo_restante = 120 * 60  # 2 minutos
+            self.tiempo_restante = 90 * 60  # 1.5 minutos
         elif self.numero_nivel == 2:
-            self.tiempo_restante = 90 * 60   # 1.5 minutos
+            self.tiempo_restante = 60 * 60   # 1 minutos
         elif self.numero_nivel == 3:
             self.tiempo_restante = 60 * 60   # 1 minuto
         else:
@@ -507,6 +509,11 @@ class juego:
             if numero == 2:
                 muro_file = os.path.join(self._dir, 'images', 'pared_hojas.png')
                 suelo_file = os.path.join(self._dir, 'images', 'texture_tierra.png')
+            # Nivel 3 usa texturas de lava y piedra
+            elif numero == 3:
+                muro_file = os.path.join(self._dir, 'images', 'pared_lava.png')
+                suelo_file = os.path.join(self._dir, 'images', 'texture_piedra.png')
+            # Nivel 1 y otros usan texturas por defecto
             else:
                 muro_file = os.path.join(self._dir, 'images', 'wall_texture.png')
                 suelo_file = os.path.join(self._dir, 'images', 'floor_texture.png')
@@ -767,12 +774,14 @@ class juego:
                     self._reproducir_sonido(self.sonido_derrota)
                 except Exception:
                     pass
-                # Guardar en historial y eliminar la partida guardada cuando el jugador muere (SOLO UNA VEZ)
+                # Guardar en historial cuando el jugador muere (SOLO UNA VEZ)
+                # CHECKPOINT: NO eliminamos la partida para que pueda continuar desde el último nivel
                 if self.nombre_jugador and not self.historial_guardado:
                     self.guardar_en_historial()
-                    self.borrar_partida(self.nombre_jugador)
+                    # NO borrar partida - sistema de checkpoint
+                    # self.borrar_partida(self.nombre_jugador)
                     self.historial_guardado = True  # Marcar como guardado
-                    print(f"Partida de {self.nombre_jugador} guardada en historial y eliminada")
+                    print(f"Partida de {self.nombre_jugador} guardada en historial (checkpoint activo)")
 
         # Actualizar duración de power-ups activos
         if not pausado and not tutorial_activo and self.powerup_duracion > 0:
@@ -849,7 +858,8 @@ class juego:
                     self.reproducir_corazon()
                     self.nivel_actual.bonus.remove(bonus)
                 elif tipo == "energia":
-                    self.jugador.energia = min(self.jugador.energia_max, self.jugador.energia + 20)
+                    # Regenerar energía al 100%
+                    self.jugador.energia = self.jugador.energia_max
                     self.reproducir_rayo()
                     self.nivel_actual.bonus.remove(bonus)
         
@@ -964,10 +974,15 @@ class juego:
                 except Exception:
                     pass
                 self.pantalla_nivel_completado(tiempo_bonus)
-                self.cargar_nivel(self.numero_nivel + 1)
-                # Guardar progreso automáticamente al pasar de nivel
+                # CHECKPOINT: Guardar ANTES de cargar el nuevo nivel para que el checkpoint sea el nivel que acaba de completar
                 if self.nombre_jugador:
+                    # Incrementar el nivel antes de guardar para que el checkpoint sea el siguiente nivel
+                    self.numero_nivel += 1
                     self.guardar_partida()
+                    print(f"Checkpoint guardado: Nivel {self.numero_nivel}")
+                    self.cargar_nivel(self.numero_nivel)
+                else:
+                    self.cargar_nivel(self.numero_nivel + 1)
             else:
                 self.resultado = "ganaste"
                 self.estado = "fin"
@@ -981,7 +996,8 @@ class juego:
                     self.cronometro_activo = False  # Detener cronómetro
                     self.guardar_campeon(self.tiempo_total_segundos)
                     self.guardar_en_historial()
-                    self.borrar_partida(self.nombre_jugador)  # Eliminar de partidas guardadas
+                    # COMPLETÓ EL JUEGO: Ahora sí eliminamos la partida guardada
+                    self.borrar_partida(self.nombre_jugador)
                     self.historial_guardado = True  # Marcar como guardado
                     print(f"¡{self.nombre_jugador} completó el juego en {self.tiempo_total_segundos}s!")
 
@@ -1150,14 +1166,16 @@ class juego:
             # Barra de progreso del tiempo
             tiempo_max = self.powerup_duracion
             if self.powerup_activo == "vision_clara":
-                tiempo_max = 5 * 60
+                tiempo_max = 10 * 60  # Duración real: 10 segundos
             elif self.powerup_activo in ["disparo_doble", "escudo"]:
                 tiempo_max = 30 * 60
             elif self.powerup_activo == "super_velocidad":
                 tiempo_max = 10 * 60
             
-            progreso = self.powerup_duracion / tiempo_max
+            progreso = max(0.0, min(1.0, self.powerup_duracion / max(1, tiempo_max)))
             barra_width = int((bg_rect.width - 12) * progreso)
+            # Asegurar que la barra no se salga del rectángulo
+            barra_width = max(0, min(barra_width, bg_rect.width - 12))
             barra_rect = pygame.Rect(bg_rect.x + 6, bg_rect.bottom - 10, barra_width, 4)
             
             # Fondo de la barra
@@ -1595,7 +1613,7 @@ class juego:
 
     # TRANSICIÓN Y FINAL
     def pantalla_nivel_completado(self, tiempo_bonus):
-        """Muestra estadísticas al completar un nivel con la estética de los menús."""
+        """Muestra estadísticas al completar un nivel con estilo visual impactante."""
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
         reloj = pygame.time.Clock()
@@ -1603,108 +1621,68 @@ class juego:
         # Nombres de niveles
         nombres_niveles = {
             1: "LAS CATACUMBAS",
-            2: "LA ESPIRAL DESCENDENTE",
-            3: "EL ABISMO PROFUNDO"
+            2: "EL ABISMO PROFUNDO",
+            3: "LA ESPIRAL DESCENDENTE " 
         }
 
-        # Fondo con la ambientación solicitada. Primero probamos con "siguiente_nivel"
-        # (sin importar extensión) y, si no se encuentra, utilizamos el arte previo diseñado
-        # para esta pantalla sin recurrir al fondo general del menú.
-        rutas_fondo = []
-        base_siguiente_nivel = os.path.join(self._dir, 'images', 'siguiente_nivel')
-        for extension in ('.png', '.jpg', '.jpeg', '.bmp', '.webp'):
-            rutas_fondo.append(base_siguiente_nivel + extension)
-
-        fondo = None
-        for ruta in rutas_fondo:
-            if not os.path.isfile(ruta):
-                continue
+        # Intentar cargar imagen de fondo siguiente_nivel.png
+        siguiente_nivel_path = os.path.join(self._dir, 'images', 'siguiente_nivel.png')
+        
+        fondo_cargado = False
+        if os.path.isfile(siguiente_nivel_path):
             try:
-                fondo = pygame.image.load(ruta).convert()
+                fondo = pygame.image.load(siguiente_nivel_path).convert()
                 fondo = pygame.transform.smoothscale(fondo, (ancho, alto))
-                break
+                fondo_cargado = True
             except Exception:
-                fondo = None
+                pass
+        
+        # Si no se cargó imagen, usar gradiente
+        if not fondo_cargado:
+            fondo = pygame.Surface((ancho, alto))
+            for y in range(alto):
+                factor = y / alto
+                r = int(20 * (1 - factor) + 10 * factor)
+                g = int(15 * (1 - factor) + 8 * factor)
+                b = int(40 * (1 - factor) + 25 * factor)
+                pygame.draw.line(fondo, (r, g, b), (0, y), (ancho, y))
 
-        if fondo is None:
-            respaldo = os.path.join(self._dir, 'images', 'pantalla_ganar.png')
-            if os.path.isfile(respaldo):
-                try:
-                    fondo = pygame.image.load(respaldo).convert()
-                    fondo = pygame.transform.smoothscale(fondo, (ancho, alto))
-                except Exception:
-                    fondo = None
+        # Colores principales
+        color_titulo = (255, 215, 0)  # Dorado brillante
+        color_subtitulo = (240, 235, 220)
+        color_estadisticas_titulo = (255, 215, 0)
+        color_stat_label = (240, 235, 220)
+        color_stat_valor = (120, 255, 120)  # Verde brillante
 
-        if fondo is None:
-            fondo = pygame.Surface((ancho, alto)).convert()
-            fondo.fill((0, 0, 0))
-
-        # Overlay con tonos según el nivel actual
-        overlays = {
-            1: (35, 20, 60, 180),
-            2: (70, 32, 24, 188),
-            3: (20, 36, 70, 188)
-        }
-        overlay_color = overlays.get(self.numero_nivel, (28, 20, 38, 180))
-        overlay = pygame.Surface((ancho, alto), pygame.SRCALPHA)
-        overlay.fill(overlay_color)
-
-        base_text = (240, 235, 220)
-        accent_gold = (255, 215, 0)
-        accent_green = (120, 235, 160)
-
-        # Fuentes para secciones
+        # Fuentes
         try:
-            font_title = pygame.font.Font(self.font_path_title, self.ajustar_tamano(int(alto * 0.085)))
+            font_titulo = pygame.font.Font(self.font_path_title, self.ajustar_tamano(int(alto * 0.10)))
         except Exception:
-            font_title = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.085)))
+            font_titulo = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.10)))
 
         try:
-            font_subtitle = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.045)))
+            font_subtitulo = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.055)))
         except Exception:
-            font_subtitle = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.045)))
+            font_subtitulo = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.055)))
 
         try:
-            font_section = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.04)))
+            font_stats_titulo = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.045)))
         except Exception:
-            font_section = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.04)))
+            font_stats_titulo = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.045)))
 
         try:
-            font_stats = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.034)))
+            font_stats = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.038)))
         except Exception:
-            font_stats = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.034)))
+            font_stats = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.038)))
 
-        hint_size = self.ajustar_tamano(int(alto * 0.03))
         try:
-            font_hint = pygame.font.Font(self.font_path, hint_size)
+            font_hint = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.032)))
         except Exception:
-            font_hint = pygame.font.Font(None, hint_size)
-
-        # Panel reutilizable para estadísticas
-        panel_w = int(ancho * 0.64)
-        panel_h = int(alto * 0.36)
-        panel_base = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
-        panel_base.fill((18, 18, 32, 210))
-        pygame.draw.rect(panel_base, (30, 30, 44), panel_base.get_rect(), border_radius=18)
-        pygame.draw.rect(panel_base, (90, 80, 60), panel_base.get_rect(), 2, border_radius=18)
-        borde_dorado = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
-        pygame.draw.rect(borde_dorado, (255, 215, 0, 80), borde_dorado.get_rect().inflate(-16, -16), 2, border_radius=14)
-        panel_base.blit(borde_dorado, (0, 0))
-        top_glow = pygame.Surface((panel_w, panel_h // 3), pygame.SRCALPHA)
-        top_glow.fill((255, 215, 0, 22))
-        panel_base.blit(top_glow, (0, 0))
-
-        panel_x = ancho // 2 - panel_w // 2
-        panel_y = int(alto * 0.42)
+            font_hint = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.032)))
 
         esperando = True
-        tiempo_minimo = 180  # Mínimo 3 segundos
+        tiempo_minimo = 120  # Mínimo 2 segundos
         contador = 0
-
-        def blit_centrado(font, texto, color, y):
-            superficie = font.render(texto, True, color)
-            pantalla.blit(superficie, (ancho // 2 - superficie.get_width() // 2, int(y)))
-            return superficie.get_height()
 
         while esperando:
             for e in pygame.event.get():
@@ -1712,70 +1690,90 @@ class juego:
                     pygame.quit()
                     return
                 if e.type == pygame.KEYDOWN and contador > tiempo_minimo:
-                    if e.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    if e.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
                         esperando = False
 
-            if fondo:
-                pantalla.blit(fondo, (0, 0))
-            else:
-                pantalla.fill((10, 10, 20))
+            pantalla.blit(fondo, (0, 0))
 
-            pantalla.blit(overlay, (0, 0))
-
-            # Título con halo
+            # TÍTULO PRINCIPAL con contorno grueso
             titulo = f"NIVEL {self.numero_nivel} COMPLETADO"
-            title_surface = font_title.render(titulo, True, accent_gold)
-            title_x = ancho // 2 - title_surface.get_width() // 2
-            title_y = int(alto * 0.16)
-            for dx, dy, alpha in ((-3, 0, 80), (3, 0, 80), (0, -3, 80), (0, 3, 80)):
-                sombra = font_title.render(titulo, True, (0, 0, 0))
-                sombra.set_alpha(alpha)
-                pantalla.blit(sombra, (title_x + dx, title_y + dy))
-            pantalla.blit(title_surface, (title_x, title_y))
+            titulo_surf = font_titulo.render(titulo, True, color_titulo)
+            titulo_x = ancho // 2 - titulo_surf.get_width() // 2
+            titulo_y = int(alto * 0.12)
+            
+            # Contorno negro grueso
+            for dx in range(-4, 5, 2):
+                for dy in range(-4, 5, 2):
+                    if dx != 0 or dy != 0:
+                        sombra = font_titulo.render(titulo, True, (0, 0, 0))
+                        pantalla.blit(sombra, (titulo_x + dx, titulo_y + dy))
+            pantalla.blit(titulo_surf, (titulo_x, titulo_y))
 
-            # Subtítulo del nivel
+            # SUBTÍTULO (nombre del nivel)
             subtitulo = nombres_niveles.get(self.numero_nivel, "TRAVESIA DESCONOCIDA")
-            blit_centrado(font_subtitle, subtitulo, base_text, title_y + title_surface.get_height() + int(alto * 0.04))
+            subtitulo_surf = font_subtitulo.render(subtitulo, True, color_subtitulo)
+            subtitulo_y = titulo_y + titulo_surf.get_height() + int(alto * 0.02)
+            # Contorno para subtítulo
+            for dx in range(-2, 3, 2):
+                for dy in range(-2, 3, 2):
+                    if dx != 0 or dy != 0:
+                        sombra_sub = font_subtitulo.render(subtitulo, True, (0, 0, 0))
+                        pantalla.blit(sombra_sub, (ancho // 2 - subtitulo_surf.get_width() // 2 + dx, subtitulo_y + dy))
+            pantalla.blit(subtitulo_surf, (ancho // 2 - subtitulo_surf.get_width() // 2, subtitulo_y))
 
-            # Separador decorativo
-            separador_y = int(alto * 0.32)
-            separador = pygame.Surface((int(ancho * 0.52), 2), pygame.SRCALPHA)
-            separador.fill((255, 215, 0, 120))
-            pantalla.blit(separador, (int(ancho * 0.24), separador_y))
+            # Título "ESTADISTICAS" en dorado (sin panel)
+            stats_titulo_surf = font_stats_titulo.render("ESTADISTICAS", True, color_estadisticas_titulo)
+            stats_titulo_y = subtitulo_y + subtitulo_surf.get_height() + int(alto * 0.06)
+            # Contorno para título de estadísticas
+            for dx in range(-2, 3, 2):
+                for dy in range(-2, 3, 2):
+                    if dx != 0 or dy != 0:
+                        sombra_stat = font_stats_titulo.render("ESTADISTICAS", True, (0, 0, 0))
+                        pantalla.blit(sombra_stat, (ancho // 2 - stats_titulo_surf.get_width() // 2 + dx, stats_titulo_y + dy))
+            pantalla.blit(stats_titulo_surf, (ancho // 2 - stats_titulo_surf.get_width() // 2, stats_titulo_y))
 
-            # Panel de estadísticas
-            panel = panel_base.copy()
-            heading_surf = font_section.render("ESTADISTICAS", True, accent_gold)
-            panel.blit(heading_surf, (panel_w // 2 - heading_surf.get_width() // 2, int(panel_h * 0.08)))
+            # Estadísticas centradas con colores distintivos (sin panel)
+            y_stat = stats_titulo_y + stats_titulo_surf.get_height() + int(alto * 0.04)
+            espaciado = int(alto * 0.045)
 
-            stat_offset = int(panel_h * 0.24)
-            stats = [
-                (f"Puntos base: +500", base_text),
-            ]
+            # Puntos base
+            stat_base = font_stats.render("Puntos base: +500", True, color_stat_label)
+            pantalla.blit(stat_base, (ancho // 2 - stat_base.get_width() // 2, y_stat))
+            y_stat += stat_base.get_height() + espaciado
+
+            # Bonus de tiempo (si aplica)
             if tiempo_bonus > 0:
-                stats.append((f"Bonus de tiempo: +{tiempo_bonus}", accent_gold))
-            stats.append((f"Puntos totales: {self.puntos}", accent_green))
+                stat_bonus = font_stats.render(f"Bonus de tiempo: +{tiempo_bonus}", True, color_titulo)
+                # Contorno para bonus (destacar)
+                for dx in range(-1, 2, 2):
+                    for dy in range(-1, 2, 2):
+                        if dx != 0 or dy != 0:
+                            sombra_bonus = font_stats.render(f"Bonus de tiempo: +{tiempo_bonus}", True, (0, 0, 0))
+                            pantalla.blit(sombra_bonus, (ancho // 2 - stat_bonus.get_width() // 2 + dx, y_stat + dy))
+                pantalla.blit(stat_bonus, (ancho // 2 - stat_bonus.get_width() // 2, y_stat))
+                y_stat += stat_bonus.get_height() + espaciado
 
-            y_actual = stat_offset
-            separacion = int(panel_h * 0.08)
-            for texto, color in stats:
-                surf = font_stats.render(texto, True, color)
-                x = panel_w // 2 - surf.get_width() // 2
-                panel.blit(surf, (x, y_actual))
-                y_actual += surf.get_height() + separacion
+            # Puntos totales en verde brillante
+            stat_total = font_stats.render(f"Puntos totales: {self.puntos}", True, color_stat_valor)
+            # Contorno para totales
+            for dx in range(-1, 2, 2):
+                for dy in range(-1, 2, 2):
+                    if dx != 0 or dy != 0:
+                        sombra_total = font_stats.render(f"Puntos totales: {self.puntos}", True, (0, 0, 0))
+                        pantalla.blit(sombra_total, (ancho // 2 - stat_total.get_width() // 2 + dx, y_stat + dy))
+            pantalla.blit(stat_total, (ancho // 2 - stat_total.get_width() // 2, y_stat))
 
-            pantalla.blit(panel, (panel_x, panel_y))
-
-            # Mensaje para continuar
+            # Mensaje para continuar (estilo simple y transparente, posicionado más abajo)
             if contador > tiempo_minimo:
-                alpha = int(160 + 95 * math.sin(contador / 12))
-                color = (accent_gold[0], accent_gold[1], accent_gold[2], alpha)
                 mensaje = "Presiona ENTER para continuar"
-                mensaje_surface = font_hint.render(mensaje, True, color[:3])
-                pantalla.blit(mensaje_surface, (ancho // 2 - mensaje_surface.get_width() // 2, int(alto * 0.8)))
-
-            # Pie informativo
-            self.dibujar_texto("ESC para volver al menu", hint_size, (190, 190, 200), ancho // 2, int(alto * 0.9))
+                try:
+                    font_simple = pygame.font.Font(self.font_path, int(alto * 0.028))
+                except Exception:
+                    font_simple = pygame.font.Font(None, int(alto * 0.028))
+                msg_surf = font_simple.render(mensaje, True, (190, 190, 200))
+                # Posicionar en la parte inferior de la pantalla
+                msg_y = int(alto * 0.88)
+                pantalla.blit(msg_surf, (ancho // 2 - msg_surf.get_width() // 2, msg_y))
 
             try:
                 self.actualizar_musica_por_estado()
@@ -1804,104 +1802,114 @@ class juego:
     def pantalla_final(self):
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
-        # Fondo base: preferir la textura del menú para coherencia visual
-        menu_bg_path = os.path.join(self._dir, 'images', 'menu_background.png')
+        
+        # Intentar cargar imagen de fondo según resultado
         win_path = os.path.join(self._dir, 'images', 'pantalla_ganar.png')
         lose_path = os.path.join(self._dir, 'images', 'pantalla_perder.png')
-
-        # Cargar base: si existe menu background, usarlo y luego aplicar overlay; si no, usar las imágenes específicas
-        if os.path.isfile(menu_bg_path):
+        
+        fondo_cargado = False
+        if self.resultado == 'ganaste' and os.path.isfile(win_path):
             try:
-                bg = pygame.image.load(menu_bg_path).convert()
-                bg = pygame.transform.smoothscale(bg, (ancho, alto))
-                pantalla.blit(bg, (0, 0))
+                fondo = pygame.image.load(win_path).convert()
+                fondo = pygame.transform.smoothscale(fondo, (ancho, alto))
+                pantalla.blit(fondo, (0, 0))
+                fondo_cargado = True
             except Exception:
-                pantalla.fill((12, 12, 18))
-        else:
-            # fallback: usar imagen propia de resultado si existe
-            if self.resultado == 'perdiste' and os.path.isfile(lose_path):
-                try:
-                    bg = pygame.image.load(lose_path).convert()
-                    bg = pygame.transform.smoothscale(bg, (ancho, alto))
-                    pantalla.blit(bg, (0, 0))
-                except Exception:
-                    pantalla.fill((8, 8, 12))
-            elif self.resultado == 'ganaste' and os.path.isfile(win_path):
-                try:
-                    bg = pygame.image.load(win_path).convert()
-                    bg = pygame.transform.smoothscale(bg, (ancho, alto))
-                    pantalla.blit(bg, (0, 0))
-                except Exception:
-                    pantalla.fill((6, 12, 6))
+                pass
+        elif self.resultado == 'perdiste' and os.path.isfile(lose_path):
+            try:
+                fondo = pygame.image.load(lose_path).convert()
+                fondo = pygame.transform.smoothscale(fondo, (ancho, alto))
+                pantalla.blit(fondo, (0, 0))
+                fondo_cargado = True
+            except Exception:
+                pass
+        
+        # Si no se cargó imagen, usar gradiente
+        if not fondo_cargado:
+            fondo = pygame.Surface((ancho, alto))
+            if self.resultado == 'ganaste':
+                # Gradiente verde oscuro para victoria
+                for y in range(alto):
+                    factor = y / alto
+                    r = int(10 * (1 - factor) + 5 * factor)
+                    g = int(35 * (1 - factor) + 20 * factor)
+                    b = int(15 * (1 - factor) + 10 * factor)
+                    pygame.draw.line(fondo, (r, g, b), (0, y), (ancho, y))
             else:
-                pantalla.fill((10, 10, 18))
+                # Gradiente rojo oscuro para derrota
+                for y in range(alto):
+                    factor = y / alto
+                    r = int(40 * (1 - factor) + 20 * factor)
+                    g = int(10 * (1 - factor) + 5 * factor)
+                    b = int(10 * (1 - factor) + 5 * factor)
+                    pygame.draw.line(fondo, (r, g, b), (0, y), (ancho, y))
+            pantalla.blit(fondo, (0, 0))
 
-        # Paleta coherente con el menú y HUD
-        base_text = (240, 235, 220)   # color principal de títulos/menu
-        accent_gold = (255, 215, 0)   # dorado usado en menú (hover/ácen)
-        success_green = (100, 255, 140)
-        fail_red = (220, 90, 90)
-
-        # Tonalidad por nivel (suaves, para no chocar con el fondo)
-        if self.numero_nivel == 1:
-            overlay_color = (24, 10, 44, 180)
-        elif self.numero_nivel == 2:
-            overlay_color = (44, 10, 10, 190)
-        elif self.numero_nivel == 3:
-            overlay_color = (6, 12, 44, 190)
+        # Colores según resultado
+        if self.resultado == 'ganaste':
+            color_titulo = (120, 255, 140)  # Verde brillante
+            color_subtitulo = (100, 220, 120)
         else:
-            overlay_color = (6, 6, 6, 160)
+            color_titulo = (255, 90, 90)  # Rojo brillante
+            color_subtitulo = (220, 90, 90)
+        
+        color_stats_titulo = (255, 215, 0)  # Dorado
+        color_stat_label = (240, 235, 220)
+        color_stat_valor = (120, 255, 120)
 
-        overlay = pygame.Surface((ancho, alto), pygame.SRCALPHA)
-        overlay.fill(overlay_color)
-        pantalla.blit(overlay, (0, 0))
-
-        # Título
-        titulo = "Victoria" if self.resultado == "ganaste" else "Derrota"
-        # Color del título: usar base_text con un matiz según resultado
-        color = success_green if self.resultado == "ganaste" else fail_red
-
-        # Fuente para título: preferir la ruta configurada (outline si está presente)
+        # Fuentes
         try:
-            font_title = pygame.font.Font(self.font_path_title, self.ajustar_tamano(int(alto * 0.11)))
+            font_titulo = pygame.font.Font(self.font_path_title, self.ajustar_tamano(int(alto * 0.12)))
         except Exception:
-            font_title = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.11)))
+            font_titulo = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.12)))
 
-        # Dibujar título con halo glow (varias capas con alpha)
-        title_surf = font_title.render(titulo, True, color)
-        w_title = title_surf.get_width()
-        x_title = ancho // 2 - w_title // 2
-        y_title = int(alto * 0.18)
+        try:
+            font_subtitulo = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.055)))
+        except Exception:
+            font_subtitulo = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.055)))
 
-        # Glow: capas difusas
-        for i, a in enumerate((80, 60, 40, 20), start=1):
-            sombra = font_title.render(titulo, True, (20, 20, 25))
-            sombra.set_alpha(a)
-            pantalla.blit(sombra, (x_title - i*2, y_title - i*2))
-            pantalla.blit(sombra, (x_title + i*2, y_title - i*2))
-        pantalla.blit(title_surf, (x_title, y_title))
+        try:
+            font_stats_titulo = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.045)))
+        except Exception:
+            font_stats_titulo = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.045)))
 
-        # Frases finales
+        try:
+            font_stats = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.038)))
+        except Exception:
+            font_stats = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.038)))
+
+        try:
+            font_hint = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.032)))
+        except Exception:
+            font_hint = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.032)))
+
+        # TÍTULO PRINCIPAL con contorno grueso
+        titulo = "VICTORIA" if self.resultado == "ganaste" else "DERROTA"
+        titulo_surf = font_titulo.render(titulo, True, color_titulo)
+        titulo_x = ancho // 2 - titulo_surf.get_width() // 2
+        titulo_y = int(alto * 0.08)
+        
+        # Contorno negro grueso
+        for dx in range(-4, 5, 2):
+            for dy in range(-4, 5, 2):
+                if dx != 0 or dy != 0:
+                    sombra = font_titulo.render(titulo, True, (0, 0, 0))
+                    pantalla.blit(sombra, (titulo_x + dx, titulo_y + dy))
+        pantalla.blit(titulo_surf, (titulo_x, titulo_y))
+
+        # Frases finales según resultado - AHORA SE MUESTRA ARRIBA DEL PANEL
         frases_perder = [
             "Fuiste vencido esta vez.",
             "Regresa con mas determinacion.",
             "El laberinto te vencio hoy.",
             "La proxima vez sera."
         ]
-        frases_ganar = [
-            "Eres imparable"
-        ]
-
         frases_perder_por_nivel = {
-            1: ["Las catacumbas te enseñaron una lección amarga."],
-            2: ["La espiral desafió tu temple, aprende sus ritmos."],
-            3: ["El abismo exige sacrificios — hoy no fue tu día."],
+            1: ["Las catacumbas te ensenaron una leccion amarga."],
+            2: ["La espiral desafio tu temple, aprende sus ritmos."],
+            3: ["El abismo exige sacrificios - hoy no fue tu dia."],
         }
-        frases_ganar_por_puntos = []
-        if self.puntos >= 3000:
-            frases_ganar_por_puntos.append("Haz brillado en la oscuridad. Puntos sobresalientes.")
-        elif self.puntos >= 1500:
-            frases_ganar_por_puntos.append("Buen trabajo tu coraje fue recompensado.")
 
         if not hasattr(self, 'frase_final') or self.frase_final is None:
             if self.resultado == 'perdiste':
@@ -1911,62 +1919,58 @@ class juego:
                     candidatos.append("Ibas bien, pero las sombras ganaron al final.")
                 self.frase_final = random.choice(candidatos)
             else:
-                # Ganaste: usar la frase fija solicitada
                 self.frase_final = "Eres imparable"
 
-        # Fuente de frase: usar la fuente de cuerpo (filled) para mejor legibilidad
+        # SUBTÍTULO (frase)
+        subtitulo_surf = font_subtitulo.render(self.frase_final, True, color_subtitulo)
+        subtitulo_y = titulo_y + titulo_surf.get_height() + int(alto * 0.025)
+        # Contorno para subtítulo
+        for dx in range(-2, 3, 2):
+            for dy in range(-2, 3, 2):
+                if dx != 0 or dy != 0:
+                    sombra_sub = font_subtitulo.render(self.frase_final, True, (0, 0, 0))
+                    pantalla.blit(sombra_sub, (ancho // 2 - subtitulo_surf.get_width() // 2 + dx, subtitulo_y + dy))
+        pantalla.blit(subtitulo_surf, (ancho // 2 - subtitulo_surf.get_width() // 2, subtitulo_y))
+
+        # Título "ESTADISTICAS" en dorado (sin panel)
+        stats_titulo_surf = font_stats_titulo.render("ESTADISTICAS", True, color_stats_titulo)
+        stats_titulo_y = subtitulo_y + subtitulo_surf.get_height() + int(alto * 0.06)
+        # Contorno para título de estadísticas
+        for dx in range(-2, 3, 2):
+            for dy in range(-2, 3, 2):
+                if dx != 0 or dy != 0:
+                    sombra_stat = font_stats_titulo.render("ESTADISTICAS", True, (0, 0, 0))
+                    pantalla.blit(sombra_stat, (ancho // 2 - stats_titulo_surf.get_width() // 2 + dx, stats_titulo_y + dy))
+        pantalla.blit(stats_titulo_surf, (ancho // 2 - stats_titulo_surf.get_width() // 2, stats_titulo_y))
+
+        # Estadísticas centradas con colores distintivos (sin panel)
+        y_stat = stats_titulo_y + stats_titulo_surf.get_height() + int(alto * 0.04)
+        espaciado = int(alto * 0.045)
+
+        # Puntuación Final en verde brillante
+        stat_puntos = font_stats.render(f"Puntuacion Final: {self.puntos}", True, color_stat_valor)
+        # Contorno para puntos
+        for dx in range(-1, 2, 2):
+            for dy in range(-1, 2, 2):
+                if dx != 0 or dy != 0:
+                    sombra_puntos = font_stats.render(f"Puntuacion Final: {self.puntos}", True, (0, 0, 0))
+                    pantalla.blit(sombra_puntos, (ancho // 2 - stat_puntos.get_width() // 2 + dx, y_stat + dy))
+        pantalla.blit(stat_puntos, (ancho // 2 - stat_puntos.get_width() // 2, y_stat))
+        y_stat += stat_puntos.get_height() + espaciado
+
+        # Enemigos Derrotados
+        stat_enemigos = font_stats.render(f"Enemigos Derrotados: {self.enemigos_derrotados}", True, color_stat_label)
+        pantalla.blit(stat_enemigos, (ancho // 2 - stat_enemigos.get_width() // 2, y_stat))
+
+        # Mensaje para continuar (estilo simple y transparente)
+        msg_y = y_stat + stat_enemigos.get_height() + int(alto * 0.10)
+        mensaje = "ENTER para volver al menu"
         try:
-            font_phrase = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.06)))
+            font_simple = pygame.font.Font(self.font_path, int(alto * 0.028))
         except Exception:
-            font_phrase = pygame.font.Font(None, self.ajustar_tamano(int(alto * 0.06)))
-
-        # Render con contorno/halo para verse "increíble"
-        frase = self.frase_final
-        # Draw big outer glow
-        for ox, oy, alpha in [(-4,0,40),(4,0,40),(0,-4,40),(0,4,40),(-2,-2,70),(2,2,70)]:
-            glow = font_phrase.render(frase, True, (10,10,10))
-            glow.set_alpha(alpha)
-            pantalla.blit(glow, (ancho//2 - glow.get_width()//2 + ox, int(alto*0.32) + oy))
-
-        # Main colored phrase: usar dorado/acento del menú y base de texto
-        frase_surf = font_phrase.render(frase, True, accent_gold)
-        pantalla.blit(frase_surf, (ancho//2 - frase_surf.get_width()//2, int(alto*0.32)))
-
-        # Panel de estadísticas: intentar llenar con textura del menú para coherencia
-        panel_w = int(ancho * 0.66)
-        panel_h = int(alto * 0.26)
-        panel_x = ancho // 2 - panel_w // 2
-        panel_y = int(alto * 0.46)
-
-        panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
-        # Si existe textura de menu, usarla para rellenar el panel (tile una porción)
-        if os.path.isfile(menu_bg_path):
-            try:
-                tex = pygame.image.load(menu_bg_path).convert_alpha()
-                tex = pygame.transform.smoothscale(tex, (max(64, panel_w//4), max(64, panel_h//4)))
-                # Tile the texture
-                for px_t in range(0, panel_w, tex.get_width()):
-                    for py_t in range(0, panel_h, tex.get_height()):
-                        panel.blit(tex, (px_t, py_t))
-                # Overlay dark tint for readability
-                tint = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
-                tint.fill((6, 6, 10, 200))
-                panel.blit(tint, (0,0))
-            except Exception:
-                panel.fill((10,10,12,200))
-        else:
-            panel.fill((10, 10, 12, 200))
-
-        # Borde decorativo
-        pygame.draw.rect(panel, (150, 130, 90, 180), panel.get_rect(), 2, border_radius=10)
-        pantalla.blit(panel, (panel_x, panel_y))
-
-        # Estadísticas sobre el panel (usar paleta coherente)
-        self.dibujar_texto(f"Puntuación Final: {self.puntos}", int(alto * 0.045), accent_gold, ancho // 2, panel_y + int(panel_h * 0.22))
-        self.dibujar_texto(f"Enemigos Derrotados: {self.enemigos_derrotados}", int(alto * 0.035), base_text, ancho // 2, panel_y + int(panel_h * 0.48))
-
-        # Instrucciones
-        self.dibujar_texto("ENTER para volver al menú", int(alto * 0.033), (190, 190, 200), ancho // 2, panel_y + panel_h + int(alto * 0.03))
+            font_simple = pygame.font.Font(None, int(alto * 0.028))
+        msg_surf = font_simple.render(mensaje, True, (190, 190, 200))
+        pantalla.blit(msg_surf, (ancho // 2 - msg_surf.get_width() // 2, msg_y))
 
         # Guardado del resultado (único)
         if not getattr(self, '_guardado', False):
@@ -2870,7 +2874,13 @@ class juego:
                 if self.powerup_activo == "vision_clara":
                     self.jugador.vision = 9999
                 elif self.powerup_activo == "super_velocidad":
-                    self.jugador.velocidad_base = int(self.velocidad_normal * 3.5)
+                    # Guardar valores normales antes de aplicar el power-up
+                    self.aceleracion_normal = self.jugador.aceleracion
+                    self.friccion_normal = self.jugador.friccion
+                    # Aplicar efectos de super velocidad
+                    self.jugador.velocidad_base = self.velocidad_normal * 3.5
+                    self.jugador.aceleracion = self.aceleracion_normal * 2.5
+                    self.jugador.friccion = 0.90
                 
                 print(f"Power-up restaurado: {self.powerup_activo} ({self.powerup_duracion} frames restantes)")
             else:
@@ -3706,7 +3716,14 @@ class juego:
         elif tipo == "super_velocidad":
             # Super rápido por 10 segundos
             self.velocidad_normal = self.jugador.velocidad_base
-            self.jugador.velocidad_base *= 5  # Velocidad aumentada a 3.5x
+            self.aceleracion_normal = self.jugador.aceleracion
+            self.friccion_normal = self.jugador.friccion
+            print(f"[DEBUG] ANTES - Velocidad: {self.jugador.velocidad_base}, Aceleración: {self.jugador.aceleracion}, Fricción: {self.jugador.friccion}")
+            # Aumentar velocidad, aceleración y reducir fricción para movimiento más rápido
+            self.jugador.velocidad_base = self.velocidad_normal * 3.5  # Velocidad aumentada a 3.5x
+            self.jugador.aceleracion = self.aceleracion_normal * 2.5  # Aceleración más rápida
+            self.jugador.friccion = 0.90  # Menos fricción para mantener velocidad
+            print(f"[DEBUG] DESPUÉS - Velocidad: {self.jugador.velocidad_base}, Aceleración: {self.jugador.aceleracion}, Fricción: {self.jugador.friccion}")
             self.powerup_duracion = 10 * 60  # 10 segundos
             # Mensaje desactivado: solo mostrar la barra de power-up
 
@@ -3721,7 +3738,11 @@ class juego:
         if self.powerup_activo == "vision_clara":
             self.jugador.vision = self.vision_normal
         elif self.powerup_activo == "super_velocidad":
+            print(f"[DEBUG] DESACTIVANDO - Restaurando Velocidad: {self.velocidad_normal}, Aceleración: {self.aceleracion_normal}, Fricción: {self.friccion_normal}")
             self.jugador.velocidad_base = self.velocidad_normal
+            self.jugador.aceleracion = self.aceleracion_normal
+            self.jugador.friccion = self.friccion_normal
+            print(f"[DEBUG] DESPUÉS RESTAURAR - Velocidad: {self.jugador.velocidad_base}, Aceleración: {self.jugador.aceleracion}, Fricción: {self.jugador.friccion}")
         elif self.powerup_activo == "disparo_doble":
             self.disparo_doble = False
         elif self.powerup_activo == "escudo":
