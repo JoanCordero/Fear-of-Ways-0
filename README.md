@@ -12,7 +12,7 @@
 ## ✨ Características Principales
 
 - 🗝️ **3 Niveles Únicos**: Cada mazmorra tiene un diseño y mecánicas distintas
-- 👤 **3 Personajes Jugables**: Cada uno con estadísticas y habilidades únicas
+- 👤 **1 Personajes Jugables**:  Con Vida y energia
 - 🤖 **IA de Enemigos Avanzada**: 3 tipos de enemigos con comportamientos diferentes
 - 💡 **Sistema de Iluminación Dinámica**: Linterna cónica que limita la visibilidad
 - 🧭 **Exploración Estratégica**: Laberintos con rutas alternativas y secretos
@@ -20,6 +20,7 @@
 - 🎯 **Dificultad Progresiva**: Cada nivel aumenta el desafío
 - 🎨 **Animaciones Personalizadas**: Sprites animados para todas las acciones
 - 🔊 **Efectos de Sonido**: Música de fondo y efectos de audio inmersivos
+- ⚙️ **Menú de Configuración**: Control total de pantalla y volumen en tiempo real
 
 ---
 
@@ -83,6 +84,13 @@ Escapa de las 3 mazmorras recolectando todas las llaves y llegando a la salida a
 
 #### Interacción
 - **P / ESC**: Pausar juego
+
+#### Configuración
+- **Menú Principal → Configuración**: Accede al menú de configuración
+  - 🖥️ **Modo de Pantalla**: Alterna entre pantalla completa y ventana
+  - 🎵 **Volumen de Música**: Ajusta el volumen de la música de fondo (0-100%)
+  - 🔊 **Volumen de Efectos**: Ajusta el volumen de efectos de sonido (0-100%)
+  - **ESC**: Volver al menú principal
 
 ### Mecánicas del Juego
 

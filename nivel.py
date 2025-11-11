@@ -1,5 +1,7 @@
 import pygame
 import random
+import json
+from pathlib import Path
 from pared import pared
 from salida import salida
 
@@ -54,170 +56,379 @@ class nivel:
         elif self.numero == 3:
             self.crear_nivel_3()
 
-    def crear_nivel_1(self):
-        """Nivel 1: Genera un laberinto procedural con habitaciones estilo cueva,
-        llaves repartidas y spawns distribuidos.
-
-        Este método reemplaza el diseño estático anterior por un algoritmo basado
-        en celdas conectadas. Se construye una grilla (cols × filas) donde cada
-        celda se convierte en un bloque de pasillo de tamaño `tam`. Las paredes
-        exteriores delimitan el área jugable. Utiliza un backtracker DFS para
-        generar un laberinto perfecto y luego rompe aleatoriamente algunas
-        paredes (carving extra) para crear ciclos y ampliar espacios. Además,
-        se crean varias “habitaciones” cuadradas que generan espacios amplios
-        tipo cueva al unir grupos de 3×3 celdas.
+    def _cargar_nivel_desde_txt(self, numero_nivel):
+        """Carga la configuración del nivel desde un archivo TXT.
+        
+        Formato del archivo TXT:
+        - MURO x y w h
+        - LLAVE x y w h
+        - SPAWN x y
+        - SALIDA x y
+        - Líneas que comienzan con # son comentarios
+        
+        Retorna True si se cargó exitosamente, False en caso contrario.
         """
-        # bordes del mapa (marco perimetral)
+        try:
+            base = Path(__file__).resolve().parent
+            archivo_txt = base / f'mapas_export_nivel_{numero_nivel}.txt'
+            
+            if not archivo_txt.exists():
+                return False
+            
+            # Inicializar listas
+            self.llaves = []
+            self.spawn_enemigos = []
+            
+            with open(archivo_txt, 'r', encoding='utf-8') as f:
+                for linea in f:
+                    # Eliminar espacios y saltos de línea
+                    linea = linea.strip()
+                    
+                    # Ignorar líneas vacías y comentarios
+                    if not linea or linea.startswith('#'):
+                        continue
+                    
+                    # Dividir la línea en partes
+                    partes = linea.split()
+                    
+                    if not partes:
+                        continue
+                    
+                    tipo = partes[0].upper()
+                    
+                    try:
+                        if tipo == 'MURO' and len(partes) >= 5:
+                            x = int(partes[1])
+                            y = int(partes[2])
+                            w = int(partes[3])
+                            h = int(partes[4])
+                            self.muros.append(pared(x, y, w, h))
+                        
+                        elif tipo == 'LLAVE' and len(partes) >= 5:
+                            x = int(partes[1])
+                            y = int(partes[2])
+                            w = int(partes[3])
+                            h = int(partes[4])
+                            self.llaves.append(pygame.Rect(x, y, w, h))
+                        
+                        elif tipo == 'SPAWN' and len(partes) >= 3:
+                            x = int(partes[1])
+                            y = int(partes[2])
+                            self.spawn_enemigos.append((x, y))
+                        
+                        elif tipo == 'SALIDA' and len(partes) >= 3:
+                            x = int(partes[1])
+                            y = int(partes[2])
+                            self.salida = salida(x, y)
+                    
+                    except (ValueError, IndexError) as e:
+                        # Si hay error parseando una línea, continuar con la siguiente
+                        print(f"Error parseando línea '{linea}': {e}")
+                        continue
+            
+            # Establecer número de llaves requeridas
+            self.llaves_requeridas = len(self.llaves)
+            
+            # Si no se definió salida, usar posición por defecto
+            if self.salida is None:
+                self.salida = salida(self.ancho - 200, self.alto - 200)
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error cargando nivel desde TXT: {e}")
+            return False
+
+    def crear_nivel_1(self):
+        """Nivel 1: Mazmorra orgánica estilo caverna con pasillos interconectados.
+        
+        Diseño inspirado en mazmorras clásicas con formas orgánicas:
+        - Sin habitaciones cuadradas aisladas
+        - Pasillos conectados y curvos estilo caverna
+        - Áreas amplias naturales (100-150px de ancho)
+        - Múltiples rutas alternativas
+        - 3 llaves en alcobas accesibles
+        - Salida al final del recorrido
+        """
+        # Cargar desde archivo TXT si existe
+        if self._cargar_nivel_desde_txt(1):
+            return
+
+        # Bordes del mapa (marco perimetral)
         self.muros.append(pared(0, 0, self.ancho, 20))
         self.muros.append(pared(0, self.alto - 20, self.ancho, 20))
         self.muros.append(pared(0, 0, 20, self.alto))
         self.muros.append(pared(self.ancho - 20, 0, 20, self.alto))
 
-        # parámetros del laberinto
-        # Se reduce el número de celdas y se incrementa el tamaño de cada celda para
-        # incrementar el espacio libre entre muros. Con estas dimensiones el
-        # laberinto ocupa menos celdas pero cada una es más grande.
-        # Ajustar el tamaño de las celdas y el espesor de los muros para dar la sensación
-        # de un mapa más amplio. Se mantiene el mismo tamaño general del laberinto,
-        # pero aumentando el grosor de los muros y disminuyendo ligeramente el
-        # espacio libre por celda. Esto produce pasillos más estrechos y muros más gruesos
-        # sin cambiar la disposición global de celdas.
-        cols, filas = 16, 12          # número de columnas y filas de celdas
-        tam = 100                    # tamaño de cada celda (incluye pasillo)
-        # Aumentar grosor de los muros: 40 en lugar de 20. De esta forma el laberinto
-        # ocupa la misma anchura total, pero los muros se perciben más gruesos.
-        esp = 40                     # grosor de los muros entre celdas
-        carving_extra = 0.35         # proporción de muros derribados extra para formar ciclos
+        # === LABERINTO DE ANILLOS CONCÉNTRICOS (estilo circular) ===
+        # Aproximación a un laberinto circular usando marcos rectangulares
+        # concéntricos con aperturas alternadas. Pasillos >= 110 px.
 
-        # genera la topología inicial del laberinto (celdas conectadas y paredes que las separan)
-        celdas, paredes = self._generar_laberinto_por_celdas(cols, filas)
+        cx, cy = self.ancho // 2, self.alto // 2
+        grosor = 30               # grosor de muro
+        pasillo = 120             # ancho mínimo de pasillo
+        anillos = 5               # número de anillos
+        hueco = 160               # ancho de cada apertura
+        inner_half = 140          # semitamaño de la cámara central
 
-        # crea habitaciones amplias: selecciona varias regiones 3×3 para unirlas completamente
-        self._crear_habitaciones(celdas, paredes, cols, filas, num_habitaciones=max(4, (cols * filas) // 60))
+        def add_h_split(x1, x2, y, gap_center=None):
+            """Añade una pared horizontal con hueco opcional."""
+            if gap_center is None:
+                self.muros.append(pared(x1, y, x2 - x1, grosor))
+                return
+            gl = max(x1, int(gap_center - hueco // 2))
+            gr = min(x2, int(gap_center + hueco // 2))
+            if gl - x1 > 0:
+                self.muros.append(pared(x1, y, gl - x1, grosor))
+            if x2 - gr > 0:
+                self.muros.append(pared(gr, y, x2 - gr, grosor))
 
-        # levanta físicamente las paredes en la lista de muros
-        self._levantar_paredes_de_celdas(paredes, tam, esp)
+        def add_v_split(y1, y2, x, gap_center=None):
+            """Añade una pared vertical con hueco opcional."""
+            if gap_center is None:
+                self.muros.append(pared(x, y1, grosor, y2 - y1))
+                return
+            gt = max(y1, int(gap_center - hueco // 2))
+            gb = min(y2, int(gap_center + hueco // 2))
+            if gt - y1 > 0:
+                self.muros.append(pared(x, y1, grosor, gt - y1))
+            if y2 - gb > 0:
+                self.muros.append(pared(x, gb, grosor, y2 - gb))
 
-        # carving extra: elimina muros adicionales al azar para abrir más rutas
-        self._romper_paredes_aleatorias(paredes, cols, filas,
-                                        cantidad=int(cols * filas * carving_extra),
-                                        tam=tam, esp=esp)
+        # Construcción de anillos desde el centro hacia afuera
+        aperturas = ['top', 'right', 'bottom', 'left']
+        for i in range(anillos):
+            half = inner_half + i * (pasillo + grosor)
+            left = cx - half
+            right = cx + half
+            top = cy - half
+            bottom = cy + half
 
-        # determina celda de inicio y celda final (más alejada desde el origen)
-        start = (0, 0)
-        fin = self._celda_mas_lejana_desde(start, celdas, cols, filas)
-        sx, sy = fin
-        # coloca la salida en el centro de la celda final
-        self.salida = salida(20 + sx * tam + tam // 2, 20 + sy * tam + tam // 2)
+            side = aperturas[i % 4]
+            if side == 'top':
+                add_h_split(left, right, top - grosor, gap_center=cx)
+                add_h_split(left, right, bottom, gap_center=None)
+                add_v_split(top, bottom, left - grosor, gap_center=None)
+                add_v_split(top, bottom, right, gap_center=None)
+            elif side == 'right':
+                add_h_split(left, right, top - grosor, gap_center=None)
+                add_h_split(left, right, bottom, gap_center=None)
+                add_v_split(top, bottom, right, gap_center=cy)
+                add_v_split(top, bottom, left - grosor, gap_center=None)
+            elif side == 'bottom':
+                add_h_split(left, right, bottom, gap_center=cx)
+                add_h_split(left, right, top - grosor, gap_center=None)
+                add_v_split(top, bottom, left - grosor, gap_center=None)
+                add_v_split(top, bottom, right, gap_center=None)
+            else:  # left
+                add_h_split(left, right, top - grosor, gap_center=None)
+                add_h_split(left, right, bottom, gap_center=None)
+                add_v_split(top, bottom, left - grosor, gap_center=cy)
+                add_v_split(top, bottom, right, gap_center=None)
 
-        # genera puntos de spawn de enemigos distribuidos en el laberinto
-        self.spawn_enemigos = self._spawns_distribuidos(celdas, cols, filas, tam, cuantos=9)
+        # Cámara central abierta y salida cerca del centro
+        self.salida = salida(cx - 40, cy - 40)
 
-        # coloca llaves en algunos callejones sin salida distintos de la salida
-        dead_ends = [c for c in celdas if len(celdas[c]) == 1 and c != fin]
-        random.shuffle(dead_ends)
-        self.llaves = []
-        # número de llaves: al menos 3 y al máximo 4 o proporción de dead ends
-        self.llaves_requeridas = min(4, max(3, len(dead_ends) // 6))
-        for i in range(self.llaves_requeridas):
-            cx, cy = dead_ends[i]
-            rx = 20 + cx * tam + tam // 2 - 10
-            ry = 20 + cy * tam + tam // 2 - 10
-            self.llaves.append(pygame.Rect(rx, ry, 20, 20))
+        # Preparar valores para colocar llaves en distintos anillos
+        outer_half = inner_half + (anillos - 1) * (pasillo + grosor)
+        # Coordenadas en mitad de pasillos (alejado de paredes)
+        offset = pasillo // 2
+
+        # === LLAVES (3 requeridas en anillos distintos) ===
+        self.llaves = [
+            pygame.Rect(cx + outer_half - offset - 10, cy - 10, 20, 20),          # Anillo exterior lado derecho
+            pygame.Rect(cx - 10, cy - outer_half + offset - 10, 20, 20),          # Anillo exterior parte superior
+            pygame.Rect(cx - outer_half + offset - 10, cy + 30, 20, 20),          # Anillo exterior lado izquierdo inferior
+        ]
+        self.llaves_requeridas = 3
+
+        # === SPAWNS DE ENEMIGOS (distribuidos por anillos) ===
+        self.spawn_enemigos = []
+        # Añadir spawns en diferentes anillos
+        for r in range(anillos):
+            half = inner_half + r * (pasillo + grosor)
+            if r % 2 == 0:
+                # posiciones cardinales
+                self.spawn_enemigos.append((cx + half - offset, cy))
+                self.spawn_enemigos.append((cx - half + offset, cy))
+            else:
+                self.spawn_enemigos.append((cx, cy + half - offset))
+                self.spawn_enemigos.append((cx, cy - half + offset))
+        # Limitar cantidad razonable
+        self.spawn_enemigos = self.spawn_enemigos[:10]
 
     def crear_nivel_2(self):
         """Nivel 2: laberinto con forma de espiral hacia el centro"""
+        # Cargar desde archivo TXT si existe
+        if self._cargar_nivel_desde_txt(2):
+            return
         # bordes del mapa
         self.muros.append(pared(0, 0, self.ancho, 20))
         self.muros.append(pared(0, self.alto - 20, self.ancho, 20))
         self.muros.append(pared(0, 0, 20, self.alto))
         self.muros.append(pared(self.ancho - 20, 0, 20, self.alto))
+        
+        # === DISEÑO RADIAL: rayos + anillos parciales ===
+        cx, cy = self.ancho // 2, self.alto // 2
+        grosor = 30
+        pasillo = 120
+        hueco = 160
 
-        # capas de la espiral y obstáculos centrales
-        self.muros.append(pared(150, 150, 1700, 20))
-        self.muros.append(pared(1830, 170, 20, 1200))
-        self.muros.append(pared(200, 1350, 1650, 20))
-        self.muros.append(pared(200, 250, 20, 1120))
-        self.muros.append(pared(350, 250, 1330, 20))
-        self.muros.append(pared(1660, 270, 20, 950))
-        self.muros.append(pared(400, 1200, 1280, 20))
-        self.muros.append(pared(400, 370, 20, 850))
-        self.muros.append(pared(550, 370, 970, 20))
-        self.muros.append(pared(1500, 390, 20, 690))
-        self.muros.append(pared(600, 1060, 920, 20))
-        self.muros.append(pared(600, 490, 20, 590))
-        self.muros.append(pared(750, 550, 600, 20))
-        self.muros.append(pared(1330, 570, 20, 380))
-        self.muros.append(pared(800, 930, 550, 20))
-        self.muros.append(pared(800, 650, 20, 300))
-        self.muros.append(pared(950, 700, 200, 20))
-        self.muros.append(pared(1000, 800, 150, 20))
+        def h_split(x1, x2, y, gap_center=None):
+            if gap_center is None:
+                self.muros.append(pared(x1, y, x2 - x1, grosor))
+            else:
+                gl = max(x1, int(gap_center - hueco // 2))
+                gr = min(x2, int(gap_center + hueco // 2))
+                if gl > x1:
+                    self.muros.append(pared(x1, y, gl - x1, grosor))
+                if x2 > gr:
+                    self.muros.append(pared(gr, y, x2 - gr, grosor))
 
-        # salida
-        posiciones_salida = [(1000, 750), (250, 200), (1800, 1300),
-                             (450, 1250), (1600, 450), (700, 600)]
-        x, y = random.choice(posiciones_salida)
-        self.salida = salida(x, y)
+        def v_split(y1, y2, x, gap_center=None):
+            if gap_center is None:
+                self.muros.append(pared(x, y1, grosor, y2 - y1))
+            else:
+                gt = max(y1, int(gap_center - hueco // 2))
+                gb = min(y2, int(gap_center + hueco // 2))
+                if gt > y1:
+                    self.muros.append(pared(x, y1, grosor, gt - y1))
+                if y2 > gb:
+                    self.muros.append(pared(x, gb, grosor, y2 - gb))
 
-        # enemigos
+        # Anillos parciales (tres "círculos" cuadrados con aberturas alternadas)
+        inner_half = 200
+        for i in range(3):
+            half = inner_half + i * (pasillo + grosor)
+            left, right = cx - half, cx + half
+            top, bottom = cy - half, cy + half
+            # Top con hueco centrado
+            h_split(left, right, top - grosor, gap_center=cx if i % 2 == 0 else None)
+            # Bottom con hueco alternado
+            h_split(left, right, bottom, gap_center=None if i % 2 == 0 else cx)
+            # Left con hueco alternado vertical
+            v_split(top, bottom, left - grosor, gap_center=None if i % 2 == 0 else cy)
+            # Right con hueco vertical alternado
+            v_split(top, bottom, right, gap_center=cy if i % 2 == 0 else None)
+
+        # Rayos (pasillos radiales) formando una rosa de 8 direcciones con cortes
+        r1 = inner_half - pasillo // 2
+        r2 = inner_half + 2 * (pasillo + grosor)
+        # Horizontal
+        self.muros.append(pared(cx - r2, cy - grosor//2, r2 - r1, grosor))  # izquierda
+        self.muros.append(pared(cx + r1, cy - grosor//2, r2 - r1, grosor))  # derecha
+        # Vertical
+        self.muros.append(pared(cx - grosor//2, cy - r2, grosor, r2 - r1))  # arriba
+        self.muros.append(pared(cx - grosor//2, cy + r1, grosor, r2 - r1))  # abajo
+        # Diagonales (aproximadas con bloques escalonados)
+        paso = 100
+        for d in range(r1 + paso, r2, paso):
+            off = int(d * 0.7)
+            # up-left
+            self.muros.append(pared(cx - off - 40, cy - d, 80, grosor))
+            self.muros.append(pared(cx - d, cy - off - 40, grosor, 80))
+            # up-right
+            self.muros.append(pared(cx + off - 40, cy - d, 80, grosor))
+            self.muros.append(pared(cx + d, cy - off - 40, grosor, 80))
+            # down-left
+            self.muros.append(pared(cx - off - 40, cy + d, 80, grosor))
+            self.muros.append(pared(cx - d, cy + off - 40, grosor, 80))
+            # down-right
+            self.muros.append(pared(cx + off - 40, cy + d, 80, grosor))
+            self.muros.append(pared(cx + d, cy + off - 40, grosor, 80))
+
+        # === LLAVES (4) en cuadrantes distintos ===
+        k_off = inner_half + pasillo
+        self.llaves = [
+            pygame.Rect(cx + k_off, cy - 10, 20, 20),         # Este
+            pygame.Rect(cx - k_off - 20, cy - 10, 20, 20),    # Oeste
+            pygame.Rect(cx - 10, cy - k_off - 20, 20, 20),    # Norte
+            pygame.Rect(cx - 10, cy + k_off, 20, 20),         # Sur
+        ]
+        self.llaves_requeridas = 4
+
+        # === SALIDA (cercana al centro) ===
+        self.salida = salida(cx - 40, cy - 40)
+
+        # Spawns distribuidos en anillos
         self.spawn_enemigos = [
-            (250, 200), (1700, 300), (300, 1300),
-            (500, 320), (1550, 600), (650, 1100),
-            (900, 600), (1200, 800), (1100, 450)
+            (cx + k_off + 150, cy), (cx - k_off - 150, cy),
+            (cx, cy + k_off + 150), (cx, cy - k_off - 150),
+            (cx + 300, cy + 300), (cx - 300, cy + 300),
+            (cx + 300, cy - 300), (cx - 300, cy - 300)
         ]
 
     def crear_nivel_3(self):
         """Nivel 3: laberinto más caótico con muchas rutas"""
+        # Cargar desde archivo TXT si existe
+        if self._cargar_nivel_desde_txt(3):
+            return
         # bordes del mapa
         self.muros.append(pared(0, 0, self.ancho, 20))
         self.muros.append(pared(0, self.alto - 20, self.ancho, 20))
         self.muros.append(pared(0, 0, 20, self.alto))
         self.muros.append(pared(self.ancho - 20, 0, 20, self.alto))
+        
+        # === DISEÑO EN ZIG-ZAG POR CAPAS (con loops) ===
+        grosor = 30
+        pasillo = 120
+        margen = 120
+        # Tres bandas horizontales principales separadas por pasillos anchos
+        # Bandas: superior, media, inferior con cortes de zig-zag que se alternan
+        # Superior
+        self.muros.append(pared(margen, 200, 500, grosor))
+        self.muros.append(pared(800, 200, 400, grosor))
+        self.muros.append(pared(1300, 200, 500, grosor))
+        # Media (desfasada)
+        self.muros.append(pared(300, 600, 400, grosor))
+        self.muros.append(pared(800, 600, 400, grosor))
+        self.muros.append(pared(1300, 600, 400, grosor))
+        # Inferior
+        self.muros.append(pared(margen, 1000, 500, grosor))
+        self.muros.append(pared(800, 1000, 400, grosor))
+        self.muros.append(pared(1300, 1000, 500, grosor))
 
-        # secciones interconectadas (izquierda, centro, derecha)
-        self.muros.append(pared(150, 100, 20, 400))
-        self.muros.append(pared(170, 480, 300, 20))
-        self.muros.append(pared(300, 200, 20, 300))
-        self.muros.append(pared(320, 200, 200, 20))
-        self.muros.append(pared(500, 100, 20, 600))
-        self.muros.append(pared(700, 150, 20, 500))
-        self.muros.append(pared(550, 630, 170, 20))
-        self.muros.append(pared(850, 250, 300, 20))
-        self.muros.append(pared(1130, 100, 20, 400))
-        self.muros.append(pared(900, 480, 250, 20))
-        self.muros.append(pared(200, 700, 400, 20))
-        self.muros.append(pared(200, 720, 20, 400))
-        self.muros.append(pared(220, 1100, 500, 20))
-        self.muros.append(pared(700, 800, 20, 320))
-        self.muros.append(pared(1300, 200, 20, 400))
-        self.muros.append(pared(1320, 580, 400, 20))
-        self.muros.append(pared(1500, 300, 220, 20))
-        self.muros.append(pared(1700, 100, 20, 500))
-        self.muros.append(pared(900, 750, 300, 20))
-        self.muros.append(pared(1180, 650, 20, 400))
-        self.muros.append(pared(1200, 1030, 400, 20))
-        self.muros.append(pared(1400, 850, 20, 200))
-        self.muros.append(pared(1550, 700, 20, 400))
-        self.muros.append(pared(350, 900, 150, 20))
-        self.muros.append(pared(850, 1000, 200, 20))
-        self.muros.append(pared(1300, 1200, 250, 20))
-        self.muros.append(pared(600, 350, 80, 20))
-        self.muros.append(pared(1450, 450, 100, 20))
-        self.muros.append(pared(1650, 1100, 20, 300))
-        self.muros.append(pared(1670, 1380, 250, 20))
+        # Conectores verticales que crean el zig-zag y loops entre bandas
+        self.muros.append(pared(700, 200, grosor, 350))   # baja desde superior a media
+        self.muros.append(pared(1200, 200, grosor, 350))  # baja desde superior a media
+        self.muros.append(pared(500, 600, grosor, 350))   # baja desde media a inferior
+        self.muros.append(pared(1000, 600, grosor, 350))  # baja desde media a inferior
+        self.muros.append(pared(1500, 600, grosor, 350))  # baja desde media a inferior
 
-        # salida
-        posiciones_salida = [(1900, 1420), (100, 100), (1850, 200),
-                             (350, 1350), (1250, 1300), (850, 1150), (1550, 950)]
-        x, y = random.choice(posiciones_salida)
-        self.salida = salida(x, y)
+        # Barreras internas para estrechar decisiones sin cerrar espacios
+        self.muros.append(pared(250, 350, 200, grosor))
+        self.muros.append(pared(1550, 350, 200, grosor))
+        self.muros.append(pared(250, 850, 200, grosor))
+        self.muros.append(pared(1550, 850, 200, grosor))
 
-        # enemigos
+        # Grandes pilares que funcionan como esquinas suaves
+        self.muros.append(pared(600, 300, grosor, 200))
+        self.muros.append(pared(1400, 300, grosor, 200))
+        self.muros.append(pared(600, 700, grosor, 200))
+        self.muros.append(pared(1400, 700, grosor, 200))
+
+        # Cierre parcial inferior derecha para forzar recorrido hacia la salida
+        self.muros.append(pared(1600, 1150, 250, grosor))
+        self.muros.append(pared(1850, 800, grosor, 350))
+
+        # === LLAVES (5) colocadas en rutas distintas ===
+        self.llaves = [
+            pygame.Rect(400, 250, 20, 20),     # banda superior izq
+            pygame.Rect(1450, 250, 20, 20),    # banda superior der
+            pygame.Rect(600, 650, 20, 20),     # conector media
+            pygame.Rect(1100, 1050, 20, 20),   # banda inferior centro
+            pygame.Rect(1800, 900, 20, 20),    # cierre inferior der
+        ]
+        self.llaves_requeridas = 5
+
+        # === SALIDA (abajo-derecha, tras recoger 5 llaves) ===
+        self.salida = salida(1800, 1350)
+
+        # Spawns distribuidos por capas
         self.spawn_enemigos = [
-            (200, 250), (400, 350), (250, 850), (550, 550),
-            (650, 300), (950, 350), (1050, 200), (850, 900),
-            (1100, 850), (1250, 350), (1600, 350), (1450, 950),
-            (1300, 1250), (1750, 1200)
+            (300, 300), (900, 250), (1650, 300),
+            (350, 700), (1000, 700), (1550, 700),
+            (350, 1100), (900, 1100), (1650, 1100)
         ]
 
     def obtener_spawn_jugador_seguro(self, tamaño_jugador=30):

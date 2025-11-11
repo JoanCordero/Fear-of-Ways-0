@@ -75,7 +75,7 @@ class salida:
 
         return (False, "")
 
-    def _cargar_textura(self, nombre_principal: str, fallback: str | None = None):
+    def _cargar_textura(self, nombre_principal: str, fallback=None):
         """Intenta cargar y escalar una textura opcional para la salida."""
 
         for nombre in filter(None, (nombre_principal, fallback)):

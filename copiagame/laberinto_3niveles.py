@@ -477,20 +477,16 @@ class juego:
         ventana.fill(negro)
         self.dibujar_texto("Fear of Ways", 60, blanco, ancho//2, 120)
         self.dibujar_texto("3 Niveles de Mazmorras Expandidas", 35, amarillo, ancho//2, 200)
-        self.dibujar_texto("Selecciona tu personaje:", 35, blanco, ancho//2, 270)
-        self.dibujar_texto("1 Explorador  2 Cazador  3 Ingeniero", 28, blanco, ancho//2, 320)
+        # Eliminada la selección de personaje: usar personaje por defecto
+        self.dibujar_texto("Presiona ENTER para comenzar", 35, blanco, ancho//2, 300)
         self.dibujar_texto("Encuentra la salida verde en cada nivel", 25, verde, ancho//2, 380)
         self.dibujar_texto("Evita a los enemigos rojos", 25, rojo, ancho//2, 410)
         self.dibujar_texto("La cámara te seguirá por el mapa", 25, (100, 200, 255), ancho//2, 440)
         self.dibujar_texto("ESC para salir", 25, blanco, ancho//2, 480)
 
-    def iniciar_juego(self, tipo):
-        if tipo == 1:
-            self.jugador = jugador("Explorador", amarillo, velocidad=4, energia=100, vision=150)
-        elif tipo == 2:
-            self.jugador = jugador("Cazador", verde, velocidad=6, energia=70, vision=120)
-        elif tipo == 3:
-            self.jugador = jugador("Ingeniero", (0, 150, 255), velocidad=3, energia=120, vision=180)
+    def iniciar_juego(self):
+        # Crear personaje por defecto (Explorador)
+        self.jugador = jugador("Explorador", amarillo, velocidad=4, energia=100, vision=150)
 
         self.numero_nivel = 1
         self.cargar_nivel(1)
@@ -662,12 +658,8 @@ class juego:
                         if e.key == pygame.K_ESCAPE:
                             pygame.quit()
                             sys.exit()
-                        if e.key == pygame.K_1:
-                            self.iniciar_juego(1)
-                        if e.key == pygame.K_2:
-                            self.iniciar_juego(2)
-                        if e.key == pygame.K_3:
-                            self.iniciar_juego(3)
+                        if e.key == pygame.K_RETURN or e.key == pygame.K_KP_ENTER:
+                            self.iniciar_juego()
 
                 # pausa
                 elif self.estado == "pausa":
@@ -695,6 +687,13 @@ class juego:
                 elif self.estado == "jugando":
                     if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
                         self.estado = "pausa"
+                    # Tecla 0 -> mostrar pantalla final (pruebas)
+                    elif e.type == pygame.KEYDOWN and e.key == pygame.K_0:
+                        self.resultado = "perdiste"
+                        self.estado = "fin"
+                    elif e.type == pygame.KEYDOWN and e.key == pygame.K_9:
+                        self.resultado = "ganaste"
+                        self.estado = "fin"
                         self.opcion_pausa = 0
 
                 # pantalla final
