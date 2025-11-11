@@ -533,6 +533,10 @@ class juego:
                     nivel_mod.TEXTURA_SUELO = None
             else:
                 nivel_mod.TEXTURA_SUELO = None
+            
+            # Recrear la superficie del suelo con la nueva textura
+            self.nivel_actual._crear_surface_suelo()
+            print(f"Superficie de suelo recreada para nivel {numero}")
         except Exception as e:
             print(f"Advertencia al asignar texturas para nivel {numero}: {e}")
         self.camara = camara(self.nivel_actual.ancho, self.nivel_actual.alto)
@@ -3573,27 +3577,27 @@ class juego:
             # Ver todo claro por 5 segundos
             self.vision_normal = self.jugador.vision
             self.jugador.vision = 9999  # Visión infinita
-            self.powerup_duracion = 5 * 60  # 5 segundos a 60 FPS
-            self.mostrar_mensaje("👁 ¡VISIÓN CLARA ACTIVADA! (5s)", 120)
+            self.powerup_duracion = 10 * 60  # 5 segundos a 60 FPS
+            # Mensaje desactivado: solo mostrar la barra de power-up
 
         elif tipo == "disparo_doble":
             # Disparar doble por 30 segundos
             self.disparo_doble = True
             self.powerup_duracion = 30 * 60  # 30 segundos
-            self.mostrar_mensaje("⚡ ¡DISPARO DOBLE ACTIVADO! (30s)", 120)
+            # Mensaje desactivado: solo mostrar la barra de power-up
 
         elif tipo == "super_velocidad":
             # Super rápido por 10 segundos
             self.velocidad_normal = self.jugador.velocidad_base
-            self.jugador.velocidad_base *= 3.5  # Velocidad aumentada a 3.5x
+            self.jugador.velocidad_base *= 5  # Velocidad aumentada a 3.5x
             self.powerup_duracion = 10 * 60  # 10 segundos
-            self.mostrar_mensaje("⚡ ¡SUPER VELOCIDAD ACTIVADA! (10s)", 120)
+            # Mensaje desactivado: solo mostrar la barra de power-up
 
         elif tipo == "escudo":
             # Escudo por 30 segundos
             self.escudo_activo = True
             self.powerup_duracion = 30 * 60  # 30 segundos
-            self.mostrar_mensaje("🛡 ¡ESCUDO ACTIVADO! (30s)", 120)
+            # Mensaje desactivado: solo mostrar la barra de power-up
     
     def desactivar_powerup(self, mostrar_mensaje=True):
         """Desactiva el power-up actual y restaura los valores"""
@@ -3611,7 +3615,7 @@ class juego:
         
         # Solo mostrar mensaje si se especifica
         if mostrar_mensaje:
-            self.mostrar_mensaje("⏰ Power-up terminado", 60)
+            self.mostrar_mensaje(" Power-up terminado", 60)
 
     # SPAWN DE ENEMIGOS EXTRAS
     def spawear_enemigo_aleatorio(self):
