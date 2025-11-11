@@ -125,10 +125,7 @@ class enemigo:
         self.offset_sacudida_x = 0
         self.offset_sacudida_y = 0
 
-
-    # --------------------------------------------------------
     # UTILIDADES Y RECARGAS
-    # --------------------------------------------------------
     def reducir_recargas(self):
         """Reduce los tiempos de espera de cada ataque."""
         for clave in self.tiempo_recarga:
@@ -143,10 +140,7 @@ class enemigo:
         distancia = math.hypot(dx, dy)
         return distancia, dx, dy
 
-
-    # --------------------------------------------------------
     # ATAQUES POR TIPO
-    # --------------------------------------------------------
     def ataque_veloz(self, jugador):
         """Ataque cuerpo a cuerpo del enemigo veloz con telegrafía."""
         distancia, _, _ = self.distancia_a(jugador)
@@ -232,10 +226,7 @@ class enemigo:
             jugador.recibir_daño(1, escudo_activo=escudo)
             self.tiempo_recarga["aura"] = 90  # Aumentado de 30 a 90
 
-
-    # --------------------------------------------------------
     # MOVIMIENTO CON INERCIA Y DETECCIÓN
-    # --------------------------------------------------------
     def mover(self, muros, ancho, alto, jugador):
         self.reducir_recargas()
 
@@ -343,10 +334,7 @@ class enemigo:
         if self.tipo == "acechador":
             self.mover_proyectiles(muros, ancho, alto, jugador)
 
-
-    # --------------------------------------------------------
     # SISTEMA DE ANIMACIÓN
-    # --------------------------------------------------------
     def actualizar_animacion(self):
         """Actualiza los parámetros de animación para dar vida al enemigo."""
         # Incrementar tiempo de animación
@@ -382,10 +370,7 @@ class enemigo:
         self.sacudida_frames = 8  # 8 frames de sacudida
         return self.vida <= 0  # Retorna True si murió
 
-
-    # --------------------------------------------------------
     # DIBUJO
-    # --------------------------------------------------------
     def dibujar(self, ventana, camara):
         # No dibujar nada si está completamente oculto
         if self.alpha_actual <= 0:
@@ -477,10 +462,7 @@ class enemigo:
                 pygame.draw.circle(superficie_temp, (255, 200, 200, alpha_proyectil), (5, 5), 2)
                 ventana.blit(superficie_temp, (int(cx) - 5, int(cy) - 5))
 
-
-    # --------------------------------------------------------
     # VISIÓN LINEAL
-    # --------------------------------------------------------
     def tiene_linea_de_vision(self, jugador, muros):
         """Comprueba si hay muros bloqueando la visión hacia el jugador."""
         distancia, dx, dy = self.distancia_a(jugador)
@@ -494,10 +476,8 @@ class enemigo:
             if any(punto.colliderect(m.rect) for m in muros):
                 return False
         return True
-    
-    # --------------------------------------------------------
+
     # MÉTODOS ESTÁTICOS PARA GENERACIÓN DE PUNTOS
-    # --------------------------------------------------------
     @staticmethod
     def generar_punto_spawn_aleatorio(ancho_mapa, alto_mapa, muros, jugador_pos, distancia_minima=300, intentos=50):
         """

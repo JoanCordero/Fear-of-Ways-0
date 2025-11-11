@@ -11,9 +11,7 @@ from proyectil import proyectil
 from datetime import datetime
 import pared
 
-# -------------------------------------------------------
 # COLORES
-# -------------------------------------------------------
 NEGRO = (0, 0, 0)
 BLANCO = (255, 255, 255)
 GRIS = (40, 40, 40)
@@ -447,7 +445,7 @@ class juego:
         # Pie
         hint_size = int(alto * 0.03)
         self.dibujar_texto("ESC para salir", hint_size, (190, 190, 200), ancho // 2, int(alto * 0.90))
-    # -------------------------------------------------------
+
     # INICIO Y CARGA DE JUEGO
     # -------------------------------------------------------
     def iniciar_juego(self):
@@ -948,9 +946,7 @@ class juego:
                     self.historial_guardado = True  # Marcar como guardado
                     print(f"¡{self.nombre_jugador} completó el juego en {self.tiempo_total_segundos}s!")
 
-    # -------------------------------------------------------
-    # HEADER (HUD) - Formato Simple Horizontal
-    # -------------------------------------------------------
+    # HUD Formato Simple Horizontal
     def dibujar_header(self, pantalla, ancho, alto, offset):
         alto_header = offset
         # Fondo del header: textura oscura si está disponible, de lo contrario un color oscuro uniforme
@@ -1227,9 +1223,7 @@ class juego:
             (x - 1 * escala, y - 4 * escala)
         ])
 
-    # -------------------------------------------------------
     # UTILIDADES DE DIBUJO
-    # -------------------------------------------------------
     def dibujar_texto(self, texto, tam, color, x, y, centrado=True):
         """Renderiza un texto utilizando una fuente predefinida y lo dibuja en pantalla."""
         pantalla = pygame.display.get_surface()
@@ -1324,7 +1318,7 @@ class juego:
         
         ancho, alto = superficie.get_size()
         
-        # Crear capa oscura (sombra negra semitransparente)
+        # Crear capa oscura 
         sombra = pygame.Surface((ancho, alto), pygame.SRCALPHA)
         sombra.fill((0, 0, 0, 250))  # Muy oscuro
         
@@ -1406,9 +1400,7 @@ class juego:
         # Aplicar la sombra final a la superficie del juego
         superficie.blit(sombra, (0, 0))
 
-    # -------------------------------------------------------
     # MENÚ DE PAUSA
-    # -------------------------------------------------------
     def menu_pausa(self):
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
@@ -1432,8 +1424,7 @@ class juego:
             pantalla.blit(sombra, (ancho//2 - base.get_width()//2 + dx, int(alto*0.14) + dy))
         pantalla.blit(base, (ancho//2 - base.get_width()//2, int(alto*0.14)))
 
-        # Opciones
-        opciones = ["Continuar", "Reiniciar Partida", "Opciones", "Salir al menu"]
+        opciones = ["Reanudar", "Reiniciar Nivel", "Configuración", "Menú Principal"]
 
         area_y_start = int(alto * 0.38)
         area_y_end   = int(alto * 0.72)
@@ -1488,7 +1479,7 @@ class juego:
         pantalla = pygame.display.get_surface()
         ancho, alto = pantalla.get_size()
 
-        # Fondo (como el menú)
+        # Fondo del menú de controles
         fondo_path = os.path.join(self._dir, 'menu_background.png')
         if os.path.isfile(fondo_path):
             try:
@@ -1515,7 +1506,7 @@ class juego:
             pantalla.blit(sombra, (ancho//2 - base.get_width()//2 + dx, int(alto*0.18) + dy))
         pantalla.blit(base, (ancho//2 - base.get_width()//2, int(alto*0.18)))
 
-        # Texto de controles (misma fuente del menú)
+        # Texto de controles 
         try:
             font_body = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.035)))
         except Exception:
@@ -1533,7 +1524,7 @@ class juego:
             pantalla.blit(surf, (ancho//2 - surf.get_width()//2, y))
             y += int(surf.get_height() * 1.4)
 
-        # Botón “Continuar” (mismo estilo de botones del menú)
+        # Botón “Continuar” 
         try:
             font_btn = pygame.font.Font(self.font_path, self.ajustar_tamano(int(alto * 0.04)))
         except Exception:
@@ -1563,9 +1554,7 @@ class juego:
         hint_size = int(alto * 0.03)
         self.dibujar_texto("ESC para volver al menu", hint_size, (190, 190, 200), ancho // 2, int(alto * 0.92))
 
-    # -------------------------------------------------------
     # TRANSICIÓN Y FINAL
-    # -------------------------------------------------------
     def pantalla_nivel_completado(self, tiempo_bonus):
         """Muestra estadísticas al completar un nivel"""
         pantalla = pygame.display.get_surface()
@@ -2439,7 +2428,6 @@ class juego:
 
     # -------------------------------------------------------
     # GUARDADO Y CARGA
-    # -------------------------------------------------------
     def _serializar_enemigos(self):
         """Convierte la lista de enemigos a formato: tipo:x:y:vida:velocidad,tipo:x:y:vida:velocidad,..."""
         if not self.enemigos:
@@ -2922,9 +2910,7 @@ class juego:
             print(f"Error al obtener historial: {e}")
             return []
 
-    # -------------------------------------------------------
     # LOOP DE EVENTOS
-    # -------------------------------------------------------
     def ejecutar(self):
         reloj = pygame.time.Clock()
         while True:
@@ -3043,9 +3029,9 @@ class juego:
                             self.estado = "jugando"
                             pygame.mouse.set_visible(False)  # Ocultar al reanudar
                         elif e.key == pygame.K_UP:
-                            self.opcion_pausa = (self.opcion_pausa - 1) % 3
+                            self.opcion_pausa = (self.opcion_pausa - 1) % 4
                         elif e.key == pygame.K_DOWN:
-                            self.opcion_pausa = (self.opcion_pausa + 1) % 3
+                            self.opcion_pausa = (self.opcion_pausa + 1) % 4
                         # Controles de volumen de música
                         elif e.key == pygame.K_LEFT:
                             self.volumen_musica = max(0.0, self.volumen_musica - 0.25)
@@ -3082,7 +3068,11 @@ class juego:
                                 self.mensaje_timer = 0
                                 self.estado = "jugando"
                                 pygame.mouse.set_visible(False)  # Ocultar al reanudar
-                            elif self.opcion_pausa == 2:  # Menú principal
+                            elif self.opcion_pausa == 2:  # Configuración
+                                self.reproducir_click_menu()
+                                self.estado_previo_config = "pausado"
+                                self.estado = "configuracion"
+                            elif self.opcion_pausa == 3:  # Menú principal
                                 self.reproducir_click_menu()
                                 # Guardar antes de salir al menú
                                 if self.nombre_jugador:
@@ -3267,9 +3257,7 @@ class juego:
             pygame.display.flip()
             reloj.tick(60)
 
-    # -------------------------------------------------------
     # DISPARO
-    # -------------------------------------------------------
     def disparar_proyectil(self):
         """Dispara un proyectil hacia el mouse o en la dirección de movimiento"""
         # Iniciar animación de disparo primero
@@ -3482,9 +3470,7 @@ class juego:
         if sonido:
             self.reproducir_notificacion()
     
-    # -------------------------------------------------------
     # ATAQUE CORTO (melee)
-    # -------------------------------------------------------
     def ataque_corto(self):
         """Realiza un ataque cuerpo a cuerpo en la dirección del mouse"""
         # Verificar cooldown del ataque melee (más rápido que disparo)
@@ -3538,9 +3524,7 @@ class juego:
                     self.enemigos_derrotados += 1
                     self.puntos += 100  # Puntos por enemigo derrotado
 
-    # -------------------------------------------------------
     # SISTEMA DE POWER-UPS
-    # -------------------------------------------------------
     def activar_powerup(self, tipo):
         """Activa un power-up con sus efectos específicos"""
         # Desactivar power-up anterior si existe
@@ -3594,9 +3578,7 @@ class juego:
         if mostrar_mensaje:
             self.mostrar_mensaje("⏰ Power-up terminado", 60)
 
-    # -------------------------------------------------------
     # SPAWN DE ENEMIGOS EXTRAS
-    # -------------------------------------------------------
     def spawear_enemigo_aleatorio(self):
         """Spawnea un enemigo en una posición aleatoria alejada del jugador"""
         # Intentar spawear lejos del jugador
@@ -3702,9 +3684,7 @@ class juego:
         
         # Los enemigos se generan silenciosamente sin mensaje ni sonido
 
-    # -------------------------------------------------------
     # GUARDADO DE RESULTADOS
-    # -------------------------------------------------------
     def dibujar_tutorial(self, pantalla):
         """Muestra un tutorial con los controles básicos"""
         ancho, alto = pantalla.get_size()
