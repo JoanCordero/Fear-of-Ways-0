@@ -1,3 +1,5 @@
+<<<<<<< HEAD
+=======
 2025-11-07 14:29:06 | Explorador | Nivel 1 | perdiste
 2025-11-07 14:29:17 | Cazador    | Nivel 1 | perdiste
 2025-11-07 14:29:37 | Ingeniero  | Nivel 1 | perdiste
@@ -108,3 +110,4 @@
 2025-11-10 23:28:54 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
 2025-11-10 23:38:42 | Explorador | Nivel 1 | ganaste | Puntos: 100 | Enemigos: 1
 2025-11-10 23:38:55 | Explorador | Nivel 1 | perdiste | Puntos: 0 | Enemigos: 0
+>>>>>>> 1a3e1fe4729d91fd48742321ae06e043aaaf4d54
