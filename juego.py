@@ -4,6 +4,7 @@ import random
 import math
 import glob
 from nivel import nivel
+import nivel as nivel_mod
 from camara import camara
 from jugador import jugador
 from enemigo import enemigo
@@ -500,6 +501,40 @@ class juego:
         self.nivel_actual = None
         # Crear nuevo nivel con llaves frescas (usar semilla si se proporciona)
         self.nivel_actual = nivel(numero, semilla=semilla_mapa)
+        # Ajustar texturas específicas por nivel (si existen los archivos)
+        try:
+            # Nivel 2 usa texturas alternativas solicitadas por el diseñador
+            if numero == 2:
+                muro_file = os.path.join(self._dir, 'images', 'pared_pasto.png')
+                suelo_file = os.path.join(self._dir, 'images', 'texture_tierra.png')
+            else:
+                muro_file = os.path.join(self._dir, 'images', 'wall_texture.png')
+                suelo_file = os.path.join(self._dir, 'images', 'floor_texture.png')
+
+            # Cargar textura de muro
+            if os.path.isfile(muro_file):
+                try:
+                    pared.TEXTURA_MURO = pygame.image.load(muro_file).convert()
+                    print(f"Textura de muros cargada para nivel {numero}: {os.path.basename(muro_file)}")
+                except Exception as e:
+                    print(f"Advertencia: no se pudo cargar {muro_file}: {e}")
+                    pared.TEXTURA_MURO = None
+            else:
+                # mantener o limpiar según disponibilidad
+                pared.TEXTURA_MURO = None
+
+            # Cargar textura de suelo (nivel module)
+            if os.path.isfile(suelo_file):
+                try:
+                    nivel_mod.TEXTURA_SUELO = pygame.image.load(suelo_file).convert()
+                    print(f"Textura de suelo cargada para nivel {numero}: {os.path.basename(suelo_file)}")
+                except Exception as e:
+                    print(f"Advertencia: no se pudo cargar {suelo_file}: {e}")
+                    nivel_mod.TEXTURA_SUELO = None
+            else:
+                nivel_mod.TEXTURA_SUELO = None
+        except Exception as e:
+            print(f"Advertencia al asignar texturas para nivel {numero}: {e}")
         self.camara = camara(self.nivel_actual.ancho, self.nivel_actual.alto)
         self.enemigos.clear()
         self.proyectiles.clear()
